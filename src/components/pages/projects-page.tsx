@@ -2,13 +2,13 @@
 'use client';
 
 import { PageHeader } from '../layout/page-header';
-import type { ProjectWithProgress } from '@/lib/types';
+import type { Project, ProjectWithProgress, Task } from '@/lib/types';
 import { Button } from '../ui/button';
 import { MoreVertical, PlusCircle, Trash2, Edit, FileDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Progress } from '../ui/progress';
 import { useProjects } from '@/hooks/use-projects';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ProjectFormDialog } from '../project/project-form-dialog';
 import Link from 'next/link';
 import { Skeleton } from '../ui/skeleton';
@@ -31,6 +31,8 @@ import { adminEmails } from '@/providers/combined-provider';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useTasks } from '@/hooks/use-tasks';
+import { ProjectChartComponent } from '../project/project-chart-component';
+import html2canvas from 'html2canvas';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
@@ -40,6 +42,8 @@ export function ProjectsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
   const supabase = createClient();
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartProject, setChartProject] = useState<ProjectWithProgress | null>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -86,7 +90,7 @@ export function ProjectsPage() {
     }
   };
   
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     const doc = new jsPDF();
     let yPos = 28;
 
@@ -100,8 +104,8 @@ export function ProjectsPage() {
     
     yPos += 15;
 
-    projects.forEach(project => {
-        if (yPos > 260) {
+    for (const project of projects) {
+        if (yPos > 220) { // Check space before adding content
             doc.addPage();
             yPos = 20;
         }
@@ -114,11 +118,36 @@ export function ProjectsPage() {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.text(`Estado: ${project.status} | Progreso: ${project.progress}%`, 14, yPos);
-        yPos += 5;
+        yPos += 10;
+
+        // Render chart and add as image
+        if (chartRef.current) {
+            setChartProject(project);
+            // Give it a moment to render with the new data
+            await new Promise(resolve => setTimeout(resolve, 50)); 
+            const canvas = await html2canvas(chartRef.current, { backgroundColor: null });
+            const imgData = canvas.toDataURL('image/png');
+            
+            // Calculate aspect ratio
+            const imgWidth = 180;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            if (yPos + imgHeight > 280) {
+              doc.addPage();
+              yPos = 20;
+            }
+
+            doc.addImage(imgData, 'PNG', 14, yPos, imgWidth, imgHeight);
+            yPos += imgHeight + 10;
+        }
 
         const projectTasks = tasks.filter(task => task.projectId === project.id);
 
         if (projectTasks.length > 0) {
+            if (yPos > 260) {
+                doc.addPage();
+                yPos = 20;
+            }
             const tableData = projectTasks.map(t => [
                 t.title,
                 t.status,
@@ -147,9 +176,8 @@ export function ProjectsPage() {
             doc.text('Este proyecto no tiene tareas.', 14, yPos);
             yPos += 15;
         }
-    });
-
-
+    }
+    setChartProject(null); // Clean up after finishing
     doc.save(`informe-proyectos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
 
@@ -261,26 +289,34 @@ export function ProjectsPage() {
 
   return (
     <>
-    <div className="flex flex-col h-full">
-       <PageHeader title="Proyectos">
-        <div className='flex items-center gap-2'>
-          {isAdmin && (
-            <Button size="sm" variant="outline" onClick={handleDownloadPdf}>
-              <FileDown />
-              Generar Informe PDF
+      <div className="flex flex-col h-full">
+        <PageHeader title="Proyectos">
+          <div className='flex items-center gap-2'>
+            {isAdmin && (
+              <Button size="sm" variant="outline" onClick={handleDownloadPdf}>
+                <FileDown />
+                Generar Informe PDF
+              </Button>
+            )}
+            <Button size="sm" onClick={handleAddNew}>
+              <PlusCircle />
+              Añadir Proyecto
             </Button>
-          )}
-          <Button size="sm" onClick={handleAddNew}>
-            <PlusCircle />
-            Añadir Proyecto
-          </Button>
+          </div>
+        </PageHeader>
+        <div className="flex-1 overflow-auto p-6">
+          {renderContent()}
         </div>
-      </PageHeader>
-      <div className="flex-1 overflow-auto p-6">
-         {renderContent()}
       </div>
-    </div>
-    {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectToEdit={projectToEdit} />}
+      {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectToEdit={projectToEdit} />}
+      <div ref={chartRef} className="absolute -left-[9999px] top-0 w-[600px]">
+        {chartProject && (
+          <ProjectChartComponent 
+            project={chartProject} 
+            tasks={tasks.filter(t => t.projectId === chartProject.id)} 
+          />
+        )}
+      </div>
     </>
   );
 }
