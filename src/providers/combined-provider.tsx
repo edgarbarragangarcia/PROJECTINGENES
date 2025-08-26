@@ -37,7 +37,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
-      let query = supabase.from('projects').select('*, users (email, raw_user_meta_data)');
+      let query = supabase.from('projects').select('*, users ( email )');
 
       const isAdmin = user.email && adminEmails.includes(user.email);
       if (!isAdmin) {
@@ -57,7 +57,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           ...p,
           users: anyUser ? {
             email: anyUser.email,
-            full_name: anyUser.raw_user_meta_data?.full_name || anyUser.email,
+            full_name: anyUser.email, // Fallback to email
           } : null
         }
       });
@@ -167,7 +167,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await supabase
       .from('projects')
       .insert({ ...projectData, user_id: user.id })
-      .select('*, users (email, raw_user_meta_data)')
+      .select('*, users ( email )')
       .single();
       
     if (error) throw error;
@@ -178,7 +178,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           ...data,
           users: anyUser ? {
             email: anyUser.email,
-            full_name: anyUser.raw_user_meta_data?.full_name || anyUser.email,
+            full_name: anyUser.email,
           } : null
         }
       setProjectsState(prevState => ({ 
