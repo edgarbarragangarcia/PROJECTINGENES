@@ -89,19 +89,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     let query = supabase.from('tasks').select('*');
 
     if (!user.email || !adminEmails.includes(user.email)) {
-        const { data: projectsData, error: projectsError } = await supabase.from('projects').select('id').eq('user_id', user.id);
-        if (projectsError) {
-             setTasksState(prevState => ({ ...prevState, loading: false, error: projectsError }));
-             return;
-        }
-        const projectIds = projectsData.map(p => p.id);
-        if (projectIds.length > 0) {
-          query = query.in('project_id', projectIds);
-        } else {
-           // If user has no projects, they have no tasks.
-           setTasksState(prevState => ({ ...prevState, loading: false, tasks: [] }));
-           return;
-        }
+      query = query.eq('user_id', user.id);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
