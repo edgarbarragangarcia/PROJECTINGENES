@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -94,7 +95,7 @@ export function CalendarPage() {
             return (
               <div 
                 key={day.toString()} 
-                className={cn("relative border-b border-r p-1.5 min-h-[120px] flex flex-col group",
+                className={cn("relative border-b border-r p-1.5 min-h-[100px] flex flex-col group",
                 !isSameMonth(day, currentDate) && 'bg-muted/30',
                 isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
               )}>
