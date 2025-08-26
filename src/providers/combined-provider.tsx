@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 
+const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com'];
 
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [projectsState, setProjectsState] = useState<ProjectsState>(initialProjectsState);
@@ -46,7 +47,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     let query = supabase.from('projects').select('*');
     
-    if (user.email !== 'edgarbarragangarcia@gmail.com') {
+    if (user.email && !adminEmails.includes(user.email)) {
       query = query.eq('user_id', user.id);
     }
     
@@ -73,7 +74,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     let query = supabase.from('tasks').select('*');
 
-    if (user.email !== 'edgarbarragangarcia@gmail.com') {
+    if (user.email && !adminEmails.includes(user.email)) {
         const { data: projectsData, error: projectsError } = await supabase.from('projects').select('id').eq('user_id', user.id);
         if (projectsError) {
              setTasksState(prevState => ({ ...prevState, loading: false, error: projectsError }));
