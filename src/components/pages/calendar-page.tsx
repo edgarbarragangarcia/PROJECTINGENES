@@ -3,7 +3,7 @@
 
 import { PageHeader } from '../layout/page-header';
 import { useTasks } from '@/hooks/use-tasks';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, getDay, isWithinInterval, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote } from '@/lib/types';
@@ -25,19 +25,29 @@ const statusColors: { [key in Status]: string } = {
 export function CalendarPage() {
   const { tasks } = useTasks();
   const { getNoteByDate } = useDailyNotes();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingNoteForDate, setEditingNoteForDate] = useState<Date | null>(null);
 
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const startDate = monthStart.getDay() === 0 ? subDays(monthStart, 6) : subDays(monthStart, monthStart.getDay() - 1);
-  const endDate = addDays(startDate, 41);
-  const daysInGrid = eachDayOfInterval({ start: startDate, end: endDate });
+  useEffect(() => {
+    setCurrentDate(new Date());
+  }, []);
+
+  const { daysInGrid, monthStart } = useMemo(() => {
+    if (!currentDate) {
+      return { daysInGrid: [], monthStart: null };
+    }
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    const startDate = monthStart.getDay() === 0 ? subDays(monthStart, 6) : subDays(monthStart, monthStart.getDay() - 1);
+    const endDate = addDays(startDate, 41);
+    const daysInGrid = eachDayOfInterval({ start: startDate, end: endDate });
+    return { daysInGrid, monthStart };
+  }, [currentDate]);
 
 
-  const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
-  const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+  const handleNextMonth = () => currentDate && setCurrentDate(addMonths(currentDate, 1));
+  const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
 
   const tasksByDay = useMemo(() => {
     const dailyTasks = new Map<string, Task[]>();
@@ -72,6 +82,10 @@ export function CalendarPage() {
     return pos >= 0 ? pos : 0;
   };
 
+  if (!currentDate || !monthStart) {
+    return <div className="flex-1 flex items-center justify-center">Cargando calendario...</div>
+  }
+
 
   return (
     <div className="flex flex-col h-full">
@@ -93,13 +107,13 @@ export function CalendarPage() {
             const note = getNoteByDate(day);
             return (
               <div 
-                key={day.toString()} 
+                key={day.toISOString()} 
                 className={cn("relative border-b border-r p-1.5 min-h-[100px] flex flex-col group",
                 !isSameMonth(day, currentDate) && 'bg-muted/30',
                 isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
               )}>
                 <div className='flex justify-between items-center'>
-                  <time dateTime={day.toString()} className={cn(
+                  <time dateTime={day.toISOString()} className={cn(
                     "font-medium text-sm", 
                     isSameDay(day, new Date()) && 'text-primary font-bold',
                     !isSameMonth(day, currentDate) && 'text-muted-foreground'
