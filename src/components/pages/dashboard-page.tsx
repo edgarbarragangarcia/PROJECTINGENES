@@ -18,6 +18,7 @@ import { TaskFormDialog } from '../task/task-form-dialog';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
   const chartConfig = {
     tasks: {
@@ -57,19 +58,20 @@ function ProjectCard({ project }: { project: ProjectWithProgress }) {
       };
 
     return (
+      <Link href={`/projects/${project.id}`} className="block">
       <Card className={cn(
-          "overflow-hidden flex flex-col",
+          "overflow-hidden flex flex-col h-full transition-all hover:shadow-lg",
           isCompleted && "bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:border-emerald-800"
       )}>
         <CardHeader>
-            <CardTitle className="text-lg font-headline mb-1">{project.name}</CardTitle>
-            <p className="text-sm text-muted-foreground line-clamp-2 flex-1">{project.description}</p>
+            <CardTitle className="text-lg font-headline mb-1 truncate">{project.name}</CardTitle>
+            <p className="text-sm text-muted-foreground line-clamp-2 flex-1 h-10">{project.description}</p>
         </CardHeader>
-        <CardContent className="p-4 pt-0 flex-1 flex flex-col gap-4">
+        <CardContent className="p-4 pt-0 flex-1 flex flex-col justify-end gap-4">
              {project.profiles?.email && (
                 <div className='flex items-center gap-2 text-xs text-muted-foreground'>
                    <User className='size-3.5'/> 
-                   <span>Creado por {project.profiles.email}</span>
+                   <span>{project.profiles.email}</span>
                 </div>
             )}
             <div>
@@ -82,11 +84,10 @@ function ProjectCard({ project }: { project: ProjectWithProgress }) {
             
         </CardContent>
         <CardFooter className="p-4 pt-0 flex justify-between items-center">
-            {/* Team avatars removed for now */}
-            <div></div>
             <Badge variant={getStatusBadgeVariant(project.status)} className={cn(isCompleted && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
         </CardFooter>
       </Card>
+      </Link>
     );
 }
 
