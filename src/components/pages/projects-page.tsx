@@ -30,9 +30,11 @@ import { createClient } from '@/lib/supabase/client';
 import { adminEmails } from '@/providers/combined-provider';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useTasks } from '@/hooks/use-tasks';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
+  const { tasks } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -66,7 +68,7 @@ export function ProjectsPage() {
         title: 'Proyecto Eliminado',
         description: `El proyecto "${projectName}" ha sido eliminado.`,
       });
-    } catch (error: any) {
+    } catch (error: any) => {
       toast({
         variant: 'destructive',
         title: 'Error al eliminar',
@@ -86,33 +88,67 @@ export function ProjectsPage() {
   
   const handleDownloadPdf = () => {
     const doc = new jsPDF();
-    
+    let yPos = 28;
+
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.text('Informe General de Proyectos', 105, 20, { align: 'center' });
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Fecha de generación: ${format(new Date(), 'PPPP', {locale: es})}`, 105, 28, { align: 'center' });
+    doc.text(`Fecha de generación: ${format(new Date(), 'PPPP', {locale: es})}`, 105, yPos, { align: 'center' });
+    
+    yPos += 15;
 
-    const tableData = projects.map(p => [
-      p.name,
-      `${p.progress}%`,
-      p.status,
-      p.user_id || 'N/A'
-    ]);
+    projects.forEach(project => {
+        if (yPos > 260) {
+            doc.addPage();
+            yPos = 20;
+        }
 
-    autoTable(doc, {
-      head: [['Nombre del Proyecto', 'Progreso', 'Estado', 'Creado por (ID)']],
-      body: tableData,
-      startY: 40,
-      headStyles: { fillColor: [41, 128, 185] }, // Un azul elegante
-      styles: { halign: 'center' },
-      columnStyles: {
-        0: { halign: 'left' },
-        3: { halign: 'left' },
-      }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text(project.name, 14, yPos);
+        yPos += 7;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(`Estado: ${project.status} | Progreso: ${project.progress}%`, 14, yPos);
+        yPos += 5;
+
+        const projectTasks = tasks.filter(task => task.projectId === project.id);
+
+        if (projectTasks.length > 0) {
+            const tableData = projectTasks.map(t => [
+                t.title,
+                t.status,
+                t.priority,
+                t.dueDate ? format(t.dueDate, 'dd/MM/yyyy') : 'N/A'
+            ]);
+
+            autoTable(doc, {
+                head: [['Tarea', 'Estado', 'Prioridad', 'Fecha de Vencimiento']],
+                body: tableData,
+                startY: yPos,
+                headStyles: { fillColor: [41, 128, 185] },
+                styles: { fontSize: 8 },
+                columnStyles: {
+                    0: { cellWidth: 'auto' },
+                    1: { cellWidth: 30 },
+                    2: { cellWidth: 25 },
+                    3: { cellWidth: 30 },
+                }
+            });
+
+            const finalY = (doc as any).lastAutoTable.finalY;
+            yPos = finalY + 15;
+        } else {
+            doc.setFontSize(9);
+            doc.text('Este proyecto no tiene tareas.', 14, yPos);
+            yPos += 15;
+        }
     });
+
 
     doc.save(`informe-proyectos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
