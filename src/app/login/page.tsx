@@ -23,6 +23,7 @@ const GoogleIcon = () => (
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -46,6 +47,11 @@ export default function LoginPage() {
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -174,6 +180,10 @@ export default function LoginPage() {
                                 <div className="grid gap-2">
                                     <Label htmlFor="register-password">Contraseña</Label>
                                     <Input id="register-password" type="password" placeholder="Crea una contraseña segura" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
+                                    <Input id="confirm-password" type="password" placeholder="Repite la contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
                                 </div>
                                 {error && <p className="text-destructive text-sm text-center">{error}</p>}
                                 <Button type="submit" className="w-full mt-2">Crear Cuenta</Button>
