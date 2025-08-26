@@ -179,17 +179,17 @@ export function ProjectsPage() {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {Array.from({ length: 8 }).map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {Array.from({ length: 10 }).map((_, i) => (
              <Card key={i}>
-                <Skeleton className="h-[200px] w-full rounded-t-lg rounded-b-none" />
-                <CardHeader>
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-[120px] w-full rounded-t-lg rounded-b-none" />
+                <CardHeader className="p-3">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
                 </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-4 w-full mb-2" />
-                    <Skeleton className="h-4 w-1/4" />
+                <CardContent className="p-3">
+                    <Skeleton className="h-3 w-full mb-2" />
+                    <Skeleton className="h-3 w-1/4" />
                 </CardContent>
              </Card>
            ))}
@@ -215,13 +215,13 @@ export function ProjectsPage() {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {projects.map((project) => (
-          <Card key={project.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300">
+          <Card key={project.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm">
             <Link href={`/projects/${project.id}`} className="block">
                 <div className="aspect-[16/9] relative">
                      <Image 
-                        src={project.image_url || `https://picsum.photos/600/400?random=${project.id}`}
+                        src={project.image_url || `https://picsum.photos/400/225?random=${project.id}`}
                         alt={project.name}
                         fill
                         className="object-cover rounded-t-lg"
@@ -229,16 +229,16 @@ export function ProjectsPage() {
                      />
                 </div>
             </Link>
-            <CardHeader className="flex-row items-start justify-between gap-4">
+            <CardHeader className="flex-row items-start justify-between gap-2 p-3">
                 <div className="flex-1">
                     <Link href={`/projects/${project.id}`} className="hover:underline">
-                        <CardTitle className="font-headline text-lg">{project.name}</CardTitle>
+                        <CardTitle className="font-headline text-base line-clamp-1">{project.name}</CardTitle>
                     </Link>
-                    <CardDescription className="line-clamp-2 mt-1">{project.description}</CardDescription>
+                    <CardDescription className="line-clamp-2 text-xs mt-1">{project.description}</CardDescription>
                 </div>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8 flex-shrink-0">
+                      <Button variant="ghost" size="icon" className="size-7 flex-shrink-0">
                         <MoreVertical className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -272,19 +272,19 @@ export function ProjectsPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
             </CardHeader>
-            <CardContent className="flex-grow">
+            <CardContent className="flex-grow p-3 pt-0">
                 <div className="space-y-2">
                     <div>
-                        <div className="flex justify-between items-center mb-1 text-sm text-muted-foreground">
+                        <div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
                             <span>Progreso</span>
                             <span>{project.progress}%</span>
                         </div>
-                        <Progress value={project.progress} className="h-2" />
+                        <Progress value={project.progress} className="h-1.5" />
                     </div>
                      <div>
-                        <span className="text-sm text-muted-foreground">Estado</span>
+                        <span className="text-xs text-muted-foreground">Estado</span>
                         <div className="mt-1">
-                             <Badge variant={getStatusBadgeVariant(project.status)} className={cn(project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
+                             <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs", project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
                         </div>
                     </div>
                 </div>
