@@ -85,7 +85,7 @@ export function NoteFormDialog({ open, onOpenChange, date, noteToEdit }: NoteFor
       await deleteNote(noteToEdit.id);
       toast({ title: 'Nota Eliminada', description: `Tu nota ha sido eliminada.` });
       onOpenChange(false);
-    } catch (error: any) => {
+    } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error al eliminar la nota', description: error.message });
     }
   }
