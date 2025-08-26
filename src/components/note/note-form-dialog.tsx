@@ -26,6 +26,18 @@ import { useDailyNotes } from '@/hooks/use-daily-notes';
 import type { DailyNote } from '@/lib/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Trash2 } from 'lucide-react';
 
 const noteFormSchema = z.object({
   note: z.string().min(1, 'La nota no puede estar vacía.'),
@@ -41,7 +53,7 @@ interface NoteFormDialogProps {
 }
 
 export function NoteFormDialog({ open, onOpenChange, date, note }: NoteFormDialogProps) {
-  const { upsertNote } = useDailyNotes();
+  const { upsertNote, deleteNote } = useDailyNotes();
   const { toast } = useToast();
 
   const form = useForm<NoteFormValues>({
@@ -60,6 +72,16 @@ export function NoteFormDialog({ open, onOpenChange, date, note }: NoteFormDialo
       toast({ variant: 'destructive', title: 'Error al guardar la nota', description: error.message });
     }
   };
+
+  const handleDelete = async () => {
+    try {
+      await deleteNote(date);
+      toast({ title: 'Nota Eliminada', description: `Tu nota para el ${format(date, 'PPP', { locale: es })} ha sido eliminada.` });
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error al eliminar la nota', description: error.message });
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,11 +109,42 @@ export function NoteFormDialog({ open, onOpenChange, date, note }: NoteFormDialo
                 </FormItem>
               )}
             />
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">Guardar Nota</Button>
+            <DialogFooter className="justify-between">
+              <div>
+                {note && (
+                   <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="destructive">
+                        <Trash2 />
+                        Eliminar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro de que quieres eliminar esta nota?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción no se puede deshacer. La nota se borrará permanentemente.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDelete}
+                          className="bg-destructive hover:bg-destructive/90"
+                        >
+                          Eliminar Nota
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+              <div className='flex gap-2'>
+                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Guardar Nota</Button>
+              </div>
             </DialogFooter>
           </form>
         </Form>

@@ -24,6 +24,7 @@ export interface DailyNotesContextType extends DailyNotesState {
   setDailyNotes: (notes: DailyNote[]) => void;
   setDailyNotesLoading: (loading: boolean) => void;
   upsertNote: (note: string, date: Date) => Promise<void>;
+  deleteNote: (date: Date) => Promise<void>;
   getNoteByDate: (date: Date) => DailyNote | undefined;
 }
 

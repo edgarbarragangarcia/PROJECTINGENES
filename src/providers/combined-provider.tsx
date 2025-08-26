@@ -116,18 +116,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [projectsState.projects, tasksState.tasks, calculateProgress]);
 
 
-  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>) => {
+  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'profiles'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
-    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*').single();
+    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*, profiles(email)').single();
     if (error) throw error;
     if (data) setProjectsState(prevState => ({ ...prevState, projects: [data, ...prevState.projects] }));
   };
 
-  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>>) => {
+  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'profiles'>>) => {
     const { error } = await supabase.from('projects').update(data).eq('id', id);
     if (error) throw error;
-    const { data: updatedData, error: selectError } = await supabase.from('projects').select('*').eq('id', id).single();
+    const { data: updatedData, error: selectError } = await supabase.from('projects').select('*, profiles(email)').eq('id', id).single();
     if(selectError) throw selectError;
     setProjectsState(prevState => ({ ...prevState, projects: prevState.projects.map((p) => (p.id === id ? { ...p, ...updatedData } : p)) }));
   };
@@ -209,6 +209,25 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         }
     }
   };
+  
+  const deleteNote = async (date: Date) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario no autenticado");
+
+    const dateString = format(date, 'yyyy-MM-dd');
+    const { error } = await supabase
+        .from('daily_notes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('date', dateString);
+
+    if (error) throw error;
+
+    setDailyNotesState(prevState => ({
+        ...prevState,
+        notes: prevState.notes.filter(n => n.date !== dateString)
+    }));
+  };
 
   const getNoteByDate = (date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
@@ -217,7 +236,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   const projectsContextValue: ProjectsContextType = { ...projectsState, projects: projectsWithProgress, addProject, updateProject, deleteProject, fetchProjects, setProjects, setProjectsLoading, setProjectsError };
   const tasksContextValue: TasksContextType = { ...tasksState, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, setDraggedTask, fetchTasks, setTasks, setTasksLoading };
-  const dailyNotesContextValue: DailyNotesContextType = { ...dailyNotesState, fetchDailyNotes, setDailyNotes, setDailyNotesLoading, upsertNote, getNoteByDate };
+  const dailyNotesContextValue: DailyNotesContextType = { ...dailyNotesState, fetchDailyNotes, setDailyNotes, setDailyNotesLoading, upsertNote, deleteNote, getNoteByDate };
 
   return (
     <ProjectsContext.Provider value={projectsContextValue}>
