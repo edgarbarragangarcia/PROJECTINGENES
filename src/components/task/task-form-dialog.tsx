@@ -167,8 +167,9 @@ export function TaskFormDialog({
         return;
       }
       
-      const submissionData = {
+      const submissionData: Omit<Task, 'id' | 'created_at' | 'user_id'> = {
         ...data,
+        project_id: data.projectId,
         description: data.description || '',
         startDate: data.startDate,
         dueDate: data.dueDate,
@@ -404,7 +405,7 @@ export function TaskFormDialog({
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar prioridad" />
-                        </Trigger>
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {priorities.map((p) => (
@@ -520,3 +521,5 @@ export function TaskFormDialog({
     </Dialog>
   );
 }
+
+    
