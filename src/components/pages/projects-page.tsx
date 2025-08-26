@@ -130,7 +130,7 @@ export function ProjectsPage() {
                     <Badge variant={getStatusBadgeVariant(project.status)} className={cn(project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
                 </TableCell>
                  <TableCell className="text-muted-foreground text-xs">
-                    {project.users?.email || 'N/A'}
+                    {project.users?.full_name || project.users?.email || 'N/A'}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>

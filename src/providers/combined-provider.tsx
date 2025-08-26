@@ -45,7 +45,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    let query = supabase.from('projects').select('*');
+    let query = supabase.from('projects').select(`
+      *,
+      users (
+        email,
+        raw_user_meta_data->>full_name
+      )
+    `);
     
     if (user.email && !adminEmails.includes(user.email)) {
       query = query.eq('user_id', user.id);
@@ -57,9 +63,17 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error fetching projects:', error);
       setProjectsState(prevState => ({ ...prevState, loading: false, error }));
     } else {
-      // Temporary removal of user fetching logic to fix visibility issue
-      const projectsWithUserPlaceholder = data.map(p => ({ ...p, users: null }));
-      setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithUserPlaceholder || [] }));
+       const projectsWithMappedUser = data.map(p => {
+        const anyUser = p.users as any; // Type assertion
+        return {
+          ...p,
+          users: anyUser ? {
+            email: anyUser.email,
+            full_name: anyUser.full_name,
+          } : null
+        }
+      });
+      setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithMappedUser || [] }));
     }
 
   }, [supabase]);
@@ -164,7 +178,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*').single();
     if (error) throw error;
     if (data) {
-        const newProject = { ...data, users: null };
+        const newProject = { ...data, users: user.email ? { email: user.email, full_name: user.user_metadata.full_name } : null };
         setProjectsState(prevState => ({ ...prevState, projects: [newProject, ...prevState.projects] }));
     }
   };
