@@ -80,7 +80,7 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader title="Dashboard General" />
-      <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+      <div className="flex-1 p-4 md:p-6 lg:p-8">
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
             <Card>
@@ -220,5 +220,3 @@ export function DashboardPage() {
     </div>
   );
 }
-
-    
