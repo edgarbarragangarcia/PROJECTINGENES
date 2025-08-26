@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -13,6 +14,17 @@ import { ChevronLeft, ChevronRight, NotebookPen } from 'lucide-react';
 import { TaskFormDialog } from '../task/task-form-dialog';
 import { NoteFormDialog } from '../note/note-form-dialog';
 import { useDailyNotes } from '@/hooks/use-daily-notes';
+import { useToast } from '@/hooks/use-toast';
+
+const GoogleCalendarIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="size-4 mr-2" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M21 12.2c0-.67-.06-1.31-.17-1.94H12.2v3.67h5.02a4.34 4.34 0 0 1-1.88 2.86v2.39h3.07c1.79-1.65 2.82-4.08 2.82-6.98z"/>
+    <path fill="#34A853" d="M12.2 22c2.7 0 4.96-0.89 6.62-2.41l-3.07-2.39c-.89.6-2.02.95-3.55.95-2.73 0-5.04-1.84-5.87-4.32H3.1v2.47C4.78 20.08 8.24 22 12.2 22z"/>
+    <path fill="#FBBC05" d="M6.33 13.75a6.14 6.14 0 0 1 0-3.5V7.78H3.1c-1.18 2.36-1.18 5.08 0 7.44l3.23-2.47z"/>
+    <path fill="#EA4335" d="M12.2 5.92c1.47 0 2.78.51 3.82 1.49l2.72-2.72C17.16 2.22 14.9 1 12.2 1 8.24 1 4.78 2.92 3.1 6.25l3.23 2.47c.83-2.48 3.14-4.32 5.87-4.32z"/>
+  </svg>
+);
+
 
 const statusColors: { [key in Status]: string } = {
   'Backlog': 'bg-amber-400/70',
@@ -25,6 +37,7 @@ const statusColors: { [key in Status]: string } = {
 export function CalendarPage() {
   const { tasks } = useTasks();
   const { getNoteByDate } = useDailyNotes();
+  const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingNoteForDate, setEditingNoteForDate] = useState<Date | null>(null);
@@ -81,6 +94,13 @@ export function CalendarPage() {
     const pos = tasksForDay.findIndex(t => t.id === task.id);
     return pos >= 0 ? pos : 0;
   };
+  
+  const handleGoogleConnect = () => {
+    toast({
+      title: "Próximamente",
+      description: "La integración con Google Calendar está en desarrollo.",
+    });
+  };
 
   if (!currentDate || !monthStart) {
     return <div className="flex-1 flex items-center justify-center">Cargando calendario...</div>
@@ -91,6 +111,10 @@ export function CalendarPage() {
     <div className="flex flex-col h-full">
       <PageHeader title="Calendario">
          <div className='flex items-center gap-2'>
+             <Button variant="outline" size="sm" onClick={handleGoogleConnect}>
+                <GoogleCalendarIcon />
+                Conectar con Google
+             </Button>
             <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft/></Button>
             <h2 className='text-xl font-headline w-48 text-center'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
             <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight/></Button>
