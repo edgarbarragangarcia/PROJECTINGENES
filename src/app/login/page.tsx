@@ -12,7 +12,7 @@ import { Zap, LayoutDashboard, ListChecks, BarChartHorizontal, Sparkles } from "
 import Link from "next/link";
 
 const GoogleIcon = () => (
-    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="size-5">
+    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="size-5 mr-2">
         <title>Google</title>
         <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.3 1.63-4.5 1.63-5.52 0-10-4.48-10-10s4.48-10 10-10c3.04 0 5.25 1.22 6.46 2.35l-2.65 2.65C14.54 9.17 13.56 8.5 12 8.5c-4.42 0-8 3.58-8 8s3.58 8 8 8c4.89 0 7.23-3.23 7.5-6.82h-7.5Z" />
     </svg>
@@ -168,4 +168,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
