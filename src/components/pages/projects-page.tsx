@@ -1,4 +1,3 @@
-
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -179,7 +178,7 @@ export function ProjectsPage() {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
              <Card key={i}>
                 <Skeleton className="h-[120px] w-full rounded-t-lg rounded-b-none" />
@@ -215,7 +214,7 @@ export function ProjectsPage() {
     }
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-4">
         {projects.map((project) => (
           <Card key={project.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm">
             <Link href={`/projects/${project.id}`} className="block">
