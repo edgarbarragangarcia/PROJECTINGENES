@@ -32,9 +32,16 @@ export interface Project {
   image_url: string;
   status: ProjectStatus;
   user_id: string;
-  profiles: { email: string } | null;
 }
 
 export interface ProjectWithProgress extends Project {
     progress: number;
+}
+
+export interface DailyNote {
+  id: string;
+  created_at: string;
+  note: string;
+  date: string; // YYYY-MM-DD
+  user_id: string;
 }
