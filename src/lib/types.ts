@@ -1,3 +1,4 @@
+import { User as SupabaseUser } from "@supabase/supabase-js";
 
 export const priorities = ['Low', 'Medium', 'High'] as const;
 export type Priority = (typeof priorities)[number];
@@ -47,3 +48,5 @@ export interface DailyNote {
   date: string; // YYYY-MM-DD
   user_id: string;
 }
+
+export type User = SupabaseUser;

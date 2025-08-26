@@ -1,11 +1,10 @@
-
 'use client';
 
-import { ProjectsContext, initialProjectsState, type ProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
-import { TasksContext, initialTasksState, type TasksState, type TasksContextType } from '@/hooks/use-tasks';
+import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
+import { TasksContext, initialTasksState, type TasksContextType } from '@/hooks/use-tasks';
 import { DailyNotesContext, initialDailyNotesState, type DailyNotesState, type DailyNotesContextType } from '@/hooks/use-daily-notes';
 import { createClient } from '@/lib/supabase/client';
-import type { Project, ProjectWithProgress, Task, DailyNote } from '@/lib/types';
+import type { Project, ProjectWithProgress, Task, DailyNote, User } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
@@ -14,13 +13,13 @@ import { GoogleCalendarProvider } from './google-calendar-provider';
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
 
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
-  const [projectsState, setProjectsState] = useState<ProjectsState>(initialProjectsState);
-  const [tasksState, setTasksState] = useState<TasksState>(initialTasksState);
+  const [projectsState, setProjectsState] = useState(initialProjectsState);
+  const [tasksState, setTasksState] = useState(initialTasksState);
   const [dailyNotesState, setDailyNotesState] = useState<DailyNotesState>(initialDailyNotesState);
   const supabase = createClient();
-  // State for session and provider token is now managed here
   const [session, setSession] = useState<any>(null);
   const [providerToken, setProviderToken] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -36,34 +35,21 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const setDailyNotes = (notes: DailyNote[]) => setDailyNotesState(prevState => ({ ...prevState, notes }));
   const setDailyNotesLoading = (loading: boolean) => setDailyNotesState(prevState => ({ ...prevState, loading }));
 
-
-  const fetchProjects = useCallback(async () => {
+  const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setProjectsState({ ...initialProjectsState, loading: false, error: new Error('User not authenticated') });
-      return;
-    }
-    
-    let query = supabase.from('projects').select(`
-      *,
-      users (
-        email,
-        raw_user_meta_data
-      )
-    `);
-    
-    if (!user.email || !adminEmails.includes(user.email)) {
-      query = query.eq('user_id', user.id);
-    }
-    
-    const { data, error } = await query.order('created_at', { ascending: false });
+    try {
+      let query = supabase.from('projects').select('*, users ( email, raw_user_meta_data )');
+      
+      const isAdmin = user.email && adminEmails.includes(user.email);
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching projects:', error);
-      setProjectsState(prevState => ({ ...prevState, loading: false, error }));
-    } else {
-       const projectsWithMappedUser = data.map(p => {
+      if (error) throw error;
+      
+      const projectsWithMappedUser = data.map(p => {
         const anyUser = p.users as any;
         return {
           ...p,
@@ -73,77 +59,95 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           } : null
         }
       });
+      
       setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithMappedUser || [] }));
+    } catch (error: any) {
+      console.error('Error fetching projects:', error);
+      setProjectsState(prevState => ({ ...prevState, loading: false, error }));
     }
-
   }, [supabase]);
 
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (user: User) => {
     setTasksState(prevState => ({ ...prevState, loading: true, error: null }));
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setTasksState({ ...initialTasksState, loading: false });
-      return;
-    }
+    try {
+      let query = supabase.from('tasks').select('*');
 
-    let query = supabase.from('tasks').select('*');
+      const isAdmin = user.email && adminEmails.includes(user.email);
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
 
-    if (!user.email || !adminEmails.includes(user.email)) {
-      query = query.eq('user_id', user.id);
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching tasks:', error);
-      setTasksState(prevState => ({ ...prevState, loading: false, error }));
-    } else {
-      const formattedTasks = data.map(task => ({
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      const formattedTasks = (data || []).map(task => ({
         ...task,
         projectId: task.project_id,
         startDate: task.start_date ? new Date(task.start_date) : undefined,
         dueDate: task.due_date ? new Date(task.due_date) : undefined
       }));
-      setTasksState(prevState => ({ ...prevState, loading: false, tasks: formattedTasks || [] }));
+      setTasksState(prevState => ({ ...prevState, loading: false, tasks: formattedTasks }));
+    } catch (error: any) {
+      console.error('Error fetching tasks:', error);
+      setTasksState(prevState => ({ ...prevState, loading: false, error }));
     }
   }, [supabase]);
 
-  const fetchDailyNotes = useCallback(async () => {
+  const fetchDailyNotes = useCallback(async (user: User) => {
     setDailyNotesState(prevState => ({ ...prevState, loading: true, error: null }));
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setDailyNotesState({ ...initialDailyNotesState, loading: false });
-      return;
-    }
-    const { data, error } = await supabase.from('daily_notes').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
-    if (error) {
+    try {
+      const { data, error } = await supabase
+        .from('daily_notes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+        
+      if (error) throw error;
+      
+      setDailyNotesState(prevState => ({ ...prevState, loading: false, notes: data || [] }));
+    } catch (error: any) {
       console.error('Error fetching daily notes:', error);
       setDailyNotesState(prevState => ({ ...prevState, loading: false, error }));
-    } else {
-      setDailyNotesState(prevState => ({ ...prevState, loading: false, notes: data || [] }));
     }
   }, [supabase]);
+
+  const fetchAllData = useCallback(async (user: User) => {
+    await Promise.all([
+      fetchProjects(user),
+      fetchTasks(user),
+      fetchDailyNotes(user)
+    ]);
+  }, [fetchProjects, fetchTasks, fetchDailyNotes]);
 
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-        fetchProjects();
-        fetchTasks();
-        fetchDailyNotes();
-        setSession(session);
+    if (isInitialized) return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      setSession(session);
+      
+      if (session) {
         setProviderToken(session?.provider_token || null);
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          console.log('Session is valid, fetching all data for user:', session.user.id);
+          await fetchAllData(session.user);
+        }
       } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out, clearing state');
         setProjectsState(initialProjectsState);
         setTasksState(initialTasksState);
         setDailyNotesState(initialDailyNotesState);
-        setSession(null);
         setProviderToken(null);
       }
+      setIsInitialized(true);
     });
-    return () => subscription.unsubscribe();
-  }, [fetchProjects, fetchTasks, fetchDailyNotes, supabase.auth]);
-
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase.auth, isInitialized, fetchAllData]);
 
   const calculateProgress = useCallback((projectId: string, allTasks: Task[]): number => {
     const projectTasks = allTasks.filter(t => t.projectId === projectId);
@@ -159,44 +163,92 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, [projectsState.projects, tasksState.tasks, calculateProgress]);
 
-
   const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
-    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*, users (email, raw_user_meta_data)').single();
+    
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({ ...projectData, user_id: user.id })
+      .select('*, users (email, raw_user_meta_data)')
+      .single();
+      
     if (error) throw error;
+    
     if (data) {
-        const anyUser = data.users as any;
-        const newProject = { ...data, users: anyUser ? { email: anyUser.email, full_name: anyUser.raw_user_meta_data?.full_name || anyUser.email } : null };
-        setProjectsState(prevState => ({ ...prevState, projects: [newProject, ...prevState.projects] }));
+      const anyUser = data.users as any;
+      const newProject = { 
+        ...data, 
+        users: anyUser ? { 
+          email: anyUser.email, 
+          full_name: anyUser.raw_user_meta_data?.full_name || anyUser.email 
+        } : null 
+      };
+      setProjectsState(prevState => ({ 
+        ...prevState, 
+        projects: [newProject, ...prevState.projects] 
+      }));
     }
   };
 
   const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario no autenticado");
+
     const { error } = await supabase.from('projects').update(data).eq('id', id);
     if (error) throw error;
-    await fetchProjects();
+    await fetchProjects(user);
   };
 
   const deleteProject = async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario no autenticado");
+
     const { error: tasksError } = await supabase.from('tasks').delete().eq('project_id', id);
     if(tasksError) throw tasksError;
+    
     const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) throw error;
-    setTasksState(prevState => ({ ...prevState, tasks: prevState.tasks.filter((t) => t.projectId !== id)}));
-    setProjectsState(prevState => ({ ...prevState, projects: prevState.projects.filter((p) => p.id !== id) }));
+    
+    setTasksState(prevState => ({ 
+      ...prevState, 
+      tasks: prevState.tasks.filter((t) => t.projectId !== id)
+    }));
+    setProjectsState(prevState => ({ 
+      ...prevState, 
+      projects: prevState.projects.filter((p) => p.id !== id) 
+    }));
   };
-
 
   const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
+    
     const { startDate, dueDate, ...restOfTaskData } = taskData;
-    const { data, error } = await supabase.from('tasks').insert({ ...restOfTaskData, user_id: user.id, start_date: startDate?.toISOString(), due_date: dueDate?.toISOString() }).select().single();
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert({ 
+        ...restOfTaskData, 
+        user_id: user.id, 
+        start_date: startDate?.toISOString(), 
+        due_date: dueDate?.toISOString() 
+      })
+      .select()
+      .single();
+      
     if (error) throw error;
+    
     if (data) {
-      const formattedTask = { ...data, projectId: data.project_id, startDate: data.start_date ? new Date(data.start_date) : undefined, dueDate: data.due_date ? new Date(data.due_date) : undefined };
-      setTasksState(prevState => ({ ...prevState, tasks: [formattedTask, ...prevState.tasks] }));
+      const formattedTask = { 
+        ...data, 
+        projectId: data.project_id, 
+        startDate: data.start_date ? new Date(data.start_date) : undefined, 
+        dueDate: data.due_date ? new Date(data.due_date) : undefined 
+      };
+      setTasksState(prevState => ({ 
+        ...prevState, 
+        tasks: [formattedTask, ...prevState.tasks] 
+      }));
     }
   };
 
@@ -208,15 +260,24 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     delete dataToUpdate.startDate;
     delete dataToUpdate.dueDate;
     delete dataToUpdate.projectId;
+    
     const { error } = await supabase.from('tasks').update(dataToUpdate).eq('id', id);
     if (error) throw error;
-    setTasksState(prevState => ({ ...prevState, tasks: prevState.tasks.map((t) => (t.id === id ? { ...t, ...taskData } : t)) }));
+    
+    setTasksState(prevState => ({ 
+      ...prevState, 
+      tasks: prevState.tasks.map((t) => (t.id === id ? { ...t, ...taskData } : t)) 
+    }));
   };
 
   const deleteTask = async (id: string) => {
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
-    setTasksState(prevState => ({ ...prevState, tasks: prevState.tasks.filter((task) => task.id !== id) }));
+    
+    setTasksState(prevState => ({ 
+      ...prevState, 
+      tasks: prevState.tasks.filter((task) => task.id !== id) 
+    }));
   };
   
   const getTasksByStatus = (status: Task['status'], projectId?: string) => {
@@ -243,6 +304,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       .single();
     
     if (error) throw error;
+    
     if (data) {
       setDailyNotesState(prevState => ({
         ...prevState,
@@ -260,6 +322,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (error) throw error;
+    
     if (data) {
       setDailyNotesState(prevState => ({
         ...prevState,
@@ -270,7 +333,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   const deleteNote = async (id: string) => {
     const { error } = await supabase.from('daily_notes').delete().eq('id', id);
-
     if (error) throw error;
 
     setDailyNotesState(prevState => ({
@@ -284,9 +346,47 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     return dailyNotesState.notes.filter(n => n.date === dateString);
   };
   
-  const projectsContextValue: ProjectsContextType = { ...projectsState, projects: projectsWithProgress, addProject, updateProject, deleteProject, fetchProjects, setProjects, setProjectsLoading, setProjectsError };
-  const tasksContextValue: TasksContextType = { ...tasksState, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, setDraggedTask, fetchTasks, setTasks, setTasksLoading };
-  const dailyNotesContextValue: DailyNotesContextType = { ...dailyNotesState, fetchDailyNotes, setDailyNotes, setDailyNotesLoading, addNote, updateNote, deleteNote, getNotesByDate };
+  const projectsContextValue: ProjectsContextType = { 
+    ...projectsState, 
+    projects: projectsWithProgress, 
+    addProject, 
+    updateProject, 
+    deleteProject, 
+    fetchProjects: () => { 
+      if (session?.user) fetchProjects(session.user) 
+    }, 
+    setProjects, 
+    setProjectsLoading, 
+    setProjectsError 
+  };
+  
+  const tasksContextValue: TasksContextType = { 
+    ...tasksState, 
+    addTask, 
+    updateTask, 
+    deleteTask, 
+    getTasksByStatus, 
+    getTasksByProject, 
+    setDraggedTask, 
+    fetchTasks: () => { 
+      if (session?.user) fetchTasks(session.user) 
+    }, 
+    setTasks, 
+    setTasksLoading 
+  };
+  
+  const dailyNotesContextValue: DailyNotesContextType = { 
+    ...dailyNotesState, 
+    fetchDailyNotes: () => {
+      if (session?.user) fetchDailyNotes(session.user);
+    }, 
+    setDailyNotes, 
+    setDailyNotesLoading, 
+    addNote, 
+    updateNote, 
+    deleteNote, 
+    getNotesByDate 
+  };
 
   return (
     <GoogleCalendarProvider session={session} providerToken={providerToken}>

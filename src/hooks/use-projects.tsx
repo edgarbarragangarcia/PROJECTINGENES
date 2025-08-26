@@ -2,7 +2,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import type { Project, ProjectWithProgress } from '@/lib/types';
+import type { Project, ProjectWithProgress, User } from '@/lib/types';
 import React, { createContext, useContext, type ReactNode } from 'react';
 
 // --- STATE & REDUCER ---
@@ -25,7 +25,7 @@ export interface ProjectsContextType extends ProjectsState {
   addProject: (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>) => Promise<void>;
   updateProject: (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
-  fetchProjects: () => Promise<void>;
+  fetchProjects: (user: User) => Promise<void>;
   setProjects: (projects: ProjectWithProgress[]) => void;
   setProjectsLoading: (loading: boolean) => void;
   setProjectsError: (error: Error | null) => void;

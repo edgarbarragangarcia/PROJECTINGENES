@@ -1,6 +1,6 @@
 'use client';
 
-import type { DailyNote } from '@/lib/types';
+import type { DailyNote, User } from '@/lib/types';
 import { createContext, useContext } from 'react';
 
 // --- STATE ---
@@ -20,7 +20,7 @@ export const initialDailyNotesState: DailyNotesState = {
 // --- CONTEXT ---
 
 export interface DailyNotesContextType extends DailyNotesState {
-  fetchDailyNotes: () => Promise<void>;
+  fetchDailyNotes: (user: User) => Promise<void>;
   setDailyNotes: (notes: DailyNote[]) => void;
   setDailyNotesLoading: (loading: boolean) => void;
   addNote: (note: string, date: Date) => Promise<void>;

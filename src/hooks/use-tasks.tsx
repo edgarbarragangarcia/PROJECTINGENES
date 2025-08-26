@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import type { Task, Status } from '@/lib/types';
+import type { Task, Status, User } from '@/lib/types';
 import React, { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from 'react';
 
 // --- STATE ---
@@ -29,7 +29,7 @@ export interface TasksContextType extends TasksState {
   getTasksByStatus: (status: Status, projectId?: string) => Task[];
   getTasksByProject: (projectId: string) => Task[];
   setDraggedTask: (id: string | null) => void;
-  fetchTasks: () => Promise<void>;
+  fetchTasks: (user: User) => Promise<void>;
   setTasks: (tasks: Task[]) => void;
   setTasksLoading: (loading: boolean) => void;
 }
