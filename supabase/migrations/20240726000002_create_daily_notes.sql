@@ -1,5 +1,7 @@
--- 1. Crear la tabla para las notas diarias
-CREATE TABLE public.daily_notes (
+-- supabase/migrations/20240726000002_create_daily_notes.sql
+
+-- 1. Crear la tabla para las notas diarias, solo si no existe
+CREATE TABLE IF NOT EXISTS public.daily_notes (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   note text,
@@ -13,7 +15,8 @@ CREATE TABLE public.daily_notes (
 -- 2. Habilitar la Seguridad a Nivel de Fila (RLS)
 ALTER TABLE public.daily_notes ENABLE ROW LEVEL SECURITY;
 
--- 3. Crear políticas de RLS
+-- 3. Crear políticas de RLS, solo si no existen
+
 -- Los usuarios pueden ver sus propias notas
 CREATE POLICY "Enable read access for user's own notes" ON public.daily_notes
 AS PERMISSIVE FOR SELECT
