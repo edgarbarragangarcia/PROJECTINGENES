@@ -31,7 +31,6 @@ export function CalendarPage() {
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  // Adjust to always show 6 weeks for a consistent layout
   const startDate = monthStart.getDay() === 0 ? subDays(monthStart, 6) : subDays(monthStart, monthStart.getDay() - 1);
   const endDate = addDays(startDate, 41);
   const daysInGrid = eachDayOfInterval({ start: startDate, end: endDate });
@@ -84,7 +83,7 @@ export function CalendarPage() {
          </div>
       </PageHeader>
       <div className="flex-1 overflow-auto p-4 md:px-8 lg:px-12">
-        <div className="grid grid-cols-7 grid-rows-6 border-t border-l">
+        <div className="grid grid-cols-7 grid-rows-6 border-t border-l max-w-7xl mx-auto">
           {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
               <div key={day} className="p-2 border-b border-r text-center font-semibold text-sm bg-muted/50">{day}</div>
           ))}
