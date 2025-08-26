@@ -38,16 +38,19 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
-      let query = supabase.from('projects').select('*, users ( email, raw_user_meta_data )');
-      
+      let query = supabase.from('projects').select('*, users (email, raw_user_meta_data)');
+
       const isAdmin = user.email && adminEmails.includes(user.email);
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
       }
       
       const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Supabase error fetching projects:", error);
+        throw error;
+      }
       
       const projectsWithMappedUser = data.map(p => {
         const anyUser = p.users as any;
@@ -66,6 +69,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setProjectsState(prevState => ({ ...prevState, loading: false, error }));
     }
   }, [supabase]);
+
 
   const fetchTasks = useCallback(async (user: User) => {
     setTasksState(prevState => ({ ...prevState, loading: true, error: null }));
@@ -122,32 +126,26 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
 
   useEffect(() => {
-    if (isInitialized) return;
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
       setSession(session);
       
       if (session) {
         setProviderToken(session?.provider_token || null);
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          console.log('Session is valid, fetching all data for user:', session.user.id);
           await fetchAllData(session.user);
         }
       } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out, clearing state');
         setProjectsState(initialProjectsState);
         setTasksState(initialTasksState);
         setDailyNotesState(initialDailyNotesState);
         setProviderToken(null);
       }
-      setIsInitialized(true);
     });
     
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase.auth, isInitialized, fetchAllData]);
+  }, [supabase.auth, fetchAllData]);
 
   const calculateProgress = useCallback((projectId: string, allTasks: Task[]): number => {
     const projectTasks = allTasks.filter(t => t.projectId === projectId);
@@ -176,14 +174,14 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (error) throw error;
     
     if (data) {
-      const anyUser = data.users as any;
-      const newProject = { 
-        ...data, 
-        users: anyUser ? { 
-          email: anyUser.email, 
-          full_name: anyUser.raw_user_meta_data?.full_name || anyUser.email 
-        } : null 
-      };
+       const anyUser = data.users as any;
+        const newProject = {
+          ...data,
+          users: anyUser ? {
+            email: anyUser.email,
+            full_name: anyUser.raw_user_meta_data?.full_name || anyUser.email,
+          } : null
+        }
       setProjectsState(prevState => ({ 
         ...prevState, 
         projects: [newProject, ...prevState.projects] 
@@ -352,8 +350,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     addProject, 
     updateProject, 
     deleteProject, 
-    fetchProjects: () => { 
-      if (session?.user) fetchProjects(session.user) 
+    fetchProjects: (user: User) => { 
+      if (user) fetchProjects(user) 
     }, 
     setProjects, 
     setProjectsLoading, 
@@ -368,8 +366,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     getTasksByStatus, 
     getTasksByProject, 
     setDraggedTask, 
-    fetchTasks: () => { 
-      if (session?.user) fetchTasks(session.user) 
+    fetchTasks: (user: User) => { 
+      if (user) fetchTasks(user) 
     }, 
     setTasks, 
     setTasksLoading 
@@ -377,8 +375,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   const dailyNotesContextValue: DailyNotesContextType = { 
     ...dailyNotesState, 
-    fetchDailyNotes: () => {
-      if (session?.user) fetchDailyNotes(session.user);
+    fetchDailyNotes: (user: User) => {
+      if (user) fetchDailyNotes(user);
     }, 
     setDailyNotes, 
     setDailyNotesLoading, 
