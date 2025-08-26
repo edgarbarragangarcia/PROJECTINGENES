@@ -4,7 +4,7 @@ import { ProjectsContext, initialProjectsState, type ProjectsState, type Project
 import { TasksContext, initialTasksState, type TasksState, type TasksContextType } from '@/hooks/use-tasks';
 import { createClient } from '@/lib/supabase/client';
 import type { Project, ProjectWithProgress, Task } from '@/lib/types';
-import { useState, useCallback, useEffect, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [projectsState, setProjectsState] = useState<ProjectsState>(initialProjectsState);
@@ -100,28 +100,22 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchProjects, fetchTasks, supabase.auth]);
 
 
-  const calculateProgress = useCallback((projectId: string, tasks: Task[]): number => {
-    const projectTasks = tasks.filter(t => t.projectId === projectId);
+  const calculateProgress = useCallback((projectId: string, allTasks: Task[]): number => {
+    const projectTasks = allTasks.filter(t => t.projectId === projectId);
     if (projectTasks.length === 0) return 0;
     const completedTasks = projectTasks.filter(t => t.status === 'Done').length;
     return Math.round((completedTasks / projectTasks.length) * 100);
   }, []);
   
   useEffect(() => {
-    if (projectsState.projects.length > 0) {
-      setProjectsState(prevState => {
-        const updatedProjects = prevState.projects.map(p => ({
-          ...p,
-          progress: calculateProgress(p.id, tasksState.tasks)
-        }));
-        // Avoid re-render if progress hasn't changed
-        if (JSON.stringify(prevState.projects) === JSON.stringify(updatedProjects)) {
-            return prevState;
-        }
-        return { ...prevState, projects: updatedProjects };
-      });
-    }
-  }, [tasksState.tasks, projectsState.projects.length, calculateProgress]);
+    setProjectsState(prevState => {
+      const updatedProjects = prevState.projects.map(p => ({
+        ...p,
+        progress: calculateProgress(p.id, tasksState.tasks)
+      }));
+      return { ...prevState, projects: updatedProjects };
+    });
+  }, [tasksState.tasks, calculateProgress]);
 
 
   // Projects context methods
@@ -163,11 +157,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteProject = async (id: string) => {
+    // Also delete associated tasks
+    const { error: tasksError } = await supabase.from('tasks').delete().eq('project_id', id);
+    if(tasksError) {
+      console.error('Error deleting tasks for project:', tasksError);
+      throw tasksError;
+    }
     const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) {
       console.error('Error deleting project:', error);
       throw error;
     }
+    setTasksState(prevState => ({ ...prevState, tasks: prevState.tasks.filter((t) => t.projectId !== id)}));
     setProjectsState(prevState => ({ ...prevState, projects: prevState.projects.filter((p) => p.id !== id) }));
   };
 
