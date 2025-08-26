@@ -108,14 +108,20 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, []);
   
   useEffect(() => {
-    setProjectsState(prevState => {
-      const updatedProjects = prevState.projects.map(p => ({
-        ...p,
-        progress: calculateProgress(p.id, tasksState.tasks)
-      }));
-      return { ...prevState, projects: updatedProjects };
-    });
-  }, [tasksState.tasks, calculateProgress]);
+    if (projectsState.projects.length > 0 && tasksState.tasks.length > 0) {
+        setProjectsState(prevState => {
+            const updatedProjects = prevState.projects.map(p => ({
+            ...p,
+            progress: calculateProgress(p.id, tasksState.tasks)
+            }));
+            // Only update state if progress values have actually changed
+            if (JSON.stringify(prevState.projects) !== JSON.stringify(updatedProjects)) {
+                return { ...prevState, projects: updatedProjects };
+            }
+            return prevState;
+        });
+    }
+  }, [tasksState.tasks, projectsState.projects, calculateProgress]);
 
 
   // Projects context methods
@@ -184,7 +190,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Tasks context methods
-  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'>) => {
+  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id' | 'project_id'> & { projectId: string }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 

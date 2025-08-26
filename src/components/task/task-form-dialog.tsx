@@ -42,6 +42,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { es } from 'date-fns/locale';
 import { Label } from '@/components/ui/label';
+import { useProjects } from '@/hooks/use-projects';
 
 const translatedPriorities = {
   'Low': 'Baja',
@@ -56,7 +57,7 @@ const taskFormSchema = z.object({
   priority: z.enum(priorities),
   startDate: z.date().optional(),
   dueDate: z.date().optional(),
-  projectId: z.string(),
+  projectId: z.string().uuid("Debes seleccionar un proyecto válido."),
   assignee: z.string().optional(),
 });
 
@@ -66,7 +67,7 @@ interface TaskFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   taskToEdit?: Task;
-  projectId: string;
+  projectId?: string;
 }
 
 const predefinedTitles = [
@@ -85,9 +86,12 @@ export function TaskFormDialog({
   projectId 
 }: TaskFormDialogProps) {
   const { addTask, updateTask } = useTasks();
+  const { projects } = useProjects();
   const { toast } = useToast();
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestion, setSuggestion] = useState<SuggestTaskPriorityOutput | null>(null);
+  
+  const isProjectContext = !!projectId;
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -109,7 +113,7 @@ export function TaskFormDialog({
           priority: 'Medium',
           startDate: undefined,
           dueDate: undefined,
-          projectId: projectId,
+          projectId: projectId || '',
           assignee: '',
         },
   });
@@ -154,13 +158,21 @@ export function TaskFormDialog({
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
+      if (!data.projectId) {
+        toast({
+          variant: 'destructive',
+          title: 'Error de Validación',
+          description: 'Es necesario seleccionar un proyecto para crear la tarea.'
+        });
+        return;
+      }
+      
       const submissionData = {
         ...data,
         description: data.description || '',
         startDate: data.startDate,
         dueDate: data.dueDate,
         assignee: data.assignee || '',
-        project_id: data.projectId, // Fix: Ensure project_id is included
       };
 
       if (taskToEdit) {
@@ -184,7 +196,7 @@ export function TaskFormDialog({
         priority: 'Medium',
         startDate: undefined,
         dueDate: undefined,
-        projectId: projectId,
+        projectId: projectId || '',
         assignee: '',
       });
       
@@ -222,6 +234,33 @@ export function TaskFormDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+             {!isProjectContext && (
+               <FormField
+                control={form.control}
+                name="projectId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Proyecto</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar un proyecto" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {projects.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
             {/* Título */}
             <FormField
               control={form.control}
@@ -365,7 +404,7 @@ export function TaskFormDialog({
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar prioridad" />
-                        </SelectTrigger>
+                        </Trigger>
                       </FormControl>
                       <SelectContent>
                         {priorities.map((p) => (
