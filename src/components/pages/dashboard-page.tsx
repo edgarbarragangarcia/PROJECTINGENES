@@ -114,12 +114,7 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Dashboard">
-        <Button size="sm" onClick={() => setIsFormOpen(true)}>
-            <PlusCircle />
-            Añadir Tarea
-        </Button>
-      </PageHeader>
+      <PageHeader title="Dashboard" />
       <div className="flex-1 overflow-auto p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         
         <Card className="lg:col-span-2">
@@ -204,7 +199,7 @@ export function DashboardPage() {
           <ProjectCard key={project.id} project={project} />
         ))}
       </div>
-       {isFormOpen && <TaskFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectId={projectId} />}
+       {isFormOpen && <TaskFormDialog open={isForm-open} onOpenChange={setIsFormOpen} projectId={projectId} />}
     </div>
   );
 }
