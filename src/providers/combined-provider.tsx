@@ -9,6 +9,7 @@ import type { Project, ProjectWithProgress, Task, DailyNote } from '@/lib/types'
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
+import { GoogleCalendarProvider } from './google-calendar-provider';
 
 
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
@@ -16,7 +17,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [tasksState, setTasksState] = useState<TasksState>(initialTasksState);
   const [dailyNotesState, setDailyNotesState] = useState<DailyNotesState>(initialDailyNotesState);
   const supabase = createClient();
-  const { setSession, setProviderToken } = useGoogleCalendar();
+  // State for session and provider token is now managed here
+  const [session, setSession] = useState<any>(null);
+  const [providerToken, setProviderToken] = useState<string | null>(null);
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -127,7 +130,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       }
     });
     return () => subscription.unsubscribe();
-  }, [fetchProjects, fetchTasks, fetchDailyNotes, supabase.auth, setSession, setProviderToken]);
+  }, [fetchProjects, fetchTasks, fetchDailyNotes, supabase.auth]);
 
 
   const calculateProgress = useCallback((projectId: string, allTasks: Task[]): number => {
@@ -272,12 +275,14 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const dailyNotesContextValue: DailyNotesContextType = { ...dailyNotesState, fetchDailyNotes, setDailyNotes, setDailyNotesLoading, addNote, updateNote, deleteNote, getNotesByDate };
 
   return (
-    <ProjectsContext.Provider value={projectsContextValue}>
-      <TasksContext.Provider value={tasksContextValue}>
-        <DailyNotesContext.Provider value={dailyNotesContextValue}>
-          {children}
-        </DailyNotesContext.Provider>
-      </TasksContext.Provider>
-    </ProjectsContext.Provider>
+    <GoogleCalendarProvider session={session} providerToken={providerToken}>
+      <ProjectsContext.Provider value={projectsContextValue}>
+        <TasksContext.Provider value={tasksContextValue}>
+          <DailyNotesContext.Provider value={dailyNotesContextValue}>
+            {children}
+          </DailyNotesContext.Provider>
+        </TasksContext.Provider>
+      </ProjectsContext.Provider>
+    </GoogleCalendarProvider>
   );
 };

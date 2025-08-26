@@ -4,29 +4,25 @@
 import { 
   GoogleCalendarContext, 
   initialGoogleCalendarState, 
-  type GoogleCalendarState 
 } from '@/hooks/use-google-calendar';
 import type { Session } from '@supabase/supabase-js';
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
-export const GoogleCalendarProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = useState<GoogleCalendarState>(initialGoogleCalendarState);
+interface GoogleCalendarProviderProps {
+    children: ReactNode;
+    session: Session | null;
+    providerToken: string | null;
+}
 
-  const setProviderToken = (token: string | null) => {
-    setState(prevState => ({ ...prevState, providerToken: token }));
-  };
-
-  const setSession = (session: Session | null) => {
-    setState(prevState => ({ ...prevState, session }));
-  };
+export const GoogleCalendarProvider = ({ children, session, providerToken }: GoogleCalendarProviderProps) => {
 
   const getCalendarList = async () => {
-    if (!state.providerToken) {
+    if (!providerToken) {
       throw new Error("Provider token not available.");
     }
     const response = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
       headers: {
-        'Authorization': `Bearer ${state.providerToken}`
+        'Authorization': `Bearer ${providerToken}`
       }
     });
 
@@ -39,9 +35,10 @@ export const GoogleCalendarProvider = ({ children }: { children: ReactNode }) =>
   };
 
   const value = {
-    ...state,
-    setProviderToken,
-    setSession,
+    session,
+    providerToken,
+    setProviderToken: () => {}, // No-op, managed by CombinedProvider
+    setSession: () => {}, // No-op, managed by CombinedProvider
     getCalendarList,
   };
 
