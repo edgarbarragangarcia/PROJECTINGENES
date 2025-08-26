@@ -10,9 +10,9 @@ import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
-import { ChevronLeft, ChevronRight, NotebookPen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, NotebookPen, Plus } from 'lucide-react';
 import { TaskFormDialog } from '../task/task-form-dialog';
-import { NoteFormDialog } from '../note/note-form-dialog';
+import { DailyNotesDialog } from '../note/daily-notes-dialog';
 import { useDailyNotes } from '@/hooks/use-daily-notes';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,11 +36,11 @@ const statusColors: { [key in Status]: string } = {
 
 export function CalendarPage() {
   const { tasks } = useTasks();
-  const { getNoteByDate } = useDailyNotes();
+  const { getNotesByDate } = useDailyNotes();
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [editingNoteForDate, setEditingNoteForDate] = useState<Date | null>(null);
+  const [selectedDateForNotes, setSelectedDateForNotes] = useState<Date | null>(null);
 
   useEffect(() => {
     setCurrentDate(new Date());
@@ -52,7 +52,12 @@ export function CalendarPage() {
     }
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
-    const startDate = monthStart.getDay() === 0 ? subDays(monthStart, 6) : subDays(monthStart, monthStart.getDay() - 1);
+    
+    // Ajustar para que la semana empiece en Lunes
+    const dayOfWeek = monthStart.getDay();
+    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1; // Lunes = 0, Domingo = 6
+    const startDate = subDays(monthStart, diff);
+
     const endDate = addDays(startDate, 41);
     const daysInGrid = eachDayOfInterval({ start: startDate, end: endDate });
     return { daysInGrid, monthStart };
@@ -116,23 +121,23 @@ export function CalendarPage() {
                 Conectar con Google
              </Button>
             <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft/></Button>
-            <h2 className='text-xl font-headline w-48 text-center'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
+            <h2 className='text-xl font-headline w-48 text-center capitalize'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
             <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight/></Button>
          </div>
       </PageHeader>
       <div className="flex-1 overflow-auto p-4 md:px-8 lg:px-12">
-        <div className="grid grid-cols-7 grid-rows-6 border-t border-l max-w-7xl mx-auto">
+        <div className="grid grid-cols-7 border-t border-l max-w-7xl mx-auto">
           {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
               <div key={day} className="p-2 border-b border-r text-center font-semibold text-sm bg-muted/50">{day}</div>
           ))}
           {daysInGrid.map((day) => {
             const dayKey = format(day, 'yyyy-MM-dd');
             const dayTasks = tasks.filter(t => t.startDate && t.dueDate && isSameDay(new Date(t.startDate), day));
-            const note = getNoteByDate(day);
+            const dayNotes = getNotesByDate(day);
             return (
               <div 
                 key={day.toISOString()} 
-                className={cn("relative border-b border-r p-1.5 min-h-[80px] flex flex-col group",
+                className={cn("relative border-b border-r p-1.5 min-h-[100px] flex flex-col group",
                 !isSameMonth(day, currentDate) && 'bg-muted/30',
                 isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
               )}>
@@ -144,16 +149,21 @@ export function CalendarPage() {
                   )}>
                     {format(day, 'd')}
                   </time>
-                  <Button variant="ghost" size="icon" className="size-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setEditingNoteForDate(day)}>
+                  <Button variant="ghost" size="icon" className="size-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedDateForNotes(day)}>
                     <NotebookPen className="size-4" />
                   </Button>
                 </div>
-                <div className="mt-1 flex-1 relative">
-                  {note && (
-                    <div className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm mb-1 line-clamp-2' title={note.note}>
-                      {note.note}
-                    </div>
-                  )}
+                <div className="mt-1 flex-1 relative space-y-1 overflow-hidden">
+                   {dayNotes.slice(0, 2).map(note => (
+                     <div key={note.id} className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm line-clamp-1' title={note.note}>
+                        - {note.note}
+                      </div>
+                   ))}
+                   {dayNotes.length > 2 && (
+                      <div className='text-xs text-muted-foreground font-medium'>
+                        y {dayNotes.length - 2} más...
+                      </div>
+                   )}
                   {dayTasks.map((task) => (
                     <div 
                           key={task.id}
@@ -163,7 +173,7 @@ export function CalendarPage() {
                           )}
                           style={{
                               width: `calc(${differenceInDays(new Date(task.dueDate!), new Date(task.startDate!)) + 1} * 100% + ${differenceInDays(new Date(task.dueDate!), new Date(task.startDate!))}px)`,
-                              top: `${getTaskPosition(day, task) * 24}px`,
+                              top: `${getTaskPosition(day, task) * 24 + (dayNotes.length * 20)}px`, // Offset by notes height
                               zIndex: getTaskPosition(day, task) + 1
                           }}
                           onClick={() => handleTaskClick(task)}
@@ -186,12 +196,11 @@ export function CalendarPage() {
           projectId={editingTask.projectId}
         />
       )}
-      {editingNoteForDate && (
-        <NoteFormDialog
-          open={!!editingNoteForDate}
-          onOpenChange={(isOpen) => !isOpen && setEditingNoteForDate(null)}
-          date={editingNoteForDate}
-          note={getNoteByDate(editingNoteForDate)}
+      {selectedDateForNotes && (
+        <DailyNotesDialog
+          open={!!selectedDateForNotes}
+          onOpenChange={(isOpen) => !isOpen && setSelectedDateForNotes(null)}
+          date={selectedDateForNotes}
         />
       )}
     </div>

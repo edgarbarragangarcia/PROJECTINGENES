@@ -23,9 +23,10 @@ export interface DailyNotesContextType extends DailyNotesState {
   fetchDailyNotes: () => Promise<void>;
   setDailyNotes: (notes: DailyNote[]) => void;
   setDailyNotesLoading: (loading: boolean) => void;
-  upsertNote: (note: string, date: Date) => Promise<void>;
-  deleteNote: (date: Date) => Promise<void>;
-  getNoteByDate: (date: Date) => DailyNote | undefined;
+  addNote: (note: string, date: Date) => Promise<void>;
+  updateNote: (id: string, note: string) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  getNotesByDate: (date: Date) => DailyNote[];
 }
 
 export const DailyNotesContext = createContext<DailyNotesContextType | undefined>(undefined);

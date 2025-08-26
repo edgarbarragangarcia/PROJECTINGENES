@@ -49,36 +49,43 @@ interface NoteFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   date: Date;
-  note?: DailyNote;
+  noteToEdit?: DailyNote;
 }
 
-export function NoteFormDialog({ open, onOpenChange, date, note }: NoteFormDialogProps) {
-  const { upsertNote, deleteNote } = useDailyNotes();
+export function NoteFormDialog({ open, onOpenChange, date, noteToEdit }: NoteFormDialogProps) {
+  const { addNote, updateNote, deleteNote } = useDailyNotes();
   const { toast } = useToast();
 
   const form = useForm<NoteFormValues>({
     resolver: zodResolver(noteFormSchema),
     defaultValues: {
-      note: note?.note || '',
+      note: noteToEdit?.note || '',
     },
   });
 
   const onSubmit = async (data: NoteFormValues) => {
     try {
-      await upsertNote(data.note, date);
-      toast({ title: 'Nota Guardada', description: `Tu nota para el ${format(date, 'PPP', { locale: es })} ha sido guardada.` });
+      if (noteToEdit) {
+        await updateNote(noteToEdit.id, data.note);
+        toast({ title: 'Nota Actualizada', description: 'Tu nota ha sido actualizada.' });
+      } else {
+        await addNote(data.note, date);
+        toast({ title: 'Nota Añadida', description: `Tu nota para el ${format(date, 'PPP', { locale: es })} ha sido guardada.` });
+      }
       onOpenChange(false);
+      form.reset();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error al guardar la nota', description: error.message });
     }
   };
 
   const handleDelete = async () => {
+    if (!noteToEdit) return;
     try {
-      await deleteNote(date);
-      toast({ title: 'Nota Eliminada', description: `Tu nota para el ${format(date, 'PPP', { locale: es })} ha sido eliminada.` });
+      await deleteNote(noteToEdit.id);
+      toast({ title: 'Nota Eliminada', description: `Tu nota ha sido eliminada.` });
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: any) => {
       toast({ variant: 'destructive', title: 'Error al eliminar la nota', description: error.message });
     }
   }
@@ -88,10 +95,10 @@ export function NoteFormDialog({ open, onOpenChange, date, note }: NoteFormDialo
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="font-headline">
-            Nota para el {format(date, 'PPPP', { locale: es })}
+            {noteToEdit ? 'Editar Nota' : 'Añadir Nota'} del {format(date, 'PPP', { locale: es })}
           </DialogTitle>
           <DialogDescription>
-            Añade o edita tu nota para este día.
+            {noteToEdit ? 'Edita tu nota.' : 'Añade una nueva nota para este día.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -109,13 +116,13 @@ export function NoteFormDialog({ open, onOpenChange, date, note }: NoteFormDialo
                 </FormItem>
               )}
             />
-            <DialogFooter className="justify-between">
+            <DialogFooter className="sm:justify-between gap-2">
               <div>
-                {note && (
+                {noteToEdit && (
                    <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button type="button" variant="destructive">
-                        <Trash2 />
+                      <Button type="button" variant="destructive" size="sm">
+                        <Trash2 className="size-4 mr-2" />
                         Eliminar
                       </Button>
                     </AlertDialogTrigger>
@@ -143,7 +150,7 @@ export function NoteFormDialog({ open, onOpenChange, date, note }: NoteFormDialo
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Guardar Nota</Button>
+                <Button type="submit">{noteToEdit ? 'Guardar Cambios' : 'Añadir Nota'}</Button>
               </div>
             </DialogFooter>
           </form>

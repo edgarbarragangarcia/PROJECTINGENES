@@ -75,7 +75,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setDailyNotesState({ ...initialDailyNotesState, loading: false });
       return;
     }
-    const { data, error } = await supabase.from('daily_notes').select('*');
+    const { data, error } = await supabase.from('daily_notes').select('*').order('created_at', { ascending: true });
     if (error) {
       console.error('Error fetching daily notes:', error);
       setDailyNotesState(prevState => ({ ...prevState, loading: false, error }));
@@ -181,62 +181,66 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
   const getTasksByProject = (projectId: string) => tasksState.tasks.filter(task => task.projectId === projectId);
 
-
-  const upsertNote = async (note: string, date: Date) => {
+  const addNote = async (note: string, date: Date) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
     const dateString = format(date, 'yyyy-MM-dd');
-    const existingNote = dailyNotesState.notes.find(n => n.date === dateString);
-
     const { data, error } = await supabase
       .from('daily_notes')
-      .upsert({ 
-        id: existingNote?.id,
+      .insert({
         user_id: user.id,
         date: dateString,
-        note: note
-      }, { onConflict: 'user_id,date' })
+        note: note,
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    if (data) {
+      setDailyNotesState(prevState => ({
+        ...prevState,
+        notes: [...prevState.notes, data].sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+      }));
+    }
+  };
+
+  const updateNote = async (id: string, note: string) => {
+    const { data, error } = await supabase
+      .from('daily_notes')
+      .update({ note })
+      .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    if(data) {
-        if (existingNote) {
-            setDailyNotesState(prevState => ({ ...prevState, notes: prevState.notes.map(n => n.id === data.id ? data : n) }));
-        } else {
-            setDailyNotesState(prevState => ({ ...prevState, notes: [...prevState.notes, data] }));
-        }
+    if (data) {
+      setDailyNotesState(prevState => ({
+        ...prevState,
+        notes: prevState.notes.map(n => (n.id === id ? data : n)),
+      }));
     }
   };
   
-  const deleteNote = async (date: Date) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Usuario no autenticado");
-
-    const dateString = format(date, 'yyyy-MM-dd');
-    const { error } = await supabase
-        .from('daily_notes')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('date', dateString);
+  const deleteNote = async (id: string) => {
+    const { error } = await supabase.from('daily_notes').delete().eq('id', id);
 
     if (error) throw error;
 
     setDailyNotesState(prevState => ({
-        ...prevState,
-        notes: prevState.notes.filter(n => n.date !== dateString)
+      ...prevState,
+      notes: prevState.notes.filter(n => n.id !== id),
     }));
   };
 
-  const getNoteByDate = (date: Date) => {
+  const getNotesByDate = (date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
-    return dailyNotesState.notes.find(n => n.date === dateString);
+    return dailyNotesState.notes.filter(n => n.date === dateString);
   };
   
   const projectsContextValue: ProjectsContextType = { ...projectsState, projects: projectsWithProgress, addProject, updateProject, deleteProject, fetchProjects, setProjects, setProjectsLoading, setProjectsError };
   const tasksContextValue: TasksContextType = { ...tasksState, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, setDraggedTask, fetchTasks, setTasks, setTasksLoading };
-  const dailyNotesContextValue: DailyNotesContextType = { ...dailyNotesState, fetchDailyNotes, setDailyNotes, setDailyNotesLoading, upsertNote, deleteNote, getNoteByDate };
+  const dailyNotesContextValue: DailyNotesContextType = { ...dailyNotesState, fetchDailyNotes, setDailyNotes, setDailyNotesLoading, addNote, updateNote, deleteNote, getNotesByDate };
 
   return (
     <ProjectsContext.Provider value={projectsContextValue}>
