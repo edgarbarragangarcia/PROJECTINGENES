@@ -3,7 +3,7 @@
 import { PageHeader } from '../layout/page-header';
 import type { Project, ProjectWithProgress, Task } from '@/lib/types';
 import { Button } from '../ui/button';
-import { MoreVertical, PlusCircle, Trash2, Edit, FileDown } from 'lucide-react';
+import { MoreVertical, PlusCircle, Trash2, Edit, FileDown, LayoutGrid, List } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Progress } from '../ui/progress';
 import { useProjects } from '@/hooks/use-projects';
@@ -26,6 +26,8 @@ import { ProjectChartComponent } from '../project/project-chart-component';
 import html2canvas from 'html2canvas';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import Image from 'next/image';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProjectListView } from '../project/project-list-view';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
@@ -174,47 +176,8 @@ export function ProjectsPage() {
     doc.save(`informe-proyectos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
 
-
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-             <Card key={i}>
-                <Skeleton className="h-[120px] w-full rounded-t-lg rounded-b-none" />
-                <CardHeader className="p-3">
-                    <Skeleton className="h-5 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                </CardHeader>
-                <CardContent className="p-3">
-                    <Skeleton className="h-3 w-full mb-2" />
-                    <Skeleton className="h-3 w-1/4" />
-                </CardContent>
-             </Card>
-           ))}
-        </div>
-      );
-    }
-
-    if (projects.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-full">
-            <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
-                <h2 className="text-2xl font-semibold font-headline">¡Bienvenido a tus Proyectos!</h2>
-                <p className="mt-2 text-muted-foreground max-w-md mx-auto">
-                    Parece que todavía no has creado ningún proyecto. ¡Empieza ahora para organizar tus tareas y alcanzar tus metas!
-                </p>
-                <Button className="mt-6" onClick={handleAddNew}>
-                    <PlusCircle className="mr-2" />
-                    Crea tu primer proyecto
-                </Button>
-            </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-4">
+  const renderCardView = () => (
+     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-4">
         {projects.map((project) => (
           <Card key={project.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm">
             <Link href={`/projects/${project.id}`} className="block">
@@ -291,6 +254,61 @@ export function ProjectsPage() {
           </Card>
         ))}
       </div>
+  );
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-4">
+          {Array.from({ length: 12 }).map((_, i) => (
+             <Card key={i}>
+                <Skeleton className="h-[120px] w-full rounded-t-lg rounded-b-none" />
+                <CardHeader className="p-3">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                </CardHeader>
+                <CardContent className="p-3">
+                    <Skeleton className="h-3 w-full mb-2" />
+                    <Skeleton className="h-3 w-1/4" />
+                </CardContent>
+             </Card>
+           ))}
+        </div>
+      );
+    }
+
+    if (projects.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full">
+            <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
+                <h2 className="text-2xl font-semibold font-headline">¡Bienvenido a tus Proyectos!</h2>
+                <p className="mt-2 text-muted-foreground max-w-md mx-auto">
+                    Parece que todavía no has creado ningún proyecto. ¡Empieza ahora para organizar tus tareas y alcanzar tus metas!
+                </p>
+                <Button className="mt-6" onClick={handleAddNew}>
+                    <PlusCircle className="mr-2" />
+                    Crea tu primer proyecto
+                </Button>
+            </div>
+        </div>
+      );
+    }
+
+    return (
+      <Tabs defaultValue="grid" className="w-full">
+        <div className="flex justify-end mb-4">
+            <TabsList>
+                <TabsTrigger value="grid"><LayoutGrid className="size-4 mr-2"/> Tarjetas</TabsTrigger>
+                <TabsTrigger value="list"><List className="size-4 mr-2"/> Lista</TabsTrigger>
+            </TabsList>
+        </div>
+        <TabsContent value="grid">
+            {renderCardView()}
+        </TabsContent>
+        <TabsContent value="list">
+            <ProjectListView projects={projects} tasks={tasks} onEdit={handleEdit} onDelete={handleDelete} />
+        </TabsContent>
+    </Tabs>
     );
   };
 
@@ -300,7 +318,7 @@ export function ProjectsPage() {
         <PageHeader title="Proyectos">
           <div className='flex items-center gap-2'>
             {isAdmin && (
-              <Button size="sm" variant="outline" onClick={handleDownloadPdf}>
+              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={projects.length === 0}>
                 <FileDown />
                 Generar Informe PDF
               </Button>
