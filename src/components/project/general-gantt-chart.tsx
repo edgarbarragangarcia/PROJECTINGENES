@@ -27,6 +27,7 @@ const ROW_HEIGHT = 40; // px
 
 export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
   const leftPanelRef = useRef<HTMLDivElement>(null);
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
   const [dayWidth, setDayWidth] = useState(40);
 
   const handleVerticalScroll = (e: UIEvent<HTMLDivElement>) => {
@@ -150,7 +151,11 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
             </div>
 
             {/* Right Panel: Timeline */}
-            <ScrollArea className="flex-1" onScroll={handleVerticalScroll}>
+            <ScrollArea 
+                className="flex-1" 
+                onScroll={handleVerticalScroll}
+                ref={timelineContainerRef}
+            >
                 <div className="h-full relative" style={{ width: totalDays * dayWidth }}>
                     <div className="sticky top-0 z-10 bg-card">
                         <div className="flex h-[30px] border-b">
