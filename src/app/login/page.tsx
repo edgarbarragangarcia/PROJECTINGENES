@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,15 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Zap } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+
+const GoogleIcon = () => (
+    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="size-5">
+        <title>Google</title>
+        <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.3 1.63-4.5 1.63-5.52 0-10-4.48-10-10s4.48-10 10-10c3.04 0 5.25 1.22 6.46 2.35l-2.65 2.65C14.54 9.17 13.56 8.5 12 8.5c-4.42 0-8 3.58-8 8s3.58 8 8 8c4.89 0 7.23-3.23 7.5-6.82h-7.5Z" />
+    </svg>
+);
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -48,6 +58,20 @@ export default function LoginPage() {
       alert('¡Revisa tu correo para confirmar el registro!');
     }
   };
+  
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+      setError(error.message);
+    }
+  };
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-secondary">
@@ -62,23 +86,41 @@ export default function LoginPage() {
           <CardDescription>Inicia sesión para gestionar tus proyectos</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignIn}>
-            <div className="grid w-full items-center gap-4">
-              <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <div className="grid gap-4">
+             <Button variant="outline" onClick={handleGoogleSignIn}>
+                <GoogleIcon />
+                Continuar con Google
+            </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
               </div>
-              <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="password">Contraseña</Label>
-                <Input id="password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
-              {error && <p className="text-destructive text-sm text-center">{error}</p>}
-              <div className="flex flex-col space-y-2">
-                <Button type="submit">Iniciar Sesión</Button>
-                <Button type="button" variant="outline" onClick={handleSignUp}>Registrarse</Button>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  O continuar con
+                </span>
               </div>
             </div>
-          </form>
+
+            <form onSubmit={handleSignIn} className="grid gap-4">
+              <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </div>
+              <div className="grid gap-2">
+                  <Label htmlFor="password">Contraseña</Label>
+                  <Input id="password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              </div>
+
+              {error && <p className="text-destructive text-sm text-center">{error}</p>}
+              
+              <div className="flex flex-col space-y-2">
+                  <Button type="submit">Iniciar Sesión</Button>
+                  <Button type="button" variant="outline" onClick={handleSignUp}>Registrarse</Button>
+              </div>
+            </form>
+          </div>
         </CardContent>
       </Card>
     </div>
