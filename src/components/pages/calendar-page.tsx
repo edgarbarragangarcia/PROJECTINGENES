@@ -68,7 +68,7 @@ export function CalendarPage() {
 
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       <PageHeader title="Calendario">
          <div className='flex items-center gap-2'>
             <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft/></Button>
@@ -85,7 +85,7 @@ export function CalendarPage() {
           const dayKey = format(day, 'yyyy-MM-dd');
           const dayTasks = tasks.filter(t => t.startDate && t.dueDate && isSameDay(new Date(t.startDate), day));
           return (
-            <div key={day.toString()} className={cn("relative border-b border-r p-1.5 min-h-[100px] flex flex-col",
+            <div key={day.toString()} className={cn("relative border-b border-r p-1.5 min-h-[80px] flex flex-col",
               isSameMonth(day, new Date()) ? 'bg-background' : 'bg-muted/30',
               isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
             )}>
