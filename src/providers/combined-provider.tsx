@@ -19,7 +19,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
   const [session, setSession] = useState<any>(null);
   const [providerToken, setProviderToken] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -350,9 +349,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     addProject, 
     updateProject, 
     deleteProject, 
-    fetchProjects: (user: User) => { 
-      if (user) fetchProjects(user) 
-    }, 
+    fetchProjects, 
     setProjects, 
     setProjectsLoading, 
     setProjectsError 
@@ -366,18 +363,14 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     getTasksByStatus, 
     getTasksByProject, 
     setDraggedTask, 
-    fetchTasks: (user: User) => { 
-      if (user) fetchTasks(user) 
-    }, 
+    fetchTasks,
     setTasks, 
     setTasksLoading 
   };
   
   const dailyNotesContextValue: DailyNotesContextType = { 
     ...dailyNotesState, 
-    fetchDailyNotes: (user: User) => {
-      if (user) fetchDailyNotes(user);
-    }, 
+    fetchDailyNotes,
     setDailyNotes, 
     setDailyNotesLoading, 
     addNote, 
