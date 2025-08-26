@@ -1,85 +1,50 @@
--- 1. Enable RLS on the 'projects' table
+-- Habilitar RLS para las tablas
 alter table public.projects enable row level security;
-
--- 2. Create a policy that allows authenticated users to see all projects
--- if they are an admin, otherwise they can only see their own.
-create policy "Allow all access to admins, and user-specific for others"
-on public.projects
-for select
-to authenticated
-using (
-  (auth.uid() = user_id) OR
-  (auth.email() = 'eabarragang@ingenes.com') OR
-  (auth.email() = 'ntorres@ingenes.com')
-);
-
--- 3. Create a policy that allows users to insert their own projects.
-create policy "Allow users to insert their own projects"
-on public.projects
-for insert
-to authenticated
-with check (
-  auth.uid() = user_id
-);
-
--- 4. Create a policy that allows users to update their own projects.
-create policy "Allow users to update their own projects"
-on public.projects
-for update
-to authenticated
-using (
-  auth.uid() = user_id
-);
-
--- 5. Create a policy that allows users to delete their own projects.
-create policy "Allow users to delete their own projects"
-on public.projects
-for delete
-to authenticated
-using (
-  auth.uid() = user_id
-);
-
-
--- TASKS TABLE POLICIES --
-
--- 6. Enable RLS on the 'tasks' table
 alter table public.tasks enable row level security;
 
--- 7. Create a policy for SELECT operations on tasks
-create policy "Allow all access to admins, and user-specific for others on tasks"
-on public.tasks
-for select
-to authenticated
-using (
-  (auth.uid() = user_id) OR
-  (auth.email() = 'eabarragang@ingenes.com') OR
-  (auth.email() = 'ntorres@ingenes.com')
+-- Eliminar políticas existentes si es necesario (para evitar errores en re-aplicación)
+drop policy if exists "Allow authenticated users to view projects" on projects;
+drop policy if exists "Allow user to create projects" on projects;
+drop policy if exists "Allow user to update their own projects" on projects;
+drop policy if exists "Allow user to delete their own projects" on projects;
+
+drop policy if exists "Allow authenticated users to view tasks" on tasks;
+drop policy if exists "Allow user to create tasks" on tasks;
+drop policy if exists "Allow user to update their own tasks" on tasks;
+drop policy if exists "Allow user to delete their own tasks" on tasks;
+
+-- Políticas para la tabla 'projects'
+create policy "Allow authenticated users to view projects" on projects for select using (
+  auth.uid() = user_id or 
+  (select auth.jwt() ->> 'email') in ('eabarragang@ingenes.com', 'ntorres@ingenes.com', 'edgarbarragangarcia@gmail.com')
 );
 
--- 8. Create a policy for INSERT operations on tasks
-create policy "Allow users to insert their own tasks"
-on public.tasks
-for insert
-to authenticated
-with check (
+create policy "Allow user to create projects" on projects for insert with check (
   auth.uid() = user_id
 );
 
--- 9. Create a policy for UPDATE operations on tasks
-create policy "Allow users to update their own tasks"
-on public.tasks
-for update
-to authenticated
-using (
+create policy "Allow user to update their own projects" on projects for update using (
   auth.uid() = user_id
 );
 
--- 10. Create a policy for DELETE operations on tasks
-create policy "Allow users to delete their own tasks"
-on public.tasks
-for delete
-to authenticated
-using (
+create policy "Allow user to delete their own projects" on projects for delete using (
+  auth.uid() = user_id
+);
+
+-- Políticas para la tabla 'tasks'
+create policy "Allow authenticated users to view tasks" on tasks for select using (
+  auth.uid() = user_id or
+  (select auth.jwt() ->> 'email') in ('eabarragang@ingenes.com', 'ntorres@ingenes.com', 'edgarbarragangarcia@gmail.com')
+);
+
+create policy "Allow user to create tasks" on tasks for insert with check (
+  auth.uid() = user_id
+);
+
+create policy "Allow user to update their own tasks" on tasks for update using (
+  auth.uid() = user_id
+);
+
+create policy "Allow user to delete their own tasks" on tasks for delete using (
   auth.uid() = user_id
 );
