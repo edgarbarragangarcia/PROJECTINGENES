@@ -179,7 +179,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (error) throw error;
     if (data) {
         const anyUser = data.users as any;
-        const newProject = { ...data, users: anyUser ? { email: anyUser.email, full_name: anyUser.raw_user_meta_data.full_name } : null };
+        const newProject = { ...data, users: anyUser ? { email: anyUser.email, full_name: anyUser.raw_user_meta_data?.full_name || anyUser.email } : null };
         setProjectsState(prevState => ({ ...prevState, projects: [newProject, ...prevState.projects] }));
     }
   };
