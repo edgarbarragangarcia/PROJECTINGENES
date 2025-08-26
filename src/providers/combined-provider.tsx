@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 
-const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com'];
+const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
 
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [projectsState, setProjectsState] = useState<ProjectsState>(initialProjectsState);
