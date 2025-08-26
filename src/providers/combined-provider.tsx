@@ -44,7 +44,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    let query = supabase.from('projects').select('*, users(email)');
+    let query = supabase.from('projects').select('*');
     
     if (user.email !== 'edgarbarragangarcia@gmail.com') {
       query = query.eq('user_id', user.id);
@@ -55,9 +55,34 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       console.error('Error fetching projects:', error);
       setProjectsState(prevState => ({ ...prevState, loading: false, error }));
-    } else {
-      setProjectsState(prevState => ({ ...prevState, loading: false, projects: data || [] }));
+      return;
+    } 
+    
+    if (data) {
+        const userIds = [...new Set(data.map(p => p.user_id))];
+        const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers({
+            perPage: 1000
+        });
+
+        if (usersError) {
+            console.error('Error fetching users:', usersError);
+            setProjectsState(prevState => ({...prevState, loading: false, error: usersError}));
+            return;
+        }
+
+        const usersMap = new Map(usersData.users.map(u => [u.id, u]));
+
+        const projectsWithUsers = data.map(project => {
+            const projectUser = usersMap.get(project.user_id);
+            return {
+                ...project,
+                users: projectUser ? { email: projectUser.email || 'N/A' } : null
+            };
+        });
+
+        setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithUsers || [] }));
     }
+
   }, [supabase]);
 
   const fetchTasks = useCallback(async () => {
@@ -159,9 +184,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>>) => {
     const { error } = await supabase.from('projects').update(data).eq('id', id);
     if (error) throw error;
-    const { data: updatedData, error: selectError } = await supabase.from('projects').select('*, users(email)').eq('id', id).single();
-    if(selectError) throw selectError;
-    setProjectsState(prevState => ({ ...prevState, projects: prevState.projects.map((p) => (p.id === id ? { ...p, ...updatedData } : p)) }));
+    await fetchProjects();
   };
 
   const deleteProject = async (id: string) => {
