@@ -33,7 +33,7 @@ export interface Project {
   image_url: string;
   status: ProjectStatus;
   user_id: string;
-  profiles: { email: string } | null;
+  users: { email: string } | null;
 }
 
 export interface ProjectWithProgress extends Project {

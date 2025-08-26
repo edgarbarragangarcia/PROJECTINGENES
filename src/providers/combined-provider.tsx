@@ -44,7 +44,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    let query = supabase.from('projects').select('*, profiles(email)');
+    let query = supabase.from('projects').select('*, users(email)');
     
     if (user.email !== 'edgarbarragangarcia@gmail.com') {
       query = query.eq('user_id', user.id);
@@ -148,18 +148,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [projectsState.projects, tasksState.tasks, calculateProgress]);
 
 
-  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'profiles'>) => {
+  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
-    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*, profiles(email)').single();
+    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*, users(email)').single();
     if (error) throw error;
     if (data) setProjectsState(prevState => ({ ...prevState, projects: [data, ...prevState.projects] }));
   };
 
-  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'profiles'>>) => {
+  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>>) => {
     const { error } = await supabase.from('projects').update(data).eq('id', id);
     if (error) throw error;
-    const { data: updatedData, error: selectError } = await supabase.from('projects').select('*, profiles(email)').eq('id', id).single();
+    const { data: updatedData, error: selectError } = await supabase.from('projects').select('*, users(email)').eq('id', id).single();
     if(selectError) throw selectError;
     setProjectsState(prevState => ({ ...prevState, projects: prevState.projects.map((p) => (p.id === id ? { ...p, ...updatedData } : p)) }));
   };

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -108,10 +109,10 @@ function ProjectCard({ project }: { project: ProjectWithProgress }) {
                 <CardTitle className="text-lg font-headline mb-1">{project.name}</CardTitle>
                 <div className="flex-1 h-10 space-y-2">
                   <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
-                   {project.profiles?.email && (
+                   {project.users?.email && (
                     <div className='flex items-center gap-2 text-xs text-muted-foreground pt-1'>
                       <User className='size-3.5'/> 
-                      <span>{project.profiles.email}</span>
+                      <span>{project.users.email}</span>
                     </div>
                   )}
                 </div>
