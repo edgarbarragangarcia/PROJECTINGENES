@@ -9,7 +9,7 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
-import { BarChart, PieChart, PlusCircle, User } from 'lucide-react';
+import { BarChart, FolderKanban, PieChart, PlusCircle, User } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, CartesianGrid, XAxis, YAxis, Pie, Cell } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
@@ -47,50 +47,14 @@ import Link from 'next/link';
     }
   } satisfies ChartConfig;
 
-function ProjectCard({ project }: { project: ProjectWithProgress }) {
-    const isCompleted = project.status === 'Completado' || project.progress === 100;
-    const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
-        switch (status) {
-          case 'Completado': return 'default';
-          case 'En Progreso': return 'secondary';
-          case 'En Pausa': return 'outline';
-          default: return 'outline';
-        }
-      };
-
-    return (
-      <Link href={`/projects/${project.id}`} className="block">
-      <Card className={cn(
-          "overflow-hidden flex flex-col h-full transition-all hover:shadow-lg",
-          isCompleted && "bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:border-emerald-800"
-      )}>
-        <CardHeader>
-            <CardTitle className="text-lg font-headline mb-1 truncate">{project.name}</CardTitle>
-            <p className="text-sm text-muted-foreground line-clamp-2 flex-1 h-10">{project.description}</p>
-        </CardHeader>
-        <CardContent className="p-4 pt-0 flex-1 flex flex-col justify-end gap-4">
-             {project.users?.email && (
-                <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-                   <User className='size-3.5'/> 
-                   <span>{project.users.email}</span>
-                </div>
-            )}
-            <div>
-                <div className='flex justify-between items-center mb-1'>
-                    <span className="text-sm font-medium text-muted-foreground">Progreso</span>
-                    <span className="text-sm font-bold">{project.progress}%</span>
-                </div>
-                <Progress value={project.progress || 0} aria-label={`${project.progress}% de progreso`} className={cn(isCompleted && '[&>div]:bg-emerald-500')} />
-            </div>
-            
-        </CardContent>
-        <CardFooter className="p-4 pt-0 flex justify-between items-center">
-            <Badge variant={getStatusBadgeVariant(project.status)} className={cn(isCompleted && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
-        </CardFooter>
-      </Card>
-      </Link>
-    );
-}
+  const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
+    switch (status) {
+      case 'Completado': return 'default';
+      case 'En Progreso': return 'secondary';
+      case 'En Pausa': return 'outline';
+      default: return 'outline';
+    }
+  };
 
 export function DashboardPage() {
     const { tasks } = useTasks();
@@ -117,9 +81,9 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader title="Dashboard" />
-      <div className="flex-1 overflow-auto p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="flex-1 overflow-auto p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-1">
             <CardHeader>
                 <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas</CardTitle>
             </CardHeader>
@@ -187,19 +151,23 @@ export function DashboardPage() {
         
         <Card>
           <CardHeader>
-            <CardTitle>Proyectos Activos</CardTitle>
+            <CardTitle className='flex items-center gap-2'><FolderKanban className='size-5' />Proyectos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold font-headline">{projects.filter(p => p.status === 'En Progreso').length}</div>
-            <p className="text-xs text-muted-foreground">
-                de {projects.length} proyectos totales
-            </p>
+              <div className='space-y-4'>
+                {projects.map(project => (
+                   <Link href={`/projects/${project.id}`} key={project.id} className="block hover:bg-muted/50 p-2 rounded-md">
+                     <div className='flex justify-between items-center mb-1'>
+                       <span className='font-semibold text-sm'>{project.name}</span>
+                       <Badge variant={getStatusBadgeVariant(project.status)}>{project.status}</Badge>
+                     </div>
+                     <Progress value={project.progress} className='h-2' />
+                   </Link>
+                ))}
+              </div>
           </CardContent>
         </Card>
 
-        {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
-        ))}
       </div>
        {isFormOpen && <TaskFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectId={projectId} />}
     </div>

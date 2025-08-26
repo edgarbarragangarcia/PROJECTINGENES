@@ -3,11 +3,8 @@
 
 import { PageHeader } from '../layout/page-header';
 import type { ProjectWithProgress } from '@/lib/types';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card';
-import Image from 'next/image';
-import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { MoreVertical, PlusCircle, User } from 'lucide-react';
+import { MoreVertical, PlusCircle, Trash2, Edit } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Progress } from '../ui/progress';
 import { useProjects } from '@/hooks/use-projects';
@@ -17,143 +14,71 @@ import Link from 'next/link';
 import { Skeleton } from '../ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 
 
-function ProjectCard({ project }: { project: ProjectWithProgress }) {
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const { deleteProject } = useProjects();
-    const { toast } = useToast();
-    const isCompleted = project.status === 'Completado' || project.progress === 100;
+export function ProjectsPage() {
+  const { projects, loading, deleteProject } = useProjects();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
+  const { toast } = useToast();
 
-    const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
-        switch (status) {
-          case 'Completado': return 'default';
-          case 'En Progreso': return 'secondary';
-          case 'En Pausa': return 'outline';
-          default: return 'outline';
-        }
-    };
-    
-    const handleDelete = async () => {
-        try {
-            await deleteProject(project.id);
-            toast({
-                title: 'Proyecto Eliminado',
-                description: `El proyecto "${project.name}" ha sido eliminado.`,
-            });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Error al eliminar',
-                description: error.message,
-            });
-        }
-    };
-
-    return (
-    <>
-      <Card className={cn(
-          "overflow-hidden flex flex-col transition-all hover:shadow-lg group w-full",
-          isCompleted && "bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:border-emerald-800"
-      )}>
-          <CardHeader className="p-0 relative">
-            <Link href={`/projects/${project.id}`} className="block">
-              <Image
-                src={project.image_url || 'https://picsum.photos/600/400'}
-                alt={project.name}
-                width={600}
-                height={400}
-                className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                data-ai-hint="imagen del proyecto"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-            </Link>
-             <div className="absolute top-2 right-2">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" size="icon" className="size-8 bg-black/30 hover:bg-black/50 border-0 text-white">
-                            <MoreVertical className="size-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setIsFormOpen(true)}>Editar</DropdownMenuItem>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>Eliminar</DropdownMenuItem>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta acción no se puede deshacer. Esto eliminará permanentemente el proyecto y todas sus tareas asociadas.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                                Eliminar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-               <div className="absolute bottom-0 left-0 p-4">
-                  <Badge variant={getStatusBadgeVariant(project.status)} className={cn(isCompleted && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
-              </div>
-            </CardHeader>
-            <Link href={`/projects/${project.id}`} className="flex flex-col flex-grow">
-            <CardContent className="p-4 flex-grow flex flex-col">
-                <CardTitle className="text-lg font-headline mb-1">{project.name}</CardTitle>
-                <div className="flex-1 h-10 space-y-2">
-                  <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
-                   {project.users?.email && (
-                    <div className='flex items-center gap-2 text-xs text-muted-foreground pt-1'>
-                      <User className='size-3.5'/> 
-                      <span>{project.users.email}</span>
-                    </div>
-                  )}
-                </div>
-            </CardContent>
-            <CardFooter className="p-4 pt-0">
-               <div className="w-full">
-                    <div className='flex justify-between items-center mb-1 text-sm text-muted-foreground'>
-                        <span>Progreso</span>
-                        <span className="font-semibold text-foreground">{project.progress}%</span>
-                    </div>
-                    <Progress value={project.progress || 0} aria-label={`${project.progress}% de progreso`} className={cn(isCompleted && '[&>div]:bg-emerald-500')} />
-                </div>
-            </CardFooter>
-          </Link>
-      </Card>
-      {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectToEdit={project} />}
-    </>
-    );
+  const handleEdit = (project: ProjectWithProgress) => {
+    setProjectToEdit(project);
+    setIsFormOpen(true);
+  };
+  
+  const handleAddNew = () => {
+    setProjectToEdit(undefined);
+    setIsFormOpen(true);
   }
 
-export function ProjectsPage() {
-  const { projects, loading } = useProjects();
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const handleDelete = async (projectId: string, projectName: string) => {
+    try {
+      await deleteProject(projectId);
+      toast({
+        title: 'Proyecto Eliminado',
+        description: `El proyecto "${projectName}" ha sido eliminado.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al eliminar',
+        description: error.message,
+      });
+    }
+  };
+  
+  const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
+    switch (status) {
+      case 'Completado': return 'default';
+      case 'En Progreso': return 'secondary';
+      case 'En Pausa': return 'outline';
+      default: return 'outline';
+    }
+  };
+
 
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-         {Array.from({ length: 4 }).map((_, i) => (
-           <Card key={i}>
-             <Skeleton className="h-48 w-full" />
-             <CardContent className="p-4 space-y-2">
-               <Skeleton className="h-6 w-3/4" />
-               <Skeleton className="h-4 w-full" />
-               <Skeleton className="h-4 w-1/2" />
-             </CardContent>
-             <CardFooter className="p-4">
-                <Skeleton className="h-8 w-full" />
-             </CardFooter>
-           </Card>
-         ))}
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+             <div key={i} className="flex items-center gap-4 p-4 border rounded-md">
+                <Skeleton className="h-6 w-1/3" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-6 w-1/4" />
+             </div>
+           ))}
         </div>
       );
     }
@@ -166,7 +91,7 @@ export function ProjectsPage() {
                 <p className="mt-2 text-muted-foreground max-w-md mx-auto">
                     Parece que todavía no has creado ningún proyecto. ¡Empieza ahora para organizar tus tareas y alcanzar tus metas!
                 </p>
-                <Button className="mt-6" onClick={() => setIsFormOpen(true)}>
+                <Button className="mt-6" onClick={handleAddNew}>
                     <PlusCircle className="mr-2" />
                     Crea tu primer proyecto
                 </Button>
@@ -176,10 +101,78 @@ export function ProjectsPage() {
     }
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
-        ))}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[40%]">Nombre del Proyecto</TableHead>
+              <TableHead className="w-[25%]">Progreso</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Creado por</TableHead>
+              <TableHead className="text-right"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {projects.map((project) => (
+              <TableRow key={project.id}>
+                <TableCell className="font-medium">
+                  <Link href={`/projects/${project.id}`} className="hover:underline">
+                    {project.name}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Progress value={project.progress} className="h-2 w-full" />
+                    <span className="text-xs text-muted-foreground">{project.progress}%</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                    <Badge variant={getStatusBadgeVariant(project.status)} className={cn(project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
+                </TableCell>
+                 <TableCell className="text-muted-foreground text-xs">
+                    {project.users?.email || 'N/A'}
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8">
+                        <MoreVertical className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(project)}>
+                        <Edit className="mr-2 size-4"/>
+                        Editar
+                      </DropdownMenuItem>
+                       <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>
+                            <Trash2 className="mr-2 size-4"/>
+                            Eliminar
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta acción no se puede deshacer. Esto eliminará permanentemente el proyecto y todas sus tareas asociadas.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(project.id, project.name)} className="bg-destructive hover:bg-destructive/90">
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     );
   };
@@ -188,7 +181,7 @@ export function ProjectsPage() {
     <>
     <div className="flex flex-col h-full">
        <PageHeader title="Proyectos">
-          <Button size="sm" onClick={() => setIsFormOpen(true)}>
+          <Button size="sm" onClick={handleAddNew}>
             <PlusCircle />
             Añadir Proyecto
           </Button>
@@ -197,7 +190,7 @@ export function ProjectsPage() {
          {renderContent()}
       </div>
     </div>
-    {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} />}
+    {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectToEdit={projectToEdit} />}
     </>
   );
 }
