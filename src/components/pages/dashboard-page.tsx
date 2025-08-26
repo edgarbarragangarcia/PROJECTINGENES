@@ -8,7 +8,7 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
-import { BarChart, PieChart, PlusCircle } from 'lucide-react';
+import { BarChart, PieChart, PlusCircle, User } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, CartesianGrid, XAxis, YAxis, Pie, Cell } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
@@ -66,6 +66,12 @@ function ProjectCard({ project }: { project: ProjectWithProgress }) {
             <p className="text-sm text-muted-foreground line-clamp-2 flex-1">{project.description}</p>
         </CardHeader>
         <CardContent className="p-4 pt-0 flex-1 flex flex-col gap-4">
+             {project.profiles?.email && (
+                <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+                   <User className='size-3.5'/> 
+                   <span>Creado por {project.profiles.email}</span>
+                </div>
+            )}
             <div>
                 <div className='flex justify-between items-center mb-1'>
                     <span className="text-sm font-medium text-muted-foreground">Progreso</span>

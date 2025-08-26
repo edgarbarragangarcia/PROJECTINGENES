@@ -21,8 +21,8 @@ export const initialProjectsState: ProjectsState = {
 // --- CONTEXT ---
 
 export interface ProjectsContextType extends ProjectsState {
-  addProject: (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>) => Promise<void>;
-  updateProject: (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>>) => Promise<void>;
+  addProject: (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'profiles'>) => Promise<void>;
+  updateProject: (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'profiles'>>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   fetchProjects: () => Promise<void>;
   setProjects: (projects: ProjectWithProgress[]) => void;

@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card
 import Image from 'next/image';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { MoreVertical, PlusCircle } from 'lucide-react';
+import { MoreVertical, PlusCircle, User } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Progress } from '../ui/progress';
 import { useProjects } from '@/hooks/use-projects';
@@ -106,8 +106,14 @@ function ProjectCard({ project }: { project: ProjectWithProgress }) {
             <Link href={`/projects/${project.id}`} className="flex flex-col flex-grow">
             <CardContent className="p-4 flex-grow flex flex-col">
                 <CardTitle className="text-lg font-headline mb-1">{project.name}</CardTitle>
-                <div className="flex-1 h-10">
+                <div className="flex-1 h-10 space-y-2">
                   <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+                   {project.profiles?.email && (
+                    <div className='flex items-center gap-2 text-xs text-muted-foreground pt-1'>
+                      <User className='size-3.5'/> 
+                      <span>{project.profiles.email}</span>
+                    </div>
+                  )}
                 </div>
             </CardContent>
             <CardFooter className="p-4 pt-0">
