@@ -1,38 +1,85 @@
--- Habilitar RLS en la tabla de proyectos si aún no está habilitada
+-- 1. Enable RLS on the 'projects' table
 alter table public.projects enable row level security;
 
--- Eliminar la política anterior si existe, para evitar conflictos
-drop policy if exists "Allow authenticated users to read projects" on public.projects;
-
--- Crear la nueva política de SELECT
-create policy "Allow authenticated users to read projects"
-on public.projects for select
+-- 2. Create a policy that allows authenticated users to see all projects
+-- if they are an admin, otherwise they can only see their own.
+create policy "Allow all access to admins, and user-specific for others"
+on public.projects
+for select
 to authenticated
 using (
-  -- El usuario puede ver el proyecto si es el propietario
-  auth.uid() = user_id OR
-  -- O si el email del usuario está en la lista de administradores
-  auth.email() IN ('eabarragang@ingenes.com', 'ntorres@ingenes.com')
+  (auth.uid() = user_id) OR
+  (auth.email() = 'eabarragang@ingenes.com') OR
+  (auth.email() = 'ntorres@ingenes.com')
 );
 
--- Asegurarse de que los usuarios puedan crear proyectos
-drop policy if exists "Allow authenticated users to create projects" on public.projects;
-create policy "Allow authenticated users to create projects"
-on public.projects for insert
+-- 3. Create a policy that allows users to insert their own projects.
+create policy "Allow users to insert their own projects"
+on public.projects
+for insert
 to authenticated
-with check (auth.uid() = user_id);
+with check (
+  auth.uid() = user_id
+);
 
--- Asegurarse de que los usuarios puedan actualizar sus propios proyectos
-drop policy if exists "Allow authenticated users to update their own projects" on public.projects;
-create policy "Allow authenticated users to update their own projects"
-on public.projects for update
+-- 4. Create a policy that allows users to update their own projects.
+create policy "Allow users to update their own projects"
+on public.projects
+for update
 to authenticated
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+);
 
--- Asegurarse de que los usuarios puedan eliminar sus propios proyectos
-drop policy if exists "Allow authenticated users to delete their own projects" on public.projects;
-create policy "Allow authenticated users to delete their own projects"
-on public.projects for delete
+-- 5. Create a policy that allows users to delete their own projects.
+create policy "Allow users to delete their own projects"
+on public.projects
+for delete
 to authenticated
-using (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+);
+
+
+-- TASKS TABLE POLICIES --
+
+-- 6. Enable RLS on the 'tasks' table
+alter table public.tasks enable row level security;
+
+-- 7. Create a policy for SELECT operations on tasks
+create policy "Allow all access to admins, and user-specific for others on tasks"
+on public.tasks
+for select
+to authenticated
+using (
+  (auth.uid() = user_id) OR
+  (auth.email() = 'eabarragang@ingenes.com') OR
+  (auth.email() = 'ntorres@ingenes.com')
+);
+
+-- 8. Create a policy for INSERT operations on tasks
+create policy "Allow users to insert their own tasks"
+on public.tasks
+for insert
+to authenticated
+with check (
+  auth.uid() = user_id
+);
+
+-- 9. Create a policy for UPDATE operations on tasks
+create policy "Allow users to update their own tasks"
+on public.tasks
+for update
+to authenticated
+using (
+  auth.uid() = user_id
+);
+
+-- 10. Create a policy for DELETE operations on tasks
+create policy "Allow users to delete their own tasks"
+on public.tasks
+for delete
+to authenticated
+using (
+  auth.uid() = user_id
+);
