@@ -160,6 +160,7 @@ export function TaskFormDialog({
         startDate: data.startDate,
         dueDate: data.dueDate,
         assignee: data.assignee || '',
+        project_id: data.projectId, // Fix: Ensure project_id is included
       };
 
       if (taskToEdit) {
