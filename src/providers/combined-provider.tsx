@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -7,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Project, ProjectWithProgress, Task, DailyNote } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
+import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 
 
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
@@ -14,6 +16,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [tasksState, setTasksState] = useState<TasksState>(initialTasksState);
   const [dailyNotesState, setDailyNotesState] = useState<DailyNotesState>(initialDailyNotesState);
   const supabase = createClient();
+  const { setSession, setProviderToken } = useGoogleCalendar();
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -37,7 +40,15 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setProjectsState({ ...initialProjectsState, loading: false, error: new Error('User not authenticated') });
       return;
     }
-    const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+    
+    let query = supabase.from('projects').select('*, profiles(email)');
+    
+    if (user.email !== 'edgarbarragangarcia@gmail.com') {
+      query = query.eq('user_id', user.id);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
+
     if (error) {
       console.error('Error fetching projects:', error);
       setProjectsState(prevState => ({ ...prevState, loading: false, error }));
@@ -53,7 +64,21 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setTasksState({ ...initialTasksState, loading: false });
       return;
     }
-    const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+
+    let query = supabase.from('tasks').select('*');
+
+    if (user.email !== 'edgarbarragangarcia@gmail.com') {
+        const { data: projectsData, error: projectsError } = await supabase.from('projects').select('id').eq('user_id', user.id);
+        if (projectsError) {
+             setTasksState(prevState => ({ ...prevState, loading: false, error: projectsError }));
+             return;
+        }
+        const projectIds = projectsData.map(p => p.id);
+        query = query.in('project_id', projectIds);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
     if (error) {
       console.error('Error fetching tasks:', error);
       setTasksState(prevState => ({ ...prevState, loading: false, error }));
@@ -75,7 +100,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setDailyNotesState({ ...initialDailyNotesState, loading: false });
       return;
     }
-    const { data, error } = await supabase.from('daily_notes').select('*').order('created_at', { ascending: true });
+    const { data, error } = await supabase.from('daily_notes').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
     if (error) {
       console.error('Error fetching daily notes:', error);
       setDailyNotesState(prevState => ({ ...prevState, loading: false, error }));
@@ -86,19 +111,23 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
         fetchProjects();
         fetchTasks();
         fetchDailyNotes();
+        setSession(session);
+        setProviderToken(session?.provider_token || null);
       } else if (event === 'SIGNED_OUT') {
         setProjectsState(initialProjectsState);
         setTasksState(initialTasksState);
         setDailyNotesState(initialDailyNotesState);
+        setSession(null);
+        setProviderToken(null);
       }
     });
     return () => subscription.unsubscribe();
-  }, [fetchProjects, fetchTasks, fetchDailyNotes, supabase.auth]);
+  }, [fetchProjects, fetchTasks, fetchDailyNotes, supabase.auth, setSession, setProviderToken]);
 
 
   const calculateProgress = useCallback((projectId: string, allTasks: Task[]): number => {

@@ -1,3 +1,4 @@
+
 export const priorities = ['Low', 'Medium', 'High'] as const;
 export type Priority = (typeof priorities)[number];
 
@@ -32,6 +33,7 @@ export interface Project {
   image_url: string;
   status: ProjectStatus;
   user_id: string;
+  profiles: { email: string } | null;
 }
 
 export interface ProjectWithProgress extends Project {

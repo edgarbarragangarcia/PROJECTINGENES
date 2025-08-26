@@ -5,7 +5,7 @@
 import { PageHeader } from '../layout/page-header';
 import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, getDay, isWithinInterval, differenceInDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ import { TaskFormDialog } from '../task/task-form-dialog';
 import { DailyNotesDialog } from '../note/daily-notes-dialog';
 import { useDailyNotes } from '@/hooks/use-daily-notes';
 import { useToast } from '@/hooks/use-toast';
+import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 
 const GoogleCalendarIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="size-4 mr-2" viewBox="0 0 24 24">
@@ -38,6 +39,7 @@ export function CalendarPage() {
   const { tasks } = useTasks();
   const { getNotesByDate } = useDailyNotes();
   const { toast } = useToast();
+  const { getCalendarList, providerToken, session } = useGoogleCalendar();
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDateForNotes, setSelectedDateForNotes] = useState<Date | null>(null);
@@ -53,9 +55,9 @@ export function CalendarPage() {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     
-    // Ajustar para que la semana empiece en Lunes
+    // Adjust for week starting on Monday
     const dayOfWeek = monthStart.getDay();
-    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1; // Lunes = 0, Domingo = 6
+    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1; // Monday = 0, Sunday = 6
     const startDate = subDays(monthStart, diff);
 
     const endDate = addDays(startDate, 41);
@@ -70,15 +72,7 @@ export function CalendarPage() {
   const tasksByDay = useMemo(() => {
     const dailyTasks = new Map<string, Task[]>();
     tasks.forEach(task => {
-      if (task.startDate && task.dueDate) {
-        const interval = { start: new Date(task.startDate), end: new Date(task.dueDate) };
-        const daysInTask = eachDayOfInterval(interval);
-        daysInTask.forEach(day => {
-          const dayKey = format(day, 'yyyy-MM-dd');
-          const existingTasks = dailyTasks.get(dayKey) || [];
-          dailyTasks.set(dayKey, [...existingTasks, task]);
-        });
-      } else if (task.dueDate) { // For tasks without a start date
+      if (task.dueDate) {
         const dayKey = format(new Date(task.dueDate), 'yyyy-MM-dd');
         const existingTasks = dailyTasks.get(dayKey) || [];
         dailyTasks.set(dayKey, [...existingTasks, task]);
@@ -91,20 +85,30 @@ export function CalendarPage() {
     setEditingTask(task);
   };
   
-  const getTaskPosition = (day: Date, task: Task): number => {
-    const dayKey = format(day, 'yyyy-MM-dd');
-    const tasksForDay = (tasksByDay.get(dayKey) || [])
-      .filter(t => t.startDate && t.dueDate && isWithinInterval(day, { start: new Date(t.startDate), end: new Date(t.dueDate) }))
-      .sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    const pos = tasksForDay.findIndex(t => t.id === task.id);
-    return pos >= 0 ? pos : 0;
-  };
-  
-  const handleGoogleConnect = () => {
-    toast({
-      title: "Próximamente",
-      description: "La integración con Google Calendar está en desarrollo.",
-    });
+  const handleGoogleConnect = async () => {
+    if (!providerToken || !session) {
+      toast({
+        variant: 'destructive',
+        title: "No conectado a Google",
+        description: "Por favor, inicia sesión con Google para conectar tu calendario.",
+      });
+      return;
+    }
+    try {
+      const calendars = await getCalendarList();
+      console.log('Calendarios de Google:', calendars);
+      toast({
+        title: "Conexión Exitosa",
+        description: "Se han obtenido tus calendarios de Google. Revisa la consola del navegador.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: "Error de Conexión",
+        description: "No se pudieron obtener los calendarios de Google.",
+      });
+    }
   };
 
   if (!currentDate || !monthStart) {
@@ -118,7 +122,7 @@ export function CalendarPage() {
          <div className='flex items-center gap-2'>
              <Button variant="outline" size="sm" onClick={handleGoogleConnect}>
                 <GoogleCalendarIcon />
-                Conectar con Google
+                Sincronizar Calendarios
              </Button>
             <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft/></Button>
             <h2 className='text-xl font-headline w-48 text-center capitalize'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
@@ -132,12 +136,12 @@ export function CalendarPage() {
           ))}
           {daysInGrid.map((day) => {
             const dayKey = format(day, 'yyyy-MM-dd');
-            const dayTasks = tasks.filter(t => t.startDate && t.dueDate && isSameDay(new Date(t.startDate), day));
+            const dayTasks = tasksByDay.get(dayKey) || [];
             const dayNotes = getNotesByDate(day);
             return (
               <div 
                 key={day.toISOString()} 
-                className={cn("relative border-b border-r p-1.5 min-h-[100px] flex flex-col group",
+                className={cn("relative border-b border-r p-1.5 min-h-[80px] flex flex-col group",
                 !isSameMonth(day, currentDate) && 'bg-muted/30',
                 isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
               )}>
@@ -153,34 +157,29 @@ export function CalendarPage() {
                     <NotebookPen className="size-4" />
                   </Button>
                 </div>
-                <div className="mt-1 flex-1 relative space-y-1 overflow-hidden">
-                   {dayNotes.slice(0, 2).map(note => (
+                <div className="mt-1 flex-1 space-y-0.5 overflow-hidden">
+                   {dayNotes.slice(0, 1).map(note => (
                      <div key={note.id} className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm line-clamp-1' title={note.note}>
                         - {note.note}
                       </div>
                    ))}
-                   {dayNotes.length > 2 && (
+                   {dayNotes.length > 1 && (
                       <div className='text-xs text-muted-foreground font-medium'>
-                        y {dayNotes.length - 2} más...
+                        y {dayNotes.length - 1} más...
                       </div>
                    )}
                   {dayTasks.map((task) => (
                     <div 
-                          key={task.id}
-                          className={cn(
-                              "absolute text-xs p-1 rounded-md text-black/80 font-medium truncate cursor-pointer hover:opacity-80",
-                              statusColors[task.status]
-                          )}
-                          style={{
-                              width: `calc(${differenceInDays(new Date(task.dueDate!), new Date(task.startDate!)) + 1} * 100% + ${differenceInDays(new Date(task.dueDate!), new Date(task.startDate!))}px)`,
-                              top: `${getTaskPosition(day, task) * 24 + (dayNotes.length * 20)}px`, // Offset by notes height
-                              zIndex: getTaskPosition(day, task) + 1
-                          }}
-                          onClick={() => handleTaskClick(task)}
-                          title={task.title}
-                      >
-                          {task.title}
-                      </div>
+                      key={task.id}
+                      className={cn(
+                        "text-xs p-1 rounded-sm text-black/80 font-medium truncate cursor-pointer hover:opacity-80",
+                        statusColors[task.status]
+                      )}
+                      onClick={() => handleTaskClick(task)}
+                      title={task.title}
+                    >
+                      {task.title}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -205,16 +204,4 @@ export function CalendarPage() {
       )}
     </div>
   );
-}
-
-function subDays(date: Date, amount: number): Date {
-  const newDate = new Date(date);
-  newDate.setDate(newDate.getDate() - amount);
-  return newDate;
-}
-
-function addDays(date: Date, amount: number): Date {
-    const newDate = new Date(date);
-    newDate.setDate(newDate.getDate() + amount);
-    return newDate;
 }

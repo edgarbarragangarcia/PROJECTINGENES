@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export default function LoginPage() {
       provider: 'google',
       options: {
         redirectTo: `${location.origin}/auth/callback`,
+        scopes: 'https://www.googleapis.com/auth/calendar',
       },
     });
     if (error) {
