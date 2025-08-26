@@ -68,7 +68,7 @@ export function ProjectsPage() {
         title: 'Proyecto Eliminado',
         description: `El proyecto "${projectName}" ha sido eliminado.`,
       });
-    } catch (error: any) => {
+    } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Error al eliminar',
