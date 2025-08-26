@@ -14,14 +14,6 @@ import Link from 'next/link';
 import { Skeleton } from '../ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
@@ -33,6 +25,8 @@ import { es } from 'date-fns/locale';
 import { useTasks } from '@/hooks/use-tasks';
 import { ProjectChartComponent } from '../project/project-chart-component';
 import html2canvas from 'html2canvas';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
+import Image from 'next/image';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
@@ -185,13 +179,19 @@ export function ProjectsPage() {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-             <div key={i} className="flex items-center gap-4 p-4 border rounded-md">
-                <Skeleton className="h-6 w-1/3" />
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-6 w-1/4" />
-             </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, i) => (
+             <Card key={i}>
+                <Skeleton className="h-[200px] w-full rounded-t-lg rounded-b-none" />
+                <CardHeader>
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-1/4" />
+                </CardContent>
+             </Card>
            ))}
         </div>
       );
@@ -215,37 +215,30 @@ export function ProjectsPage() {
     }
 
     return (
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[40%]">Nombre del Proyecto</TableHead>
-              <TableHead className="w-[30%]">Progreso</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="font-medium">
-                  <Link href={`/projects/${project.id}`} className="hover:underline">
-                    {project.name}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Progress value={project.progress} className="h-2 w-full" />
-                    <span className="text-xs text-muted-foreground">{project.progress}%</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                    <Badge variant={getStatusBadgeVariant(project.status)} className={cn(project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {projects.map((project) => (
+          <Card key={project.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300">
+            <Link href={`/projects/${project.id}`} className="block">
+                <div className="aspect-[16/9] relative">
+                     <Image 
+                        src={project.image_url || `https://picsum.photos/600/400?random=${project.id}`}
+                        alt={project.name}
+                        fill
+                        className="object-cover rounded-t-lg"
+                        data-ai-hint="project image"
+                     />
+                </div>
+            </Link>
+            <CardHeader className="flex-row items-start justify-between gap-4">
+                <div className="flex-1">
+                    <Link href={`/projects/${project.id}`} className="hover:underline">
+                        <CardTitle className="font-headline text-lg">{project.name}</CardTitle>
+                    </Link>
+                    <CardDescription className="line-clamp-2 mt-1">{project.description}</CardDescription>
+                </div>
+                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8">
+                      <Button variant="ghost" size="icon" className="size-8 flex-shrink-0">
                         <MoreVertical className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -278,11 +271,26 @@ export function ProjectsPage() {
                       </AlertDialog>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </CardHeader>
+            <CardContent className="flex-grow">
+                <div className="space-y-2">
+                    <div>
+                        <div className="flex justify-between items-center mb-1 text-sm text-muted-foreground">
+                            <span>Progreso</span>
+                            <span>{project.progress}%</span>
+                        </div>
+                        <Progress value={project.progress} className="h-2" />
+                    </div>
+                     <div>
+                        <span className="text-sm text-muted-foreground">Estado</span>
+                        <div className="mt-1">
+                             <Badge variant={getStatusBadgeVariant(project.status)} className={cn(project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   };
@@ -304,7 +312,7 @@ export function ProjectsPage() {
             </Button>
           </div>
         </PageHeader>
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
           {renderContent()}
         </div>
       </div>
