@@ -5,6 +5,7 @@ import { TasksContext, initialTasksState, type TasksState, type TasksContextType
 import { createClient } from '@/lib/supabase/client';
 import type { Project, ProjectWithProgress, Task } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
+import { supabase as supabaseAdmin } from '@/lib/supabase/admin';
 
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [projectsState, setProjectsState] = useState<ProjectsState>(initialProjectsState);
@@ -42,7 +43,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     const { data, error } = await supabase
       .from('projects')
-      .select('*, profiles(email)')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -108,19 +109,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, []);
   
   useEffect(() => {
-    if (projectsState.projects.length > 0 && tasksState.tasks.length > 0) {
-        setProjectsState(prevState => {
-            const updatedProjects = prevState.projects.map(p => ({
-            ...p,
-            progress: calculateProgress(p.id, tasksState.tasks)
-            }));
-            // Only update state if progress values have actually changed
-            if (JSON.stringify(prevState.projects) !== JSON.stringify(updatedProjects)) {
-                return { ...prevState, projects: updatedProjects };
-            }
-            return prevState;
-        });
-    }
+    setProjectsState(prevState => {
+        const updatedProjects = prevState.projects.map(p => ({
+        ...p,
+        progress: calculateProgress(p.id, tasksState.tasks)
+        }));
+        return { ...prevState, projects: updatedProjects };
+    });
   }, [tasksState.tasks, projectsState.projects, calculateProgress]);
 
 
@@ -132,7 +127,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await supabase
       .from('projects')
       .insert({ ...projectData, user_id: user.id })
-      .select('*, profiles(email)')
+      .select('*')
       .single();
 
     if (error) {
@@ -158,7 +153,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     const { data: updatedData, error: selectError } = await supabase
         .from('projects')
-        .select('*, profiles(email)')
+        .select('*')
         .eq('id', id)
         .single();
     
@@ -190,7 +185,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Tasks context methods
-  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id' | 'project_id'> & { projectId: string }) => {
+  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
@@ -227,7 +222,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const dataToUpdate: Record<string, any> = { ...taskData };
     delete dataToUpdate.startDate;
     delete dataToUpdate.dueDate;
-    delete dataToUpdate.projectId;
     
     if ('startDate' in taskData) {
       dataToUpdate.start_date = taskData.startDate ? taskData.startDate.toISOString() : null;

@@ -122,7 +122,7 @@ function ProjectCard({ project }: { project: ProjectWithProgress }) {
                         <span>Progreso</span>
                         <span className="font-semibold text-foreground">{project.progress}%</span>
                     </div>
-                    <Progress value={project.progress} aria-label={`${project.progress}% de progreso`} className={cn(isCompleted && '[&>div]:bg-emerald-500')} />
+                    <Progress value={project.progress || 0} aria-label={`${project.progress}% de progreso`} className={cn(isCompleted && '[&>div]:bg-emerald-500')} />
                 </div>
             </CardFooter>
           </Link>

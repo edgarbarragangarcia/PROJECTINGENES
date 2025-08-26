@@ -77,7 +77,7 @@ function ProjectCard({ project }: { project: ProjectWithProgress }) {
                     <span className="text-sm font-medium text-muted-foreground">Progreso</span>
                     <span className="text-sm font-bold">{project.progress}%</span>
                 </div>
-                <Progress value={project.progress} aria-label={`${project.progress}% de progreso`} className={cn(isCompleted && '[&>div]:bg-emerald-500')} />
+                <Progress value={project.progress || 0} aria-label={`${project.progress}% de progreso`} className={cn(isCompleted && '[&>div]:bg-emerald-500')} />
             </div>
             
         </CardContent>
@@ -199,7 +199,7 @@ export function DashboardPage() {
           <ProjectCard key={project.id} project={project} />
         ))}
       </div>
-       {isFormOpen && <TaskFormDialog open={isForm-open} onOpenChange={setIsFormOpen} projectId={projectId} />}
+       {isFormOpen && <TaskFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectId={projectId} />}
     </div>
   );
 }
