@@ -55,32 +55,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       console.error('Error fetching projects:', error);
       setProjectsState(prevState => ({ ...prevState, loading: false, error }));
-      return;
-    } 
-    
-    if (data) {
-        const userIds = [...new Set(data.map(p => p.user_id))];
-        const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers({
-            perPage: 1000
-        });
-
-        if (usersError) {
-            console.error('Error fetching users:', usersError);
-            setProjectsState(prevState => ({...prevState, loading: false, error: usersError}));
-            return;
-        }
-
-        const usersMap = new Map(usersData.users.map(u => [u.id, u]));
-
-        const projectsWithUsers = data.map(project => {
-            const projectUser = usersMap.get(project.user_id);
-            return {
-                ...project,
-                users: projectUser ? { email: projectUser.email || 'N/A' } : null
-            };
-        });
-
-        setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithUsers || [] }));
+    } else {
+      // Temporary removal of user fetching logic to fix visibility issue
+      const projectsWithUserPlaceholder = data.map(p => ({ ...p, users: null }));
+      setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithUserPlaceholder || [] }));
     }
 
   }, [supabase]);
@@ -102,7 +80,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
              return;
         }
         const projectIds = projectsData.map(p => p.id);
-        query = query.in('project_id', projectIds);
+        if (projectIds.length > 0) {
+          query = query.in('project_id', projectIds);
+        } else {
+           // If user has no projects, they have no tasks.
+           setTasksState(prevState => ({ ...prevState, loading: false, tasks: [] }));
+           return;
+        }
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -176,9 +160,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
-    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*, users(email)').single();
+    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*').single();
     if (error) throw error;
-    if (data) setProjectsState(prevState => ({ ...prevState, projects: [data, ...prevState.projects] }));
+    if (data) {
+        const newProject = { ...data, users: null };
+        setProjectsState(prevState => ({ ...prevState, projects: [newProject, ...prevState.projects] }));
+    }
   };
 
   const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>>) => {
