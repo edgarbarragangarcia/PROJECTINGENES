@@ -50,11 +50,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error fetching projects:', error);
       setProjectsState(prevState => ({ ...prevState, loading: false, error }));
     } else {
-      const projectsWithProgress = (data || []).map(p => ({
-        ...p,
-        progress: 0
-      }));
-      setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithProgress }));
+      setProjectsState(prevState => ({ ...prevState, loading: false, projects: data || [] }));
     }
   }, [supabase]);
 
@@ -108,15 +104,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     return Math.round((completedTasks / projectTasks.length) * 100);
   }, []);
   
-  useEffect(() => {
-    setProjectsState(prevState => {
-        const updatedProjects = prevState.projects.map(p => ({
-        ...p,
-        progress: calculateProgress(p.id, tasksState.tasks)
-        }));
-        return { ...prevState, projects: updatedProjects };
-    });
-  }, [tasksState.tasks, projectsState.projects, calculateProgress]);
+  const projectsWithProgress = useMemo(() => {
+    return projectsState.projects.map(p => ({
+      ...p,
+      progress: calculateProgress(p.id, tasksState.tasks)
+    }));
+  }, [projectsState.projects, tasksState.tasks, calculateProgress]);
 
 
   // Projects context methods
@@ -135,8 +128,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
     if (data) {
-      const newProjectWithProgress = { ...data, progress: 0 };
-      setProjectsState(prevState => ({ ...prevState, projects: [newProjectWithProgress, ...prevState.projects] }));
+      setProjectsState(prevState => ({ ...prevState, projects: [data, ...prevState.projects] }));
     }
   };
 
@@ -164,7 +156,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     setProjectsState(prevState => ({
       ...prevState,
-      projects: prevState.projects.map((p) => (p.id === id ? { ...p, ...updatedData, progress: p.progress } : p)),
+      projects: prevState.projects.map((p) => (p.id === id ? { ...p, ...updatedData } : p)),
     }));
   };
 
@@ -276,6 +268,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   const projectsContextValue: ProjectsContextType = {
     ...projectsState,
+    projects: projectsWithProgress, // Use the memoized value
     addProject,
     updateProject,
     deleteProject,
