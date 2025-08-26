@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import type { Project, ProjectWithProgress, Task, DailyNote, User } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
-import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
@@ -125,13 +124,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       
       if (session) {
         setProviderToken(session?.provider_token || null);
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          await fetchAllData(session.user);
+          fetchAllData(session.user);
         }
       } else if (event === 'SIGNED_OUT') {
         setProjectsState(initialProjectsState);
