@@ -36,9 +36,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
+      const isAdmin = user.email && adminEmails.includes(user.email);
       let query = supabase.from('projects').select('*, users ( email )');
 
-      const isAdmin = user.email && adminEmails.includes(user.email);
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
       }
@@ -51,12 +51,14 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       }
       
       const projectsWithMappedUser = data.map(p => {
-        const anyUser = p.users as any;
+        const anyUser = p.users as any; // users can be an array or object, handle as any
+        const userEmail = Array.isArray(anyUser) ? anyUser[0]?.email : anyUser?.email;
+        
         return {
           ...p,
-          users: anyUser ? {
-            email: anyUser.email,
-            full_name: anyUser.email, // Fallback to email
+          users: userEmail ? {
+            email: userEmail,
+            full_name: '', // We don't fetch full_name anymore to prevent errors
           } : null
         }
       });
@@ -72,9 +74,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchTasks = useCallback(async (user: User) => {
     setTasksState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
+      const isAdmin = user.email && adminEmails.includes(user.email);
       let query = supabase.from('tasks').select('*');
 
-      const isAdmin = user.email && adminEmails.includes(user.email);
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
       }
@@ -177,7 +179,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           ...data,
           users: anyUser ? {
             email: anyUser.email,
-            full_name: anyUser.email,
+            full_name: '',
           } : null
         }
       setProjectsState(prevState => ({ 
