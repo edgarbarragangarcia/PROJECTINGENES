@@ -53,7 +53,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       )
     `);
     
-    if (user.email && !adminEmails.includes(user.email)) {
+    if (!user.email || !adminEmails.includes(user.email)) {
       query = query.eq('user_id', user.id);
     }
     
@@ -88,7 +88,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     let query = supabase.from('tasks').select('*');
 
-    if (user.email && !adminEmails.includes(user.email)) {
+    if (!user.email || !adminEmails.includes(user.email)) {
         const { data: projectsData, error: projectsError } = await supabase.from('projects').select('id').eq('user_id', user.id);
         if (projectsError) {
              setTasksState(prevState => ({ ...prevState, loading: false, error: projectsError }));
