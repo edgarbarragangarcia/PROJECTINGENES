@@ -4,11 +4,11 @@
 import { PageHeader } from '../layout/page-header';
 import type { ProjectWithProgress } from '@/lib/types';
 import { Button } from '../ui/button';
-import { MoreVertical, PlusCircle, Trash2, Edit } from 'lucide-react';
+import { MoreVertical, PlusCircle, Trash2, Edit, FileDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Progress } from '../ui/progress';
 import { useProjects } from '@/hooks/use-projects';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ProjectFormDialog } from '../project/project-form-dialog';
 import Link from 'next/link';
 import { Skeleton } from '../ui/skeleton';
@@ -24,13 +24,30 @@ import {
 } from "@/components/ui/table"
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
-
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { createClient } from '@/lib/supabase/client';
+import { adminEmails } from '@/providers/combined-provider';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
+  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && adminEmails.includes(user.email || '')) {
+        setIsAdmin(true);
+      }
+    };
+    checkAdmin();
+  }, [supabase.auth]);
 
   const handleEdit = (project: ProjectWithProgress) => {
     setProjectToEdit(project);
@@ -65,6 +82,39 @@ export function ProjectsPage() {
       case 'En Pausa': return 'outline';
       default: return 'outline';
     }
+  };
+  
+  const handleDownloadPdf = () => {
+    const doc = new jsPDF();
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('Informe General de Proyectos', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Fecha de generación: ${format(new Date(), 'PPPP', {locale: es})}`, 105, 28, { align: 'center' });
+
+    const tableData = projects.map(p => [
+      p.name,
+      `${p.progress}%`,
+      p.status,
+      p.users?.full_name || p.users?.email || 'N/A'
+    ]);
+
+    autoTable(doc, {
+      head: [['Nombre del Proyecto', 'Progreso', 'Estado', 'Creado por']],
+      body: tableData,
+      startY: 40,
+      headStyles: { fillColor: [41, 128, 185] }, // Un azul elegante
+      styles: { halign: 'center' },
+      columnStyles: {
+        0: { halign: 'left' },
+        3: { halign: 'left' },
+      }
+    });
+
+    doc.save(`informe-proyectos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
 
 
@@ -181,6 +231,12 @@ export function ProjectsPage() {
     <>
     <div className="flex flex-col h-full">
        <PageHeader title="Proyectos">
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={handleDownloadPdf}>
+              <FileDown />
+              Generar Informe PDF
+            </Button>
+          )}
           <Button size="sm" onClick={handleAddNew}>
             <PlusCircle />
             Añadir Proyecto
