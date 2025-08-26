@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Zap, LayoutDashboard, ListChecks, BarChartHorizontal, Sparkles } from "lucide-react";
+import { Zap, LayoutDashboard, ListChecks, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 const GoogleIcon = () => (
@@ -37,12 +38,13 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
     } else {
-      router.push('/');
+      router.push('/dashboard');
       router.refresh();
     }
   };
   
-  const handleSignUp = async () => {
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setError(null);
     const { error } = await supabase.auth.signUp({
       email,
@@ -123,45 +125,62 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-6 min-h-screen">
         <Card className="w-full max-w-sm border-0 shadow-none sm:border sm:shadow-sm">
             <CardHeader className="text-center">
-            <CardTitle className="font-headline text-2xl">Accede a tu cuenta</CardTitle>
-            <CardDescription>Usa tu proveedor preferido o tu email para continuar.</CardDescription>
+                <CardTitle className="font-headline text-2xl">Bienvenido a PROJECTIA</CardTitle>
+                <CardDescription>Elige tu método preferido para continuar.</CardDescription>
             </CardHeader>
             <CardContent>
-            <div className="grid gap-4">
-                <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
-                    <GoogleIcon />
-                    Continuar con Google
-                </Button>
-                
-                <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                    O continuar con email
-                    </span>
-                </div>
-                </div>
+                <div className="grid gap-4">
+                    <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
+                        <GoogleIcon />
+                        Continuar con Google
+                    </Button>
+                    
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground">
+                            O continuar con email
+                            </span>
+                        </div>
+                    </div>
 
-                <form onSubmit={handleSignIn} className="grid gap-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <Tabs defaultValue="login" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
+                            <TabsTrigger value="register">Registrarse</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="login">
+                            <form onSubmit={handleSignIn} className="grid gap-4 pt-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="login-email">Email</Label>
+                                    <Input id="login-email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="login-password">Contraseña</Label>
+                                    <Input id="login-password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                </div>
+                                {error && <p className="text-destructive text-sm text-center">{error}</p>}
+                                <Button type="submit" className="w-full mt-2">Iniciar Sesión</Button>
+                            </form>
+                        </TabsContent>
+                        <TabsContent value="register">
+                            <form onSubmit={handleSignUp} className="grid gap-4 pt-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="register-email">Email</Label>
+                                    <Input id="register-email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="register-password">Contraseña</Label>
+                                    <Input id="register-password" type="password" placeholder="Crea una contraseña segura" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                </div>
+                                {error && <p className="text-destructive text-sm text-center">{error}</p>}
+                                <Button type="submit" className="w-full mt-2">Crear Cuenta</Button>
+                            </form>
+                        </TabsContent>
+                    </Tabs>
                 </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="password">Contraseña</Label>
-                    <Input id="password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </div>
-
-                {error && <p className="text-destructive text-sm text-center">{error}</p>}
-                
-                <div className="flex flex-col space-y-2">
-                    <Button type="submit" className="w-full">Iniciar Sesión</Button>
-                    <Button type="button" variant="ghost" className="w-full" onClick={handleSignUp}>¿No tienes cuenta? Regístrate</Button>
-                </div>
-                </form>
-            </div>
             </CardContent>
         </Card>
       </div>
