@@ -45,12 +45,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    // The select query now correctly references the user's full name from the metadata.
     let query = supabase.from('projects').select(`
       *,
       users (
         email,
-        full_name: raw_user_meta_data->>full_name
+        raw_user_meta_data
       )
     `);
     
@@ -65,12 +64,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setProjectsState(prevState => ({ ...prevState, loading: false, error }));
     } else {
        const projectsWithMappedUser = data.map(p => {
-        const anyUser = p.users as any; // Type assertion
+        const anyUser = p.users as any;
         return {
           ...p,
           users: anyUser ? {
             email: anyUser.email,
-            full_name: anyUser.full_name,
+            full_name: anyUser.raw_user_meta_data?.full_name || anyUser.email,
           } : null
         }
       });
@@ -176,11 +175,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
-    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*, users (email, full_name: raw_user_meta_data->>full_name)').single();
+    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*, users (email, raw_user_meta_data)').single();
     if (error) throw error;
     if (data) {
         const anyUser = data.users as any;
-        const newProject = { ...data, users: anyUser ? { email: anyUser.email, full_name: anyUser.full_name } : null };
+        const newProject = { ...data, users: anyUser ? { email: anyUser.email, full_name: anyUser.raw_user_meta_data.full_name } : null };
         setProjectsState(prevState => ({ ...prevState, projects: [newProject, ...prevState.projects] }));
     }
   };

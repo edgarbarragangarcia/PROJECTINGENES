@@ -231,6 +231,7 @@ export function ProjectsPage() {
     <>
     <div className="flex flex-col h-full">
        <PageHeader title="Proyectos">
+        <div className='flex items-center gap-2'>
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={handleDownloadPdf}>
               <FileDown />
@@ -241,6 +242,7 @@ export function ProjectsPage() {
             <PlusCircle />
             Añadir Proyecto
           </Button>
+        </div>
       </PageHeader>
       <div className="flex-1 overflow-auto p-6">
          {renderContent()}
