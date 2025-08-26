@@ -9,6 +9,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-1 flex flex-col pt-16">{children}</main>
+      <footer className="py-4 text-center text-sm text-muted-foreground border-t">
+        © {new Date().getFullYear()} Ingenes. Todos los derechos reservados.
+      </footer>
     </div>
   );
 }
