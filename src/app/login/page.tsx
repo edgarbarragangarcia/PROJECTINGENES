@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Zap } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { Zap, LayoutDashboard, ListChecks, BarChartHorizontal, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 const GoogleIcon = () => (
     <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="size-5">
@@ -74,55 +74,98 @@ export default function LoginPage() {
 
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-secondary">
-      <Card className="w-full max-w-sm mx-4">
-        <CardHeader className="text-center">
-          <div className="flex justify-center items-center mb-4">
-            <div className="flex items-center justify-center size-12 rounded-lg bg-primary text-primary-foreground">
-              <Zap className="size-7" />
+    <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
+      <div className="hidden lg:flex flex-col items-center justify-center p-12 bg-gradient-to-br from-violet-100 via-pink-100 to-blue-100 dark:from-violet-950/50 dark:via-pink-950/50 dark:to-blue-950/50 border-r">
+          <div className="max-w-md w-full">
+            <Link href="/" className="flex items-center gap-3 mb-8">
+                <div className="flex items-center justify-center size-10 rounded-lg bg-primary text-primary-foreground">
+                    <Zap className="size-6" />
+                </div>
+                <span className="font-headline text-2xl font-bold">PROJECTIA</span>
+            </Link>
+            <h1 className="text-3xl font-bold font-headline tracking-tight">
+                Transforma tus ideas en proyectos exitosos.
+            </h1>
+            <p className="mt-4 text-muted-foreground">
+                Gestiona tus proyectos con una herramienta visual, intuitiva y potenciada por IA que se adapta a tu forma de trabajar.
+            </p>
+            <div className="mt-8 space-y-4">
+                <div className="flex items-start gap-3">
+                    <div className="p-2 bg-white rounded-full border shadow-sm">
+                        <LayoutDashboard className="size-5 text-primary"/>
+                    </div>
+                    <div>
+                        <h3 className="font-semibold">Paneles Visuales</h3>
+                        <p className="text-sm text-muted-foreground">Organiza todo con tableros Kanban, calendarios y diagramas de Gantt.</p>
+                    </div>
+                </div>
+                 <div className="flex items-start gap-3">
+                    <div className="p-2 bg-white rounded-full border shadow-sm">
+                        <Sparkles className="size-5 text-primary"/>
+                    </div>
+                    <div>
+                        <h3 className="font-semibold">Asistente IA</h3>
+                        <p className="text-sm text-muted-foreground">Deja que la IA te sugiera prioridades y te ayude a optimizar tu flujo de trabajo.</p>
+                    </div>
+                </div>
+                 <div className="flex items-start gap-3">
+                    <div className="p-2 bg-white rounded-full border shadow-sm">
+                        <ListChecks className="size-5 text-primary"/>
+                    </div>
+                    <div>
+                        <h3 className="font-semibold">Seguimiento de Progreso</h3>
+                        <p className="text-sm text-muted-foreground">Monitoriza el avance de tus proyectos y tareas con dashboards claros y concisos.</p>
+                    </div>
+                </div>
             </div>
           </div>
-          <CardTitle className="font-headline text-2xl">Bienvenido a PROJECTIA</CardTitle>
-          <CardDescription>Inicia sesión para gestionar tus proyectos</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-             <Button variant="outline" onClick={handleGoogleSignIn}>
-                <GoogleIcon />
-                Continuar con Google
-            </Button>
-            
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  O continuar con
-                </span>
-              </div>
+      </div>
+      <div className="flex items-center justify-center p-6 min-h-screen">
+        <Card className="w-full max-w-sm border-0 shadow-none sm:border sm:shadow-sm">
+            <CardHeader className="text-center">
+            <CardTitle className="font-headline text-2xl">Accede a tu cuenta</CardTitle>
+            <CardDescription>Usa tu proveedor preferido o tu email para continuar.</CardDescription>
+            </CardHeader>
+            <CardContent>
+            <div className="grid gap-4">
+                <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
+                    <GoogleIcon />
+                    Continuar con Google
+                </Button>
+                
+                <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                    O continuar con email
+                    </span>
+                </div>
+                </div>
+
+                <form onSubmit={handleSignIn} className="grid gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="password">Contraseña</Label>
+                    <Input id="password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                </div>
+
+                {error && <p className="text-destructive text-sm text-center">{error}</p>}
+                
+                <div className="flex flex-col space-y-2">
+                    <Button type="submit" className="w-full">Iniciar Sesión</Button>
+                    <Button type="button" variant="ghost" className="w-full" onClick={handleSignUp}>¿No tienes cuenta? Regístrate</Button>
+                </div>
+                </form>
             </div>
-
-            <form onSubmit={handleSignIn} className="grid gap-4">
-              <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-              <div className="grid gap-2">
-                  <Label htmlFor="password">Contraseña</Label>
-                  <Input id="password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
-
-              {error && <p className="text-destructive text-sm text-center">{error}</p>}
-              
-              <div className="flex flex-col space-y-2">
-                  <Button type="submit">Iniciar Sesión</Button>
-                  <Button type="button" variant="outline" onClick={handleSignUp}>Registrarse</Button>
-              </div>
-            </form>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
+
