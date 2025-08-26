@@ -37,7 +37,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
       const isAdmin = user.email && adminEmails.includes(user.email);
-      let query = supabase.from('projects').select('*, users:user_id(email)');
+      let query = supabase.from('projects').select('*');
 
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
@@ -50,14 +50,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
       
-      const projectsWithMappedUser = data.map(p => ({
-        ...p,
-        // The user object is now correctly shaped by the query
-        // but we ensure it conforms to our type
-        users: p.users ? { email: (p.users as any).email, full_name: '' } : null,
-      }));
-      
-      setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithMappedUser || [] }));
+      setProjectsState(prevState => ({ ...prevState, loading: false, projects: data || [] }));
     } catch (error: any) {
       console.error('Error fetching projects:', error);
       setProjectsState(prevState => ({ ...prevState, loading: false, error }));
@@ -71,7 +64,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       const isAdmin = user.email && adminEmails.includes(user.email);
       let query = supabase.from('tasks').select('*');
 
-      // For non-admins, we still fetch only their tasks.
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
       }
@@ -156,31 +148,27 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, [projectsState.projects, tasksState.tasks, calculateProgress]);
 
-  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>) => {
+  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
     
     const { data, error } = await supabase
       .from('projects')
       .insert({ ...projectData, user_id: user.id })
-      .select('*, users:user_id(email)')
+      .select('*')
       .single();
       
     if (error) throw error;
     
     if (data) {
-       const newProject = {
-          ...data,
-          users: data.users ? { email: (data.users as any).email, full_name: '' } : null
-        }
       setProjectsState(prevState => ({ 
         ...prevState, 
-        projects: [newProject, ...prevState.projects] 
+        projects: [data, ...prevState.projects] 
       }));
     }
   };
 
-  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>>) => {
+  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 

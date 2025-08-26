@@ -99,11 +99,11 @@ export function ProjectsPage() {
       p.name,
       `${p.progress}%`,
       p.status,
-      p.users?.email || p.user_id || 'N/A'
+      p.user_id || 'N/A'
     ]);
 
     autoTable(doc, {
-      head: [['Nombre del Proyecto', 'Progreso', 'Estado', 'Creado por']],
+      head: [['Nombre del Proyecto', 'Progreso', 'Estado', 'Creado por (ID)']],
       body: tableData,
       startY: 40,
       headStyles: { fillColor: [41, 128, 185] }, // Un azul elegante
@@ -156,9 +156,8 @@ export function ProjectsPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[40%]">Nombre del Proyecto</TableHead>
-              <TableHead className="w-[25%]">Progreso</TableHead>
+              <TableHead className="w-[30%]">Progreso</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Creado por</TableHead>
               <TableHead className="text-right"></TableHead>
             </TableRow>
           </TableHeader>
@@ -178,9 +177,6 @@ export function ProjectsPage() {
                 </TableCell>
                 <TableCell>
                     <Badge variant={getStatusBadgeVariant(project.status)} className={cn(project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
-                </TableCell>
-                 <TableCell className="text-muted-foreground text-xs">
-                    {project.users?.email || project.user_id || 'N/A'}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
