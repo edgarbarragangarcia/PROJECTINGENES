@@ -99,7 +99,7 @@ export function ProjectsPage() {
       p.name,
       `${p.progress}%`,
       p.status,
-      p.users?.email || 'N/A'
+      p.users?.email || p.user_id || 'N/A'
     ]);
 
     autoTable(doc, {
@@ -180,7 +180,7 @@ export function ProjectsPage() {
                     <Badge variant={getStatusBadgeVariant(project.status)} className={cn(project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
                 </TableCell>
                  <TableCell className="text-muted-foreground text-xs">
-                    {project.users?.email || 'N/A'}
+                    {project.users?.email || project.user_id || 'N/A'}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>

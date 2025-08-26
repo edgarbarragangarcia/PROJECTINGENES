@@ -37,7 +37,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
       const isAdmin = user.email && adminEmails.includes(user.email);
-      let query = supabase.from('projects').select('*, users ( email )');
+      let query = supabase.from('projects').select('*, users:user_id(email)');
 
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
@@ -50,18 +50,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
       
-      const projectsWithMappedUser = data.map(p => {
-        const anyUser = p.users as any; // users can be an array or object, handle as any
-        const userEmail = Array.isArray(anyUser) ? anyUser[0]?.email : anyUser?.email;
-        
-        return {
-          ...p,
-          users: userEmail ? {
-            email: userEmail,
-            full_name: '', // We don't fetch full_name anymore to prevent errors
-          } : null
-        }
-      });
+      const projectsWithMappedUser = data.map(p => ({
+        ...p,
+        // The user object is now correctly shaped by the query
+        // but we ensure it conforms to our type
+        users: p.users ? { email: (p.users as any).email, full_name: '' } : null,
+      }));
       
       setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithMappedUser || [] }));
     } catch (error: any) {
@@ -77,6 +71,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       const isAdmin = user.email && adminEmails.includes(user.email);
       let query = supabase.from('tasks').select('*');
 
+      // For non-admins, we still fetch only their tasks.
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
       }
@@ -168,19 +163,15 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await supabase
       .from('projects')
       .insert({ ...projectData, user_id: user.id })
-      .select('*, users ( email )')
+      .select('*, users:user_id(email)')
       .single();
       
     if (error) throw error;
     
     if (data) {
-       const anyUser = data.users as any;
-        const newProject = {
+       const newProject = {
           ...data,
-          users: anyUser ? {
-            email: anyUser.email,
-            full_name: '',
-          } : null
+          users: data.users ? { email: (data.users as any).email, full_name: '' } : null
         }
       setProjectsState(prevState => ({ 
         ...prevState, 
