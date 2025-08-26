@@ -45,11 +45,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
+    // The select query now correctly references the user's full name from the metadata.
     let query = supabase.from('projects').select(`
       *,
       users (
         email,
-        raw_user_meta_data->>full_name
+        full_name: raw_user_meta_data->>full_name
       )
     `);
     
@@ -175,10 +176,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
-    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*').single();
+    const { data, error } = await supabase.from('projects').insert({ ...projectData, user_id: user.id }).select('*, users (email, full_name: raw_user_meta_data->>full_name)').single();
     if (error) throw error;
     if (data) {
-        const newProject = { ...data, users: user.email ? { email: user.email, full_name: user.user_metadata.full_name } : null };
+        const anyUser = data.users as any;
+        const newProject = { ...data, users: anyUser ? { email: anyUser.email, full_name: anyUser.full_name } : null };
         setProjectsState(prevState => ({ ...prevState, projects: [newProject, ...prevState.projects] }));
     }
   };
