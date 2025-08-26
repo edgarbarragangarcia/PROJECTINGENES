@@ -21,10 +21,10 @@ export default function DashboardRoute() {
               <TabsTrigger value="gantt"><BarChartHorizontal className='size-4 mr-2'/>Gantt General</TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="dashboard" className="flex-1 overflow-auto mt-0">
+          <TabsContent value="dashboard" className="flex-1 flex flex-col overflow-hidden mt-0">
             <DashboardPage />
           </TabsContent>
-          <TabsContent value="gantt" className="flex-1 overflow-auto mt-0">
+          <TabsContent value="gantt" className="flex-1 flex flex-col overflow-hidden mt-0">
              <GeneralGanttChart tasks={tasks} projects={projects} />
           </TabsContent>
         </Tabs>
