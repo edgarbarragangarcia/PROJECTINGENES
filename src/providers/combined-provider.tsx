@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -199,11 +200,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
     
-    const { startDate, dueDate, ...restOfTaskData } = taskData;
+    const { startDate, dueDate, projectId, ...restOfTaskData } = taskData;
     const { data, error } = await supabase
       .from('tasks')
       .insert({ 
         ...restOfTaskData, 
+        project_id: projectId,
         user_id: user.id, 
         start_date: startDate?.toISOString(), 
         due_date: dueDate?.toISOString() 
@@ -231,10 +233,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const dataToUpdate: Record<string, any> = { ...taskData };
     if ('startDate' in taskData) dataToUpdate.start_date = taskData.startDate ? taskData.startDate.toISOString() : null;
     if ('dueDate' in taskData) dataToUpdate.due_date = taskData.dueDate ? taskData.dueDate.toISOString() : null;
-    if (taskData.projectId) dataToUpdate.project_id = taskData.projectId;
-    delete dataToUpdate.startDate;
-    delete dataToUpdate.dueDate;
-    delete dataToUpdate.projectId;
+    if ('projectId' in taskData) {
+        dataToUpdate.project_id = taskData.projectId;
+        delete dataToUpdate.projectId;
+    }
     
     const { error } = await supabase.from('tasks').update(dataToUpdate).eq('id', id);
     if (error) throw error;
