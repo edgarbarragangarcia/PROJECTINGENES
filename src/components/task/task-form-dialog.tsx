@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Sparkles, Wand2 } from 'lucide-react';
+import { CalendarIcon, Sparkles, Wand2, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -44,6 +44,7 @@ import { useToast } from '@/hooks/use-toast';
 import { es } from 'date-fns/locale';
 import { Label } from '@/components/ui/label';
 import { useProjects } from '@/hooks/use-projects';
+import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 
 const translatedPriorities = {
   'Low': 'Baja',
@@ -118,6 +119,15 @@ export function TaskFormDialog({
           assignee: '',
         },
   });
+
+  const handleTranscript = (fieldName: 'title' | 'description' | 'assignee') => (transcript: string) => {
+    form.setValue(fieldName, form.getValues(fieldName) + transcript);
+  };
+  
+  const titleSpeech = useSpeechRecognition(handleTranscript('title'));
+  const descriptionSpeech = useSpeechRecognition(handleTranscript('description'));
+  const assigneeSpeech = useSpeechRecognition(handleTranscript('assignee'));
+
 
   const descriptionValue = useWatch({ 
     control: form.control, 
@@ -270,12 +280,20 @@ export function TaskFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Título</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="p. ej., Diseñar nuevo logo" 
-                      {...field} 
-                    />
-                  </FormControl>
+                   <div className="relative">
+                    <FormControl>
+                      <Input 
+                        placeholder="p. ej., Diseñar nuevo logo" 
+                        {...field} 
+                        className="pr-10"
+                      />
+                    </FormControl>
+                    {titleSpeech.isSupported && (
+                      <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={titleSpeech.isListening ? titleSpeech.stopListening : titleSpeech.startListening}>
+                          <Mic className={cn("size-4", titleSpeech.isListening && "text-red-500")} />
+                      </Button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -307,13 +325,20 @@ export function TaskFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Descripción</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Añade una descripción más detallada..." 
-                      className="resize-none" 
-                      {...field} 
-                    />
-                  </FormControl>
+                  <div className="relative">
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Añade una descripción más detallada..." 
+                        className="resize-none pr-10" 
+                        {...field} 
+                      />
+                    </FormControl>
+                     {descriptionSpeech.isSupported && (
+                      <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-2 h-8 w-8" onClick={descriptionSpeech.isListening ? descriptionSpeech.stopListening : descriptionSpeech.startListening}>
+                          <Mic className={cn("size-4", descriptionSpeech.isListening && "text-red-500")} />
+                      </Button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -326,12 +351,20 @@ export function TaskFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsable</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="p. ej., nombre@ejemplo.com" 
-                      {...field} 
-                    />
-                  </FormControl>
+                   <div className="relative">
+                    <FormControl>
+                      <Input 
+                        placeholder="p. ej., nombre@ejemplo.com" 
+                        {...field} 
+                        className="pr-10"
+                      />
+                    </FormControl>
+                     {assigneeSpeech.isSupported && (
+                        <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={assigneeSpeech.isListening ? assigneeSpeech.stopListening : assigneeSpeech.startListening}>
+                          <Mic className={cn("size-4", assigneeSpeech.isListening && "text-red-500")} />
+                        </Button>
+                      )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

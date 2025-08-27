@@ -37,7 +37,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Mic } from 'lucide-react';
+import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
+import { cn } from '@/lib/utils';
 
 const noteFormSchema = z.object({
   note: z.string().min(1, 'La nota no puede estar vacía.'),
@@ -62,6 +64,11 @@ export function NoteFormDialog({ open, onOpenChange, date, noteToEdit }: NoteFor
       note: noteToEdit?.note || '',
     },
   });
+
+  const handleTranscript = (transcript: string) => {
+    form.setValue('note', form.getValues('note') + transcript);
+  };
+  const speech = useSpeechRecognition(handleTranscript);
 
   const onSubmit = async (data: NoteFormValues) => {
     try {
@@ -109,9 +116,16 @@ export function NoteFormDialog({ open, onOpenChange, date, noteToEdit }: NoteFor
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nota</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Escribe tus pensamientos, recordatorios o planes aquí..." className="resize-y min-h-[150px]" {...field} />
-                  </FormControl>
+                  <div className="relative">
+                    <FormControl>
+                      <Textarea placeholder="Escribe tus pensamientos, recordatorios o planes aquí..." className="resize-y min-h-[150px] pr-10" {...field} />
+                    </FormControl>
+                    {speech.isSupported && (
+                      <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-2 h-8 w-8" onClick={speech.isListening ? speech.stopListening : speech.startListening}>
+                        <Mic className={cn("size-4", speech.isListening && "text-red-500")} />
+                      </Button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

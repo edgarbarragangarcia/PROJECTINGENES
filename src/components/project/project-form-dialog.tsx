@@ -33,6 +33,9 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useProjects } from '@/hooks/use-projects';
+import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
+import { Mic } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 
 const projectFormSchema = z.object({
@@ -70,6 +73,13 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
           image_url: `https://picsum.photos/600/400?random=${Date.now()}`
         },
   });
+
+  const handleTranscript = (fieldName: 'name' | 'description') => (transcript: string) => {
+    form.setValue(fieldName, form.getValues(fieldName) + transcript);
+  };
+  
+  const nameSpeech = useSpeechRecognition(handleTranscript('name'));
+  const descriptionSpeech = useSpeechRecognition(handleTranscript('description'));
 
   const onSubmit = async (data: ProjectFormValues) => {
     try {
@@ -110,9 +120,16 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nombre del Proyecto</FormLabel>
-                  <FormControl>
-                    <Input placeholder="p. ej., QuantumLeap CRM" {...field} />
-                  </FormControl>
+                  <div className="relative">
+                    <FormControl>
+                      <Input placeholder="p. ej., QuantumLeap CRM" {...field} className="pr-10"/>
+                    </FormControl>
+                    {nameSpeech.isSupported && (
+                      <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={nameSpeech.isListening ? nameSpeech.stopListening : nameSpeech.startListening}>
+                          <Mic className={cn("size-4", nameSpeech.isListening && "text-red-500")} />
+                      </Button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -123,9 +140,16 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Descripción</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Añade una descripción detallada del proyecto..." className="resize-none" {...field} />
-                  </FormControl>
+                  <div className="relative">
+                    <FormControl>
+                      <Textarea placeholder="Añade una descripción detallada del proyecto..." className="resize-none pr-10" {...field} />
+                    </FormControl>
+                     {descriptionSpeech.isSupported && (
+                      <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-2 h-8 w-8" onClick={descriptionSpeech.isListening ? descriptionSpeech.stopListening : descriptionSpeech.startListening}>
+                          <Mic className={cn("size-4", descriptionSpeech.isListening && "text-red-500")} />
+                      </Button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
