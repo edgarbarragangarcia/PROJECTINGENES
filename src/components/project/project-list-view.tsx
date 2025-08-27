@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { ProjectWithProgress, Task } from '@/lib/types';
@@ -20,15 +21,18 @@ import { Progress } from '../ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Checkbox } from '../ui/checkbox';
 
 interface ProjectListViewProps {
   projects: ProjectWithProgress[];
   tasks: Task[];
   onEdit: (project: ProjectWithProgress) => void;
   onDelete: (projectId: string, projectName: string) => void;
+  selectedProjects: string[];
+  onSelectProject: (projectId: string) => void;
 }
 
-export function ProjectListView({ projects, tasks, onEdit, onDelete }: ProjectListViewProps) {
+export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedProjects, onSelectProject }: ProjectListViewProps) {
   
   const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
     switch (status) {
@@ -51,7 +55,9 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete }: ProjectLi
     <div className="border rounded-lg">
       <div className="px-4 py-2 bg-muted/50 rounded-t-lg">
         <div className="grid grid-cols-12 items-center">
-            <div className="col-span-5 font-medium text-sm text-muted-foreground">Nombre del Proyecto</div>
+            <div className="col-span-5 font-medium text-sm text-muted-foreground flex items-center gap-4">
+                <span className='pl-8'>Nombre del Proyecto</span>
+            </div>
             <div className="col-span-2 font-medium text-sm text-muted-foreground">Estado</div>
             <div className="col-span-3 font-medium text-sm text-muted-foreground">Progreso</div>
             <div className="col-span-1 font-medium text-sm text-muted-foreground">Tareas</div>
@@ -62,12 +68,19 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete }: ProjectLi
         {projects.map((project) => (
           <AccordionItem value={project.id} key={project.id}>
              <div className="grid grid-cols-12 items-center px-4 py-2 border-b hover:bg-muted/50 transition-colors">
-                <AccordionTrigger className="col-span-5 py-0 justify-start">
-                  <div className="flex items-center gap-2">
-                     <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                     <span className="font-medium text-base">{project.name}</span>
-                  </div>
-                </AccordionTrigger>
+                <div className="col-span-5 py-0 justify-start flex items-center gap-3">
+                  <Checkbox 
+                    id={`select-list-${project.id}`}
+                    checked={selectedProjects.includes(project.id)}
+                    onCheckedChange={() => onSelectProject(project.id)}
+                  />
+                  <AccordionTrigger className='py-0 flex-1 justify-start'>
+                    <div className="flex items-center gap-2">
+                       <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                       <span className="font-medium text-base">{project.name}</span>
+                    </div>
+                  </AccordionTrigger>
+                </div>
                 <div className="col-span-2">
                   <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs", project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
                 </div>

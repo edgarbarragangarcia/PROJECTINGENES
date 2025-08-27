@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -29,6 +30,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectListView } from '../project/project-list-view';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
@@ -36,6 +38,7 @@ export function ProjectsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const { toast } = useToast();
   const supabase = createClient();
   const chartRef = useRef<HTMLDivElement>(null);
@@ -68,6 +71,7 @@ export function ProjectsPage() {
         title: 'Proyecto Eliminado',
         description: `El proyecto "${projectName}" ha sido eliminado.`,
       });
+      setSelectedProjects(prev => prev.filter(id => id !== projectId));
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -92,15 +96,17 @@ export function ProjectsPage() {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
-    doc.text('Informe General de Proyectos', 105, 20, { align: 'center' });
+    doc.text('Informe de Proyectos Seleccionados', 105, 20, { align: 'center' });
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
     doc.text(`Fecha de generación: ${format(new Date(), 'PPPP', {locale: es})}`, 105, yPos, { align: 'center' });
     
     yPos += 15;
+    
+    const projectsToExport = projects.filter(p => selectedProjects.includes(p.id));
 
-    for (const project of projects) {
+    for (const project of projectsToExport) {
         if (yPos > 220) { // Check space before adding content
             doc.addPage();
             yPos = 20;
@@ -177,10 +183,33 @@ export function ProjectsPage() {
     doc.save(`informe-proyectos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
 
+  const handleSelectProject = (projectId: string) => {
+    setSelectedProjects(prev => 
+      prev.includes(projectId)
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
+    );
+  };
+  
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedProjects(projects.map(p => p.id));
+    } else {
+      setSelectedProjects([]);
+    }
+  }
+
   const renderCardView = () => (
-     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {projects.map((project) => (
-          <Card key={project.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm">
+          <Card key={project.id} className={cn("flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm relative", selectedProjects.includes(project.id) && "ring-2 ring-primary")}>
+             <div className="absolute top-2 right-2 z-10 bg-background/50 backdrop-blur-sm rounded-sm p-1">
+                <Checkbox
+                    id={`select-${project.id}`}
+                    checked={selectedProjects.includes(project.id)}
+                    onCheckedChange={() => handleSelectProject(project.id)}
+                />
+            </div>
             <Link href={`/projects/${project.id}`} className="block">
                 <div className="aspect-[16/9] relative">
                      <Image 
@@ -260,7 +289,7 @@ export function ProjectsPage() {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
              <Card key={i}>
                 <Skeleton className="h-[120px] w-full rounded-t-lg rounded-b-none" />
@@ -295,9 +324,27 @@ export function ProjectsPage() {
       );
     }
 
+    const allSelected = selectedProjects.length === projects.length && projects.length > 0;
+    const isIndeterminate = selectedProjects.length > 0 && !allSelected;
+
+
     return (
       <Tabs defaultValue="grid" className="w-full">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="select-all"
+                  checked={allSelected}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Seleccionar todo"
+                />
+                <label htmlFor="select-all" className="text-sm font-medium">
+                  {selectedProjects.length > 0 
+                   ? `${selectedProjects.length} de ${projects.length} seleccionado(s)`
+                   : `Seleccionar todo`
+                  }
+                </label>
+            </div>
             <TabsList>
                 <TabsTrigger value="grid"><LayoutGrid className="size-4 mr-2"/> Tarjetas</TabsTrigger>
                 <TabsTrigger value="list"><List className="size-4 mr-2"/> Lista</TabsTrigger>
@@ -307,7 +354,14 @@ export function ProjectsPage() {
             {renderCardView()}
         </TabsContent>
         <TabsContent value="list">
-            <ProjectListView projects={projects} tasks={tasks} onEdit={handleEdit} onDelete={handleDelete} />
+            <ProjectListView 
+              projects={projects} 
+              tasks={tasks} 
+              onEdit={handleEdit} 
+              onDelete={handleDelete}
+              selectedProjects={selectedProjects}
+              onSelectProject={handleSelectProject}
+            />
         </TabsContent>
     </Tabs>
     );
@@ -319,9 +373,9 @@ export function ProjectsPage() {
         <PageHeader title="Proyectos">
           <div className='flex items-center gap-2'>
             {isAdmin && (
-              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={projects.length === 0}>
+              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
                 <FileDown />
-                Generar Informe PDF
+                 {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
               </Button>
             )}
             <Button size="sm" onClick={handleAddNew}>
