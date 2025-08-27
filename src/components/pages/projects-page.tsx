@@ -41,8 +41,8 @@ export function ProjectsPage() {
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const { toast } = useToast();
   const supabase = createClient();
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [chartProject, setChartProject] = useState<ProjectWithProgress | null>(null);
+  
+  const projectsToShow = projects.filter(p => selectedProjects.includes(p.id));
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -131,11 +131,9 @@ export function ProjectsPage() {
 
 
         // Render chart and add as image
-        if (chartRef.current) {
-            setChartProject(project);
-            // Give it a moment to render with the new data
-            await new Promise(resolve => setTimeout(resolve, 50)); 
-            const canvas = await html2canvas(chartRef.current, { backgroundColor: null, scale: 2 });
+        const chartElement = document.getElementById(`chart-for-project-${project.id}`);
+        if (chartElement) {
+            const canvas = await html2canvas(chartElement, { backgroundColor: null, scale: 2 });
             const imgData = canvas.toDataURL('image/png');
             
             // Calculate aspect ratio
@@ -191,7 +189,6 @@ export function ProjectsPage() {
             yPos += 15;
         }
     }
-    setChartProject(null); // Clean up after finishing
     doc.save(`informe-proyectos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
 
@@ -225,7 +222,7 @@ export function ProjectsPage() {
   };
 
   const renderCardView = () => (
-     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {projects.map((project) => (
           <Card key={project.id} className={cn("flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm relative", selectedProjects.includes(project.id) && "ring-2 ring-primary")}>
              <div className="absolute top-2 right-2 z-10 bg-background/50 backdrop-blur-sm rounded-sm p-1">
@@ -419,16 +416,16 @@ export function ProjectsPage() {
         </div>
       </div>
       {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectToEdit={projectToEdit} />}
-      <div ref={chartRef} className="absolute -left-[9999px] top-0 w-[600px] p-4 bg-background">
-        {chartProject && (
-          <ProjectChartComponent 
-            project={chartProject} 
-            tasks={tasks.filter(t => t.projectId === chartProject.id)} 
-          />
-        )}
+      <div className="absolute -left-[9999px] top-0">
+        {projectsToShow.map(project => (
+          <div key={project.id} id={`chart-for-project-${project.id}`} className="w-[600px] p-4 bg-background">
+            <ProjectChartComponent 
+              project={project} 
+              tasks={tasks.filter(t => t.projectId === project.id)} 
+            />
+          </div>
+        ))}
       </div>
     </>
   );
 }
-
-    
