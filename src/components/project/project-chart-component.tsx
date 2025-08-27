@@ -1,11 +1,11 @@
 
 'use client';
 
-import { Pie, PieChart, Cell, Legend, Tooltip } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import type { ProjectWithProgress, Task } from '@/lib/types';
-import { PieChart as PieChartIcon } from 'lucide-react';
+import { BarChartHorizontal } from 'lucide-react';
 import { useMemo } from 'react';
 
 const chartConfig = {
@@ -47,34 +47,19 @@ export function ProjectChartComponent({ project, tasks }: ProjectChartComponentP
     }, {} as Record<string, number>);
 
     return Object.entries(tasksByStatus).map(([status, count]) => ({
-      name: status,
-      value: count,
+      status: status,
+      tasks: count,
       fill: `var(--color-${status.replace(/ /g, '')})`,
-      label: status,
     }));
   }, [tasks]);
 
   const totalTasks = tasks.length;
-
-  const RADIAN = Math.PI / 180;
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
-    if (percent === 0) return null;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-    return (
-      <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-bold">
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
   
   if (totalTasks === 0) {
     return (
         <Card className="w-full">
             <CardHeader>
-                <CardTitle className='flex items-center gap-2'><PieChartIcon className='size-5'/> Resumen de Tareas: {project.name}</CardTitle>
+                <CardTitle className='flex items-center gap-2'><BarChartHorizontal className='size-5'/> Resumen de Tareas: {project.name}</CardTitle>
                 <CardDescription>Distribución de tareas por estado para este proyecto.</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-center h-[250px]">
@@ -87,32 +72,23 @@ export function ProjectChartComponent({ project, tasks }: ProjectChartComponentP
   return (
     <Card className="w-full bg-background">
         <CardHeader>
-            <CardTitle className='flex items-center gap-2'><PieChartIcon className='size-5'/> Resumen de Tareas: {project.name}</CardTitle>
+            <CardTitle className='flex items-center gap-2'><BarChartHorizontal className='size-5'/> Resumen de Tareas: {project.name}</CardTitle>
             <CardDescription>Distribución de tareas por estado para este proyecto.</CardDescription>
         </CardHeader>
         <CardContent className="pl-2">
             <ChartContainer config={chartConfig} className="w-full h-[250px]">
-                 <PieChart>
-                    <Tooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
-                    <Pie
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={renderCustomizedLabel}
-                        outerRadius={100}
-                        dataKey="value"
-                        nameKey="name"
-                    >
-                        {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} stroke={entry.fill}/>
+                 <BarChart data={chartData} layout="horizontal" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="status" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                    <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                    <Tooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Bar dataKey="tasks" name="Tareas" radius={[4, 4, 0, 0]}>
+                         {chartData.map((entry) => (
+                            <Cell key={`cell-${entry.status}`} fill={entry.fill} />
                         ))}
-                    </Pie>
-                    <Legend 
-                        iconType='circle'
-                        formatter={(value) => <span className="text-foreground">{value}</span>}
-                    />
-                </PieChart>
+                    </Bar>
+                </BarChart>
             </ChartContainer>
         </CardContent>
     </Card>
