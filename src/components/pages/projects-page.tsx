@@ -198,7 +198,7 @@ export function ProjectsPage() {
                         const reader = new FileReader();
                         await new Promise<void>((resolve) => {
                            reader.onload = (e: any) => {
-                                doc.addImage(e.target.result, 'PNG', 14, yPos, 180, 100);
+                                doc.addImage(e.target.result, 'PNG', 14, yPos, 90, 50);
                                 resolve();
                            };
                            reader.readAsDataURL(blob);
