@@ -156,7 +156,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline">{projectToEdit ? 'Editar Proyecto' : 'Añadir Nuevo Proyecto'}</DialogTitle>
           <DialogDescription>
