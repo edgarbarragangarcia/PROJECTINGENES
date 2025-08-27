@@ -1,3 +1,4 @@
+
 'use client'
 
 import type { Status, Task, ProjectWithProgress } from '@/lib/types';
@@ -52,12 +53,12 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
 
     const items = sortedProjects.flatMap(project => {
         const projectTasks = tasks
-            .filter(t => t.projectId === project.id && t.startDate && t.dueDate)
+            .filter(t => t.projectId === project.id && t.dueDate) // Only need due date to render
             .map(t => ({
                 ...t,
                 type: 'task' as const,
-                startDate: new Date(t.startDate!),
-                dueDate: new Date(t.dueDate!), // Make sure dueDate is a Date object
+                startDate: new Date(t.startDate || t.dueDate!), // Fallback to dueDate if no startDate
+                dueDate: new Date(t.dueDate!), 
             }))
             .sort((a,b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
         
@@ -253,3 +254,5 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
     </div>
   );
 }
+
+    
