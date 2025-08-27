@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Home, FolderKanban, CalendarClock, LogOut, Zap, BarChart3, ListChecks } from 'lucide-react';
+import { Home, FolderKanban, CalendarClock, LogOut, Zap, BarChart3, ListChecks, GanttChartSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -16,12 +16,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useEffect, useState } from 'react';
+import { adminEmails } from '@/providers/combined-provider';
 
 
 const menuItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-    { href: '/projects', label: 'Proyectos', icon: ListChecks },
-    { href: '/calendar', label: 'Calendario', icon: CalendarClock },
+    { href: '/dashboard', label: 'Dashboard', icon: BarChart3, admin: false },
+    { href: '/projects', label: 'Proyectos', icon: ListChecks, admin: false },
+    { href: '/calendar', label: 'Calendario', icon: CalendarClock, admin: false },
+    { href: '/gantt', label: 'Gantt', icon: GanttChartSquare, admin: true },
 ];
 
 export function Navbar() {
@@ -29,11 +31,15 @@ export function Navbar() {
   const router = useRouter();
   const supabase = createClient();
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      if (user && adminEmails.includes(user.email || '')) {
+        setIsAdmin(true);
+      }
     }
     fetchUser();
   }, [supabase.auth]);
@@ -58,7 +64,7 @@ export function Navbar() {
         <span className="font-headline text-lg font-semibold">PROJECTIA</span>
       </Link>
       <nav className="hidden md:flex items-center gap-1">
-        {menuItems.map((item) => (
+        {menuItems.filter(item => !item.admin || isAdmin).map((item) => (
           <Button
             key={item.href}
             variant="ghost"

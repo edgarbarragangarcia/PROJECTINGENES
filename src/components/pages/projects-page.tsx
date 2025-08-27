@@ -5,7 +5,7 @@
 import { PageHeader } from '../layout/page-header';
 import type { Project, ProjectWithProgress, Task } from '@/lib/types';
 import { Button } from '../ui/button';
-import { MoreVertical, PlusCircle, Trash2, Edit, FileDown, LayoutGrid, List } from 'lucide-react';
+import { MoreVertical, PlusCircle, Trash2, Edit, FileDown, LayoutGrid, List, GanttChartSquare } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Progress } from '../ui/progress';
 import { useProjects } from '@/hooks/use-projects';
@@ -31,6 +31,7 @@ import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectListView } from '../project/project-list-view';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useRouter } from 'next/navigation';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
@@ -41,6 +42,7 @@ export function ProjectsPage() {
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const { toast } = useToast();
   const supabase = createClient();
+  const router = useRouter();
   
   const projectsToShow = projects.filter(p => selectedProjects.includes(p.id));
 
@@ -400,10 +402,16 @@ export function ProjectsPage() {
         <PageHeader title="Proyectos">
           <div className='flex items-center gap-2'>
             {isAdmin && (
-              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
-                <FileDown />
-                 {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
-              </Button>
+              <>
+                 <Button size="sm" variant="outline" onClick={() => router.push('/gantt')}>
+                    <GanttChartSquare />
+                    Gantt General
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
+                  <FileDown />
+                  {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
+                </Button>
+              </>
             )}
             <Button size="sm" onClick={handleAddNew}>
               <PlusCircle />
@@ -418,7 +426,7 @@ export function ProjectsPage() {
       {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectToEdit={projectToEdit} />}
       <div className="absolute -left-[9999px] top-0">
         {projectsToShow.map(project => (
-          <div key={project.id} id={`chart-for-project-${project.id}`} className="w-[600px] p-4 bg-background">
+          <div key={`chart-container-${project.id}`} id={`chart-for-project-${project.id}`} className="w-[600px] p-4 bg-background">
             <ProjectChartComponent 
               project={project} 
               tasks={tasks.filter(t => t.projectId === project.id)} 
