@@ -1,4 +1,3 @@
-
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -198,6 +197,31 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
+// Helper function to simulate upload progress (since Supabase doesn't provide native progress tracking)
+const uploadFileWithProgress = async (
+  bucket: string, 
+  fileName: string, 
+  file: File, 
+  onProgress?: (progress: number) => void
+) => {
+  // Start with 0% progress
+  onProgress?.(0);
+  
+  // Upload the file
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    });
+  
+  // Complete progress
+  onProgress?.(100);
+  
+  return { data, error };
+};
+
 const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
@@ -208,18 +232,13 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${user.id}/${projectId}_${Date.now()}.${fileExt}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('task_attachments')
-            .upload(fileName, imageFile, {
-                cacheControl: '3600',
-                upsert: false,
-                contentType: imageFile.type,
-            }, (event) => {
-              if (event.type === 'progress' && onUploadProgress) {
-                const progress = Math.round((event.loaded / event.total) * 100);
-                onUploadProgress(progress);
-              }
-            });
+        
+        const { data: uploadData, error: uploadError } = await uploadFileWithProgress(
+          'task_attachments',
+          fileName,
+          imageFile,
+          onUploadProgress
+        );
         
         if (uploadError) throw uploadError;
 
@@ -293,18 +312,12 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${user.id}/${dataToUpdate.projectId || 'unknown_project'}_${Date.now()}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
-            .from('task_attachments')
-            .upload(fileName, imageFile, {
-                cacheControl: '3600',
-                upsert: false,
-                contentType: imageFile.type,
-            }, (event) => {
-              if (event.type === 'progress' && onUploadProgress) {
-                const progress = Math.round((event.loaded / event.total) * 100);
-                onUploadProgress(progress);
-              }
-            });
+        const { error: uploadError } = await uploadFileWithProgress(
+          'task_attachments',
+          fileName,
+          imageFile,
+          onUploadProgress
+        );
 
         if (uploadError) throw uploadError;
 
@@ -461,5 +474,3 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     </GoogleCalendarProvider>
   );
 };
-
-    
