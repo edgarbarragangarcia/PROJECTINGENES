@@ -179,7 +179,6 @@ export function TaskFormDialog({
         submissionData.imageFile = imageFile;
         submissionData.onUploadProgress = setUploadProgress;
       } else if (imagePreview === null && taskToEdit?.image_url) {
-        // Handle image removal
         submissionData.image_url = null;
       }
 
@@ -373,7 +372,7 @@ export function TaskFormDialog({
                 <Label htmlFor="task-image">Adjuntar Imagen</Label>
                 {imagePreview ? (
                     <div className="relative group">
-                        <Image src={imagePreview} alt="Vista previa de la tarea" width={450} height={250} className="rounded-md object-cover"/>
+                        <Image src={imagePreview} alt="Vista previa de la tarea" width={450} height={250} className="rounded-md object-contain"/>
                         <Button type="button" size="icon" variant="destructive" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleRemoveImage}>
                             <X className="size-4" />
                         </Button>
