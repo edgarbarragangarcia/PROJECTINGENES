@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -197,32 +198,29 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
-// Helper function to simulate upload progress (since Supabase doesn't provide native progress tracking)
 const uploadFileWithProgress = async (
-  bucket: string, 
-  fileName: string, 
-  file: File, 
+  bucket: string,
+  fileName: string,
+  file: File,
   onProgress?: (progress: number) => void
 ) => {
   onProgress?.(0);
-  
-  // Simulate progress
+  let currentProgress = 0;
+
   const progressInterval = setInterval(() => {
-    onProgress?.(prev => {
-        if (prev === null) return 10;
-        if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-        }
-        return prev + 10;
-    });
+    currentProgress += 10;
+    if (currentProgress < 90) {
+      onProgress?.(currentProgress);
+    } else {
+      clearInterval(progressInterval);
+    }
   }, 200);
 
   const { data, error } = await supabase.storage
     .from(bucket)
     .upload(fileName, file, {
       cacheControl: '3600',
-      upsert: true, // Use upsert to replace existing files
+      upsert: true,
       contentType: file.type,
     });
   
@@ -319,8 +317,14 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     
     const existingTask = tasksState.tasks.find(t => t.id === id);
 
-    // Handle image update/deletion
     if (imageFile) {
+        if (existingTask?.image_url) {
+            const oldFileName = existingTask.image_url.split(`${user.id}/`).pop();
+            if (oldFileName) {
+              await supabase.storage.from('task_attachments').remove([`${user.id}/${oldFileName}`]);
+            }
+        }
+
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${user.id}/${dataToUpdate.projectId || 'unknown_project'}_${Date.now()}.${fileExt}`;
         
@@ -340,7 +344,7 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
         dataToUpdate.image_url = publicUrlData.publicUrl;
     } else if (dataToUpdate.image_url === null) {
       if (existingTask?.image_url) {
-        const oldFileName = existingTask.image_url.split('/').pop();
+        const oldFileName = existingTask.image_url.split(`${user.id}/`).pop();
         if (oldFileName) {
           await supabase.storage.from('task_attachments').remove([`${user.id}/${oldFileName}`]);
         }
