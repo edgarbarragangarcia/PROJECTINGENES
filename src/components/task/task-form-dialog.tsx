@@ -256,8 +256,7 @@ export function TaskFormDialog({
   const handleRemoveImage = () => {
       setImageFile(null);
       setImagePreview(null);
-  }
-
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -603,5 +602,3 @@ export function TaskFormDialog({
     </Dialog>
   );
 }
-
-    
