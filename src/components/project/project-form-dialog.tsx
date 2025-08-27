@@ -34,15 +34,18 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useProjects } from '@/hooks/use-projects';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
-import { Mic } from 'lucide-react';
+import { Mic, Upload, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { Progress } from '../ui/progress';
 
 
 const projectFormSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
   description: z.string().optional(),
   status: z.enum(projectStatuses),
-  image_url: z.string().url("Debe ser una URL válida.").optional().or(z.literal('')),
+  image_url: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -56,6 +59,10 @@ interface ProjectFormDialogProps {
 export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: ProjectFormDialogProps) {
   const { addProject, updateProject } = useProjects();
   const { toast } = useToast();
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(projectToEdit?.image_url || null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -70,9 +77,28 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
           name: '',
           description: '',
           status: 'En Progreso',
-          image_url: `https://picsum.photos/600/400?random=${Date.now()}`
+          image_url: '',
         },
   });
+  
+  useEffect(() => {
+    if (projectToEdit) {
+      setImagePreview(projectToEdit.image_url || null);
+      form.reset({
+        name: projectToEdit.name,
+        description: projectToEdit.description || '',
+        status: projectToEdit.status,
+        image_url: projectToEdit.image_url || '',
+      });
+    } else {
+        form.reset({
+          name: '',
+          description: '',
+          status: 'En Progreso',
+          image_url: '',
+        });
+    }
+  }, [projectToEdit, form]);
 
   const handleTranscript = (fieldName: 'name' | 'description') => (transcript: string) => {
     form.setValue(fieldName, (form.getValues(fieldName) || '') + transcript);
@@ -83,11 +109,15 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
 
   const onSubmit = async (data: ProjectFormValues) => {
     try {
-        const submissionData = {
-            ...data,
-            description: data.description || '',
-            image_url: data.image_url || `https://picsum.photos/600/400?random=${Date.now()}`
+        const submissionData: any = { ...data };
+
+        if (imageFile) {
+            submissionData.imageFile = imageFile;
+            submissionData.onUploadProgress = setUploadProgress;
+        } else if (imagePreview === null && projectToEdit?.image_url) {
+            submissionData.image_url = null;
         }
+
 
         if (projectToEdit) {
             await updateProject(projectToEdit.id, submissionData);
@@ -100,7 +130,28 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
         onOpenChange(false);
     } catch(error: any) {
         toast({ variant: 'destructive', title: 'Error al guardar el proyecto', description: error.message });
+    } finally {
+      setUploadProgress(null);
+      setImageFile(null);
+      setImagePreview(null);
     }
+  };
+  
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+      setImageFile(null);
+      setImagePreview(null);
   };
 
   return (
@@ -155,19 +206,27 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
               )}
             />
             
-            <FormField
-              control={form.control}
-              name="image_url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL de la Imagen</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://example.com/image.png" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="space-y-2">
+                <FormLabel>Imagen del Proyecto</FormLabel>
+                 {imagePreview ? (
+                    <div className="relative group">
+                        <Image src={imagePreview} alt="Vista previa del proyecto" width={450} height={250} className="rounded-md object-cover"/>
+                        <Button type="button" size="icon" variant="destructive" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleRemoveImage}>
+                            <X className="size-4" />
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        <FormControl>
+                            <Input id="project-image" type="file" className="w-full h-10 pl-12" onChange={handleImageChange} accept="image/*"/>
+                        </FormControl>
+                        <Upload className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                    </div>
+                )}
+                 {uploadProgress !== null && (
+                    <Progress value={uploadProgress} className="w-full h-2 mt-2" />
+                )}
+            </div>
 
             <FormField
               control={form.control}
@@ -197,7 +256,9 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">{projectToEdit ? 'Guardar Cambios' : 'Crear Proyecto'}</Button>
+              <Button type="submit" disabled={uploadProgress !== null && uploadProgress < 100}>
+                {uploadProgress !== null && uploadProgress < 100 ? `Subiendo... ${uploadProgress}%` : projectToEdit ? 'Guardar Cambios' : 'Crear Proyecto'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

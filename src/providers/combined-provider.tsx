@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -149,31 +150,123 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, [projectsState.projects, tasksState.tasks, calculateProgress]);
 
-  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>) => {
+  const uploadFileWithProgress = async (
+    bucket: string,
+    fileName: string,
+    file: File,
+    onProgress?: (progress: number) => void
+  ) => {
+    onProgress?.(0);
+    let currentProgress = 0;
+  
+    const progressInterval = setInterval(() => {
+      currentProgress += 10;
+      if (currentProgress < 90) {
+        onProgress?.(currentProgress);
+      } else {
+        clearInterval(progressInterval);
+      }
+    }, 200);
+  
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type,
+      });
+    
+    clearInterval(progressInterval);
+    onProgress?.(100);
+    
+    return { data, error };
+  };
+
+  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'> & { imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
+
+    const { imageFile, onUploadProgress, ...restOfProjectData } = projectData;
+
+    let imageUrl: string | undefined = undefined;
+    if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await uploadFileWithProgress(
+          'project_images',
+          fileName,
+          imageFile,
+          onUploadProgress
+        );
+        
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+            .from('project_images')
+            .getPublicUrl(fileName);
+            
+        imageUrl = publicUrlData.publicUrl;
+    }
     
     const { data, error } = await supabase
       .from('projects')
-      .insert({ ...projectData, user_id: user.id })
+      .insert({ ...restOfProjectData, user_id: user.id, image_url: imageUrl })
       .select('*')
       .single();
       
     if (error) throw error;
     
     if (data) {
-      setProjectsState(prevState => ({ 
-        ...prevState, 
-        projects: [data, ...prevState.projects] 
-      }));
+      await fetchProjects(user);
     }
   };
 
-  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>>) => {
+  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>> & { imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
-    const { error } = await supabase.from('projects').update(data).eq('id', id);
+    const { imageFile, onUploadProgress, ...restOfProjectData } = data;
+    const dataToUpdate: Record<string, any> = { ...restOfProjectData };
+    
+    const existingProject = projectsState.projects.find(p => p.id === id);
+
+    if (imageFile) {
+        if (existingProject?.image_url) {
+            const oldFileName = existingProject.image_url.split(`${user.id}/`).pop();
+            if (oldFileName) {
+              await supabase.storage.from('project_images').remove([`${user.id}/${oldFileName}`]);
+            }
+        }
+
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await uploadFileWithProgress(
+          'project_images',
+          fileName,
+          imageFile,
+          onUploadProgress
+        );
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+            .from('project_images')
+            .getPublicUrl(fileName);
+            
+        dataToUpdate.image_url = publicUrlData.publicUrl;
+    } else if (dataToUpdate.image_url === null) {
+      if (existingProject?.image_url) {
+        const oldFileName = existingProject.image_url.split(`${user.id}/`).pop();
+        if (oldFileName) {
+          await supabase.storage.from('project_images').remove([`${user.id}/${oldFileName}`]);
+        }
+      }
+    }
+
+
+    const { error } = await supabase.from('projects').update(dataToUpdate).eq('id', id);
     if (error) throw error;
     await fetchProjects(user);
   };
@@ -181,6 +274,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const deleteProject = async (id: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
+    
+    const projectToDelete = projectsState.projects.find(p => p.id === id);
+    if (projectToDelete?.image_url) {
+        const fileName = projectToDelete.image_url.split('/').pop();
+        if (fileName) {
+            try {
+                await supabase.storage.from('project_images').remove([`${user.id}/${fileName}`]);
+            } catch(e) {
+                console.error("Failed to delete stale storage object:", e);
+            }
+        }
+    }
 
     const { error: tasksError } = await supabase.from('tasks').delete().eq('project_id', id);
     if(tasksError) throw tasksError;
@@ -197,38 +302,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       projects: prevState.projects.filter((p) => p.id !== id) 
     }));
   };
-
-const uploadFileWithProgress = async (
-  bucket: string,
-  fileName: string,
-  file: File,
-  onProgress?: (progress: number) => void
-) => {
-  onProgress?.(0);
-  let currentProgress = 0;
-
-  const progressInterval = setInterval(() => {
-    currentProgress += 10;
-    if (currentProgress < 90) {
-      onProgress?.(currentProgress);
-    } else {
-      clearInterval(progressInterval);
-    }
-  }, 200);
-
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: true,
-      contentType: file.type,
-    });
-  
-  clearInterval(progressInterval);
-  onProgress?.(100);
-  
-  return { data, error };
-};
 
 const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
