@@ -130,6 +130,12 @@ export function ProjectsPage() {
         yPos += (splitDescription.length * 4) + 5;
         doc.setTextColor(0);
 
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Nivel de Avance: ${project.progress}%`, 14, yPos);
+        yPos += 10;
+        doc.setFont('helvetica', 'normal');
+
+
         const projectTasks = tasks.filter(task => task.projectId === project.id);
 
         if (projectTasks.length > 0) {
@@ -138,9 +144,11 @@ export function ProjectsPage() {
                 yPos = 20;
             }
             const tableData = projectTasks.map(t => {
+                const subtasksText = t.subtasks?.map(st => `${st.is_completed ? '[x]' : '[ ]'} ${st.title}`).join('\n') || 'N/A';
                 return [
                     t.title || 'N/A',
                     t.description || 'N/A',
+                    subtasksText,
                     t.assignee || 'N/A',
                     t.status || 'N/A',
                     t.priority || 'N/A',
@@ -150,19 +158,20 @@ export function ProjectsPage() {
             });
 
             autoTable(doc, {
-                head: [['Tarea', 'Descripción', 'Responsable', 'Estado', 'Prioridad', 'Fecha de inicio', 'Vencimiento']],
+                head: [['Tarea', 'Descripción', 'Subtareas', 'Responsable', 'Estado', 'Prioridad', 'Fecha de inicio', 'Vencimiento']],
                 body: tableData,
                 startY: yPos,
                 headStyles: { fillColor: [41, 128, 185] },
                 styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
                 columnStyles: {
-                    0: { cellWidth: 40 }, // Tarea
+                    0: { cellWidth: 30 }, // Tarea
                     1: { cellWidth: 'auto' }, // Descripción
-                    2: { cellWidth: 30 }, // Responsable
-                    3: { cellWidth: 25 }, // Estado
-                    4: { cellWidth: 20 }, // Prioridad
-                    5: { cellWidth: 25 }, // Fecha de inicio
-                    6: { cellWidth: 25 }, // Vencimiento
+                    2: { cellWidth: 40 }, // Subtareas
+                    3: { cellWidth: 25 }, // Responsable
+                    4: { cellWidth: 20 }, // Estado
+                    5: { cellWidth: 20 }, // Prioridad
+                    6: { cellWidth: 20 }, // Fecha de inicio
+                    7: { cellWidth: 20 }, // Vencimiento
                 }
             });
 
@@ -454,5 +463,3 @@ export function ProjectsPage() {
     </>
   );
 }
-
-    
