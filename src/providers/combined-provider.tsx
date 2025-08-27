@@ -203,15 +203,19 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (!user) throw new Error("Usuario no autenticado");
 
     const { startDate, dueDate, projectId, subtasks, ...restOfTaskData } = taskData;
+    
+    const dataToInsert: any = {
+      ...restOfTaskData,
+      user_id: user.id,
+      project_id: projectId,
+    };
+    if (startDate) dataToInsert.start_date = startDate.toISOString();
+    if (dueDate) dataToInsert.due_date = dueDate.toISOString();
+
+
     const { data: taskResult, error: taskError } = await supabase
         .from('tasks')
-        .insert({
-            ...restOfTaskData,
-            project_id: projectId,
-            user_id: user.id,
-            start_date: startDate?.toISOString(),
-            due_date: dueDate?.toISOString(),
-        })
+        .insert(dataToInsert)
         .select()
         .single();
 
@@ -252,25 +256,30 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 };
 
   const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario no autenticado");
+
     const dataToUpdate: Record<string, any> = { ...taskData };
     
-    // This needs to handle subtasks as well. For now, it only updates the main task.
-    // A more complete implementation would handle adding/removing/updating subtasks.
-    delete dataToUpdate.subtasks; 
+    delete dataToUpdate.subtasks; // Handle subtasks separately if needed
 
-    if ('startDate' in taskData) dataToUpdate.start_date = taskData.startDate ? taskData.startDate.toISOString() : null;
-    if ('dueDate' in taskData) dataToUpdate.due_date = taskData.dueDate ? taskData.dueDate.toISOString() : null;
-    if ('projectId' in taskData) {
-        dataToUpdate.project_id = taskData.projectId;
+    if (dataToUpdate.startDate) {
+        dataToUpdate.start_date = dataToUpdate.startDate.toISOString();
+        delete dataToUpdate.startDate;
+    }
+    if (dataToUpdate.dueDate) {
+        dataToUpdate.due_date = dataToUpdate.dueDate.toISOString();
+        delete dataToUpdate.dueDate;
+    }
+    if (dataToUpdate.projectId) {
+        dataToUpdate.project_id = dataToUpdate.projectId;
         delete dataToUpdate.projectId;
     }
     
     const { error } = await supabase.from('tasks').update(dataToUpdate).eq('id', id);
     if (error) throw error;
     
-    // This is a local update. A full re-fetch might be safer to get subtask updates.
-    const { data: { user } } = await supabase.auth.getUser();
-    if(user) await fetchTasks(user);
+    await fetchTasks(user);
   };
 
   const deleteTask = async (id: string) => {
