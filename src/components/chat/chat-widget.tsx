@@ -81,7 +81,7 @@ export function ChatWidget() {
       <Sheet open={isOpen} onOpenChange={handleOpenChange}>
         <SheetContent 
           side="right" 
-          className="flex flex-col bottom-24 right-6 h-[60vh] w-[70vw] max-w-md rounded-xl"
+          className="flex flex-col right-6 bottom-24 h-[60vh] w-[90vw] max-w-md rounded-xl"
         >
           <SheetHeader className="text-left">
             <SheetTitle className="flex items-center gap-2 font-headline">
