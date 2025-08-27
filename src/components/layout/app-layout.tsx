@@ -1,3 +1,4 @@
+import { ChatWidget } from '../chat/chat-widget';
 import { Navbar } from './navbar';
 
 type AppLayoutProps = {
@@ -14,6 +15,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <footer className="py-4 text-center text-sm text-muted-foreground border-t shrink-0">
           © {new Date().getFullYear()} Ingenes. Todos los derechos reservados.
       </footer>
+      <ChatWidget />
     </div>
   );
 }
