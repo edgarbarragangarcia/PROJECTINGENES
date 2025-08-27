@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -93,23 +92,23 @@ export function ProjectsPage() {
   };
   
   const handleDownloadPdf = async () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'landscape' });
     let yPos = 28;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
-    doc.text('Informe de Proyectos Seleccionados', 105, 20, { align: 'center' });
+    doc.text('Informe de Proyectos Seleccionados', doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Fecha de generación: ${format(new Date(), 'PPPP', {locale: es})}`, 105, yPos, { align: 'center' });
+    doc.text(`Fecha de generación: ${format(new Date(), 'PPPP', {locale: es})}`, doc.internal.pageSize.getWidth() / 2, yPos, { align: 'center' });
     
     yPos += 15;
     
     const projectsToExport = projects.filter(p => selectedProjects.includes(p.id));
 
     for (const project of projectsToExport) {
-        if (yPos > 220) { 
+        if (yPos > 150) { 
             doc.addPage();
             yPos = 20;
         }
@@ -126,59 +125,44 @@ export function ProjectsPage() {
         
         doc.setFont('helvetica', 'italic');
         doc.setTextColor(100);
-        const splitDescription = doc.splitTextToSize(project.description || 'Sin descripción.', 180);
+        const splitDescription = doc.splitTextToSize(project.description || 'Sin descripción.', 250);
         doc.text(splitDescription, 14, yPos);
         yPos += (splitDescription.length * 4) + 5;
         doc.setTextColor(0);
 
-        const chartElement = document.getElementById(`chart-for-project-${project.id}`);
-        if (chartElement) {
-            const canvas = await html2canvas(chartElement, { backgroundColor: null, scale: 2 });
-            const imgData = canvas.toDataURL('image/png');
-            const imgWidth = 180;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-            if (yPos + imgHeight > 280) {
-              doc.addPage();
-              yPos = 20;
-            }
-
-            doc.addImage(imgData, 'PNG', 14, yPos, imgWidth, imgHeight);
-            yPos += imgHeight + 10;
-        }
-
         const projectTasks = tasks.filter(task => task.projectId === project.id);
 
         if (projectTasks.length > 0) {
-            if (yPos > 260) {
+            if (yPos > 180) {
                 doc.addPage();
                 yPos = 20;
             }
             const tableData = projectTasks.map(t => {
-                const subtasksString = (t.subtasks || [])
-                    .map(st => `${st.is_completed ? '[x]' : '[ ]'} ${st.title}`)
-                    .join('\n');
                 return [
-                    t.title,
-                    t.status,
-                    t.priority,
+                    t.title || 'N/A',
+                    t.description || 'N/A',
+                    t.assignee || 'N/A',
+                    t.status || 'N/A',
+                    t.priority || 'N/A',
+                    t.startDate ? format(new Date(t.startDate), 'dd/MM/yy') : 'N/A',
                     t.dueDate ? format(new Date(t.dueDate), 'dd/MM/yy') : 'N/A',
-                    subtasksString || 'N/A'
                 ];
             });
 
             autoTable(doc, {
-                head: [['Tarea', 'Estado', 'Prioridad', 'Vencimiento', 'Subtareas']],
+                head: [['Tarea', 'Descripción', 'Responsable', 'Estado', 'Prioridad', 'Fecha de inicio', 'Vencimiento']],
                 body: tableData,
                 startY: yPos,
                 headStyles: { fillColor: [41, 128, 185] },
                 styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
                 columnStyles: {
                     0: { cellWidth: 40 }, // Tarea
-                    1: { cellWidth: 25 }, // Estado
-                    2: { cellWidth: 20 }, // Prioridad
-                    3: { cellWidth: 25 }, // Vencimiento
-                    4: { cellWidth: 'auto' }, // Subtareas
+                    1: { cellWidth: 'auto' }, // Descripción
+                    2: { cellWidth: 30 }, // Responsable
+                    3: { cellWidth: 25 }, // Estado
+                    4: { cellWidth: 20 }, // Prioridad
+                    5: { cellWidth: 25 }, // Fecha de inicio
+                    6: { cellWidth: 25 }, // Vencimiento
                 }
             });
 
@@ -186,35 +170,42 @@ export function ProjectsPage() {
 
             for (const task of projectTasks) {
                 if (task.image_url) {
-                    doc.addPage();
-                    yPos = 20;
-                    doc.setFontSize(12);
+                    if (yPos > 150) { 
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.setFontSize(10);
                     doc.setFont('helvetica', 'bold');
                     doc.text(`Imagen adjunta a la tarea: "${task.title}"`, 14, yPos);
-                    yPos += 10;
+                    yPos += 5;
                     try {
                         const response = await fetch(task.image_url);
                         const blob = await response.blob();
                         const reader = new FileReader();
-                        await new Promise<void>((resolve) => {
+                        await new Promise<void>((resolve, reject) => {
                            reader.onload = (e: any) => {
-                                doc.addImage(e.target.result, 'PNG', 14, yPos, 90, 50);
-                                resolve();
+                                try {
+                                    doc.addImage(e.target.result, 'PNG', 14, yPos, 90, 50);
+                                    yPos += 55;
+                                    resolve();
+                                } catch (err) {
+                                    reject(err);
+                                }
                            };
+                           reader.onerror = reject;
                            reader.readAsDataURL(blob);
                         });
 
                     } catch (e) {
                         doc.setFont('helvetica', 'normal');
                         doc.setTextColor(255,0,0);
-                        doc.text('No se pudo cargar la imagen.', 14, yPos + 10);
+                        doc.text('No se pudo cargar la imagen.', 14, yPos + 5);
+                        yPos += 10;
                         doc.setTextColor(0);
                     }
                 }
             }
-            yPos = doc.internal.pageSize.height - 20;
-
-
+            yPos += 10;
         } else {
             doc.setFontSize(9);
             doc.text('Este proyecto no tiene tareas.', 14, yPos);
@@ -463,3 +454,5 @@ export function ProjectsPage() {
     </>
   );
 }
+
+    
