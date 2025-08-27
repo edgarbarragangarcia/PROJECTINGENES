@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Mic, Plus, Trash2 } from 'lucide-react';
+import { CalendarIcon, Mic, Plus, Trash2, Upload, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -44,6 +44,8 @@ import { Label } from '@/components/ui/label';
 import { useProjects } from '@/hooks/use-projects';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { Checkbox } from '../ui/checkbox';
+import Image from 'next/image';
+import { Progress } from '../ui/progress';
 
 const translatedPriorities = {
   'Low': 'Baja',
@@ -66,6 +68,7 @@ const taskFormSchema = z.object({
   projectId: z.string().uuid("Debes seleccionar un proyecto válido."),
   assignee: z.string().optional(),
   subtasks: z.array(subtaskSchema).optional(),
+  image_url: z.string().optional(),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -97,6 +100,10 @@ export function TaskFormDialog({
   const { toast } = useToast();
   const [subtaskInput, setSubtaskInput] = useState('');
   const [currentSubtasks, setCurrentSubtasks] = useState<{title: string, is_completed: boolean}[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(taskToEdit?.image_url || null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
   
   const isProjectContext = !!projectId;
 
@@ -113,6 +120,7 @@ export function TaskFormDialog({
           projectId: taskToEdit.projectId,
           assignee: taskToEdit.assignee || '',
           subtasks: taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || [],
+          image_url: taskToEdit.image_url || '',
         }
       : {
           title: '',
@@ -124,12 +132,13 @@ export function TaskFormDialog({
           projectId: projectId || '',
           assignee: '',
           subtasks: [],
+          image_url: '',
         },
   });
   
   useEffect(() => {
     setCurrentSubtasks(taskToEdit?.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setImagePreview(taskToEdit?.image_url || null);
   }, [taskToEdit]);
 
   const handleTranscript = (fieldName: 'title' | 'description' | 'assignee') => (transcript: string) => {
@@ -157,7 +166,7 @@ export function TaskFormDialog({
         return;
       }
       
-      const submissionData = {
+      const submissionData: any = {
         ...data,
         subtasks: currentSubtasks,
         project_id: data.projectId,
@@ -166,6 +175,15 @@ export function TaskFormDialog({
         dueDate: data.dueDate,
         assignee: data.assignee || '',
       };
+      
+      if (imageFile) {
+        submissionData.imageFile = imageFile;
+        submissionData.onUploadProgress = setUploadProgress;
+      } else if (imagePreview === null && taskToEdit?.image_url) {
+        // Handle image removal
+        submissionData.image_url = null;
+      }
+
 
       if (taskToEdit) {
         await updateTask(taskToEdit.id, submissionData);
@@ -191,8 +209,12 @@ export function TaskFormDialog({
         projectId: projectId || '',
         assignee: '',
         subtasks: [],
+        image_url: '',
       });
       setCurrentSubtasks([]);
+      setImageFile(null);
+      setImagePreview(null);
+      setUploadProgress(null);
       onOpenChange(false);
     } catch(error: any) {
       toast({ 
@@ -216,6 +238,23 @@ export function TaskFormDialog({
   
   const handleSubtaskCheckedChange = (checked: boolean, index: number) => {
      setCurrentSubtasks(prev => prev.map((st, i) => i === index ? { ...st, is_completed: checked } : st));
+  }
+  
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleRemoveImage = () => {
+      setImageFile(null);
+      setImagePreview(null);
   }
 
 
@@ -331,6 +370,27 @@ export function TaskFormDialog({
               )}
             />
 
+             <div className="space-y-2">
+                <Label htmlFor="task-image">Adjuntar Imagen</Label>
+                {imagePreview ? (
+                    <div className="relative group">
+                        <Image src={imagePreview} alt="Vista previa de la tarea" width={450} height={250} className="rounded-md object-cover"/>
+                        <Button type="button" size="icon" variant="destructive" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleRemoveImage}>
+                            <X className="size-4" />
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        <Input id="task-image" type="file" className="w-full h-10 pl-12" onChange={handleImageChange} accept="image/*"/>
+                        <Upload className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                    </div>
+                )}
+                 {uploadProgress !== null && (
+                    <Progress value={uploadProgress} className="w-full h-2 mt-2" />
+                )}
+            </div>
+
+
             <div className="space-y-2">
               <Label>Subtareas</Label>
               <div className="space-y-2">
@@ -428,7 +488,7 @@ export function TaskFormDialog({
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar prioridad" />
-                        </SelectTrigger>
+                        </TriggerTrigger>
                       </FormControl>
                       <SelectContent>
                         {priorities.map((p) => (
@@ -532,8 +592,8 @@ export function TaskFormDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit">
-                {taskToEdit ? 'Guardar Cambios' : 'Crear Tarea'}
+              <Button type="submit" disabled={uploadProgress !== null && uploadProgress < 100}>
+                {uploadProgress !== null ? 'Subiendo imagen...' : taskToEdit ? 'Guardar Cambios' : 'Crear Tarea'}
               </Button>
             </DialogFooter>
           </form>

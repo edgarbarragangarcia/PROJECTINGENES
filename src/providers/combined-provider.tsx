@@ -198,16 +198,38 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
-  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[] }) => {
+  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
-    const { startDate, dueDate, projectId, subtasks, ...restOfTaskData } = taskData;
+    const { startDate, dueDate, projectId, subtasks, imageFile, onUploadProgress, ...restOfTaskData } = taskData;
     
+    let imageUrl: string | undefined = undefined;
+    if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${user.id}/${projectId}_${Date.now()}.${fileExt}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('task_attachments')
+            .upload(fileName, imageFile, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: imageFile.type,
+            });
+        
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+            .from('task_attachments')
+            .getPublicUrl(fileName);
+            
+        imageUrl = publicUrlData.publicUrl;
+    }
+
     const dataToInsert: any = {
       ...restOfTaskData,
       user_id: user.id,
       project_id: projectId,
+      image_url: imageUrl,
     };
     if (startDate) dataToInsert.start_date = startDate.toISOString();
     if (dueDate) dataToInsert.due_date = dueDate.toISOString();
@@ -255,12 +277,34 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
 };
 
-  const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>>) => {
+  const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> & { imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
-    const dataToUpdate: Record<string, any> = { ...taskData };
+    const { imageFile, onUploadProgress, ...restOfTaskData } = taskData;
+    const dataToUpdate: Record<string, any> = { ...restOfTaskData };
     
+    if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${user.id}/${dataToUpdate.projectId || 'unknown_project'}_${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+            .from('task_attachments')
+            .upload(fileName, imageFile, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: imageFile.type,
+            });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+            .from('task_attachments')
+            .getPublicUrl(fileName);
+            
+        dataToUpdate.image_url = publicUrlData.publicUrl;
+    }
+
     delete dataToUpdate.subtasks; // Handle subtasks separately if needed
 
     if (dataToUpdate.startDate) {

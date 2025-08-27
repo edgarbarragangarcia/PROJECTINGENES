@@ -31,6 +31,7 @@ export interface Task {
   user_id: string;
   assignee?: string;
   subtasks?: Subtask[];
+  image_url?: string;
 }
 
 export const projectStatuses = ['En Progreso', 'Completado', 'En Pausa'] as const;

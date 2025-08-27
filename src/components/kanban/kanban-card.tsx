@@ -1,9 +1,10 @@
+
 'use client';
 
 import type { Task } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTasks } from '@/hooks/use-tasks';
-import { MoreHorizontal, CalendarIcon, Trash2, Edit, UserCircle } from 'lucide-react';
+import { MoreHorizontal, CalendarIcon, Trash2, Edit, UserCircle, Paperclip } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '../task/priority-icon';
@@ -15,6 +16,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '../ui/avatar';
+import Image from 'next/image';
 
 interface KanbanCardProps {
   task: Task;
@@ -148,15 +150,32 @@ export function KanbanCard({ task }: KanbanCardProps) {
           </div>
         </CardHeader>
         <CardContent className="p-3 pt-2">
+          {task.image_url && (
+            <div className="relative aspect-video mb-2">
+              <Image src={task.image_url} alt={task.title} fill className="object-cover rounded-md" />
+            </div>
+          )}
           <p className="font-medium text-sm">{task.title}</p>
           {task.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>}
           <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-            {task.dueDate && (
-              <div className="flex items-center gap-1.5">
-                <CalendarIcon className="size-3.5" />
-                <span>{format(task.dueDate, 'MMM d', { locale: es })}</span>
-              </div>
-            )}
+             <div className="flex items-center gap-2">
+                {task.dueDate && (
+                  <div className="flex items-center gap-1">
+                    <CalendarIcon className="size-3.5" />
+                    <span>{format(task.dueDate, 'MMM d', { locale: es })}</span>
+                  </div>
+                )}
+                {task.subtasks && task.subtasks.length > 0 && (
+                    <div className="flex items-center gap-1" title={`${task.subtasks.filter(st => st.is_completed).length} de ${task.subtasks.length} subtareas completadas`}>
+                       <svg className='size-3.5' viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5.75 11.75L2.25 8.25L3.31 7.19L5.75 9.63L12.69 2.69L13.75 3.75L5.75 11.75Z"></path></svg>
+                       <span>{`${task.subtasks.filter(st => st.is_completed).length}/${task.subtasks.length}`}</span>
+                    </div>
+                )}
+                {task.image_url && (
+                    <Paperclip className="size-3.5" />
+                )}
+            </div>
+
              {task.assignee && (
                 <div className="flex items-center gap-1.5" title={task.assignee}>
                     <Avatar className='size-5 text-xs'>
