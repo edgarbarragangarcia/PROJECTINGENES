@@ -79,7 +79,7 @@ export function ChatWidget() {
         <MessageSquare className="size-6" />
       </Button>
       <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-        <SheetContent side="bottom" className="h-[80vh] flex flex-col">
+        <SheetContent side="bottom" className="h-[60vh] flex flex-col">
           <SheetHeader className="text-left">
             <SheetTitle className="flex items-center gap-2 font-headline">
               <Bot className="size-6 text-primary" />
