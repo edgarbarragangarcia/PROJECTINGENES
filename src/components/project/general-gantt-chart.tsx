@@ -52,16 +52,16 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
 
     const items = sortedProjects.flatMap(project => {
         const projectTasks = tasks
-            .filter(t => t.projectId === project.id && t.dueDate)
+            .filter(t => t.projectId === project.id && t.startDate && t.dueDate)
             .map(t => ({
                 ...t,
-                type: 'task',
-                startDate: t.startDate || new Date(t.created_at),
+                type: 'task' as const,
+                startDate: new Date(t.startDate!),
                 dueDate: new Date(t.dueDate!), // Make sure dueDate is a Date object
             }))
             .sort((a,b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
         
-        return [{ type: 'project' as const, ...project, id: `proj-${project.id}` }, ...projectTasks];
+        return [{ type: 'project' as const, ...project }, ...projectTasks];
     });
 
     const tasksWithDates = items.filter(item => item.type === 'task') as (Task & {type: 'task', startDate?: Date, dueDate?: Date})[];
@@ -123,7 +123,7 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
     chartItems.forEach(item => {
       if (item.type === 'project') {
         visibleItems.push(item);
-      } else if (item.project_id && expandedProjects.includes(item.project_id)) {
+      } else if (item.projectId && expandedProjects.includes(item.projectId)) {
         visibleItems.push(item);
       }
     });
@@ -161,7 +161,7 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
                     className="flex-1 overflow-y-hidden"
                 >
                 {displayItems.map((item: any, index) => (
-                    <div key={`${item.type}-${item.id}-${index}`} className="flex items-center border-b h-full" style={{ height: `${ROW_HEIGHT}px` }}>
+                    <div key={`${item.id}-${index}`} className="flex items-center border-b h-full" style={{ height: `${ROW_HEIGHT}px` }}>
                          {item.type === 'project' ? (
                             <div 
                                 className="w-full px-2 text-sm font-bold truncate flex items-center gap-1 cursor-pointer hover:bg-muted/50 h-full"
