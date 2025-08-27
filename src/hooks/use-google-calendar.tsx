@@ -22,6 +22,7 @@ export interface GoogleCalendarContextType extends GoogleCalendarState {
   setProviderToken: (token: string | null) => void;
   setSession: (session: Session | null) => void;
   getCalendarList: () => Promise<any>;
+  getCalendarEvents: (calendarId: string, timeMin: string, timeMax: string) => Promise<any>;
 }
 
 export const GoogleCalendarContext = createContext<GoogleCalendarContextType | undefined>(undefined);

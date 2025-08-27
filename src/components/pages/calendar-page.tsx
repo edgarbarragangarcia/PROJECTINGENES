@@ -39,30 +39,30 @@ export function CalendarPage() {
   const { tasks } = useTasks();
   const { getNotesByDate } = useDailyNotes();
   const { toast } = useToast();
-  const { getCalendarList } = useGoogleCalendar();
+  const { getCalendarEvents } = useGoogleCalendar();
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDateForNotes, setSelectedDateForNotes] = useState<Date | null>(null);
+  const [googleEvents, setGoogleEvents] = useState<any[]>([]);
 
   useEffect(() => {
     setCurrentDate(new Date());
   }, []);
 
-  const { daysInGrid, monthStart } = useMemo(() => {
+  const { daysInGrid, monthStart, monthEnd } = useMemo(() => {
     if (!currentDate) {
-      return { daysInGrid: [], monthStart: null };
+      return { daysInGrid: [], monthStart: null, monthEnd: null };
     }
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     
-    // Adjust for week starting on Monday
     const dayOfWeek = monthStart.getDay();
-    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1; // Monday = 0, Sunday = 6
+    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
     const startDate = subDays(monthStart, diff);
 
     const endDate = addDays(startDate, 41);
     const daysInGrid = eachDayOfInterval({ start: startDate, end: endDate });
-    return { daysInGrid, monthStart };
+    return { daysInGrid, monthStart, monthEnd };
   }, [currentDate]);
 
 
@@ -81,27 +81,50 @@ export function CalendarPage() {
     return dailyTasks;
   }, [tasks]);
 
+  const googleEventsByDay = useMemo(() => {
+    const dailyEvents = new Map<string, any[]>();
+    googleEvents.forEach(event => {
+      const eventDate = event.start.date || event.start.dateTime;
+      if (eventDate) {
+        const dayKey = format(new Date(eventDate), 'yyyy-MM-dd');
+        const existingEvents = dailyEvents.get(dayKey) || [];
+        dailyEvents.set(dayKey, [...existingEvents, event]);
+      }
+    });
+    return dailyEvents;
+  }, [googleEvents]);
+
   const handleTaskClick = (task: Task) => {
     setEditingTask(task);
   };
   
   const handleGoogleConnect = async () => {
+    if (!monthStart || !monthEnd) return;
     try {
-      const calendars = await getCalendarList();
-      console.log('Calendarios de Google:', calendars);
+      const events = await getCalendarEvents('primary', monthStart.toISOString(), monthEnd.toISOString());
+      setGoogleEvents(events.items || []);
       toast({
-        title: "Conexión Exitosa",
-        description: "Se han obtenido tus calendarios de Google. Revisa la consola del navegador.",
+        title: "Sincronización Exitosa",
+        description: "Se han cargado los eventos de tu calendario principal de Google.",
       });
     } catch (error: any) {
       console.error(error);
       toast({
         variant: 'destructive',
-        title: "Error de Conexión",
-        description: error.message || "No se pudieron obtener los calendarios de Google.",
+        title: "Error de Sincronización",
+        description: error.message || "No se pudieron obtener los eventos de Google Calendar.",
       });
     }
   };
+
+  useEffect(() => {
+    // Auto-fetch events when month changes, if already connected once
+    if (googleEvents.length > 0 && monthStart && monthEnd) {
+      handleGoogleConnect();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate]);
+
 
   if (!currentDate || !monthStart) {
     return <div className="flex-1 flex items-center justify-center">Cargando calendario...</div>
@@ -130,6 +153,8 @@ export function CalendarPage() {
             const dayKey = format(day, 'yyyy-MM-dd');
             const dayTasks = tasksByDay.get(dayKey) || [];
             const dayNotes = getNotesByDate(day);
+            const dayGgEvents = googleEventsByDay.get(dayKey) || [];
+
             return (
               <div 
                 key={day.toISOString()} 
@@ -160,6 +185,15 @@ export function CalendarPage() {
                         y {dayNotes.length - 1} más...
                       </div>
                    )}
+                   {dayGgEvents.map((event) => (
+                    <div 
+                      key={event.id}
+                      className="text-xs p-1 rounded-sm bg-gray-200 dark:bg-gray-700 font-medium truncate"
+                      title={event.summary}
+                    >
+                      {event.summary}
+                    </div>
+                  ))}
                   {dayTasks.map((task) => (
                     <div 
                       key={task.id}
