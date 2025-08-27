@@ -115,19 +115,27 @@ export function ProjectsPage() {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
         doc.text(project.name, 14, yPos);
-        yPos += 7;
+        yPos += 6;
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        doc.text(`Estado: ${project.status} | Progreso: ${project.progress}%`, 14, yPos);
-        yPos += 10;
+        doc.text(`Estado: ${project.status}`, 14, yPos);
+        yPos += 5;
+        
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100);
+        const splitDescription = doc.splitTextToSize(project.description || 'Sin descripción.', 180);
+        doc.text(splitDescription, 14, yPos);
+        yPos += (splitDescription.length * 4) + 5;
+        doc.setTextColor(0);
+
 
         // Render chart and add as image
         if (chartRef.current) {
             setChartProject(project);
             // Give it a moment to render with the new data
             await new Promise(resolve => setTimeout(resolve, 50)); 
-            const canvas = await html2canvas(chartRef.current, { backgroundColor: null });
+            const canvas = await html2canvas(chartRef.current, { backgroundColor: null, scale: 2 });
             const imgData = canvas.toDataURL('image/png');
             
             // Calculate aspect ratio
@@ -152,22 +160,26 @@ export function ProjectsPage() {
             }
             const tableData = projectTasks.map(t => [
                 t.title,
+                t.description || 'N/A',
+                t.assignee || 'N/A',
                 t.status,
                 t.priority,
-                t.dueDate ? format(t.dueDate, 'dd/MM/yyyy') : 'N/A'
+                t.dueDate ? format(new Date(t.dueDate), 'dd/MM/yy') : 'N/A'
             ]);
 
             autoTable(doc, {
-                head: [['Tarea', 'Estado', 'Prioridad', 'Fecha de Vencimiento']],
+                head: [['Tarea', 'Descripción', 'Responsable', 'Estado', 'Prioridad', 'Vencimiento']],
                 body: tableData,
                 startY: yPos,
                 headStyles: { fillColor: [41, 128, 185] },
-                styles: { fontSize: 8 },
+                styles: { fontSize: 8, cellPadding: 2 },
                 columnStyles: {
-                    0: { cellWidth: 'auto' },
-                    1: { cellWidth: 30 },
+                    0: { cellWidth: 35 },
+                    1: { cellWidth: 'auto' },
                     2: { cellWidth: 25 },
-                    3: { cellWidth: 30 },
+                    3: { cellWidth: 22 },
+                    4: { cellWidth: 18 },
+                    5: { cellWidth: 20 },
                 }
             });
 
@@ -407,7 +419,7 @@ export function ProjectsPage() {
         </div>
       </div>
       {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectToEdit={projectToEdit} />}
-      <div ref={chartRef} className="absolute -left-[9999px] top-0 w-[600px]">
+      <div ref={chartRef} className="absolute -left-[9999px] top-0 w-[600px] p-4 bg-background">
         {chartProject && (
           <ProjectChartComponent 
             project={chartProject} 
@@ -418,3 +430,5 @@ export function ProjectsPage() {
     </>
   );
 }
+
+    
