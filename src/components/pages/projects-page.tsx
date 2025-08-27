@@ -84,7 +84,7 @@ export function ProjectsPage() {
   const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
     switch (status) {
       case 'Completado': return 'default';
-      case 'En Progreso': return 'secondary';
+      case 'En Progreso': return 'default';
       case 'En Pausa': return 'outline';
       default: return 'outline';
     }
@@ -199,8 +199,21 @@ export function ProjectsPage() {
     }
   }
 
+  const getStatusBadgeClass = (status: ProjectWithProgress['status']) => {
+    switch (status) {
+      case 'Completado': 
+        return 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600';
+      case 'En Progreso': 
+        return 'bg-green-500 hover:bg-green-600 text-white border-green-500';
+      case 'En Pausa': 
+        return ''; // Default outline style
+      default: 
+        return ''; // Default outline style
+    }
+  };
+
   const renderCardView = () => (
-     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {projects.map((project) => (
           <Card key={project.id} className={cn("flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm relative", selectedProjects.includes(project.id) && "ring-2 ring-primary")}>
              <div className="absolute top-2 right-2 z-10 bg-background/50 backdrop-blur-sm rounded-sm p-1">
@@ -276,7 +289,12 @@ export function ProjectsPage() {
                      <div>
                         <span className="text-xs text-muted-foreground">Estado</span>
                         <div className="mt-1">
-                             <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs", project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
+                             <Badge 
+                                variant={getStatusBadgeVariant(project.status)} 
+                                className={cn("text-xs", getStatusBadgeClass(project.status))}
+                              >
+                                {project.status}
+                              </Badge>
                         </div>
                     </div>
                 </div>

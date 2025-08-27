@@ -37,9 +37,22 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
   const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
     switch (status) {
       case 'Completado': return 'default';
-      case 'En Progreso': return 'secondary';
+      case 'En Progreso': return 'default';
       case 'En Pausa': return 'outline';
       default: return 'outline';
+    }
+  };
+
+  const getStatusBadgeClass = (status: ProjectWithProgress['status']) => {
+    switch (status) {
+      case 'Completado': 
+        return 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600';
+      case 'En Progreso': 
+        return 'bg-green-500 hover:bg-green-600 text-white border-green-500';
+      case 'En Pausa': 
+        return ''; // Default outline style
+      default: 
+        return ''; // Default outline style
     }
   };
 
@@ -82,7 +95,12 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
                   </AccordionTrigger>
                 </div>
                 <div className="col-span-2">
-                  <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs", project.status === 'Completado' && 'bg-emerald-600 text-white border-emerald-600')}>{project.status}</Badge>
+                   <Badge 
+                      variant={getStatusBadgeVariant(project.status)} 
+                      className={cn("text-xs", getStatusBadgeClass(project.status))}
+                    >
+                      {project.status}
+                    </Badge>
                 </div>
                 <div className="col-span-3">
                    <div className="flex items-center gap-2">
