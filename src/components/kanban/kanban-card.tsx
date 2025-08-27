@@ -152,7 +152,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
         <CardContent className="p-3 pt-2">
           {task.image_url && (
             <div className="relative aspect-video mb-2">
-              <Image src={task.image_url} alt={task.title} fill className="object-cover rounded-md" />
+              <Image src={task.image_url} alt={task.title} fill className="object-contain rounded-md" />
             </div>
           )}
           <p className="font-medium text-sm">{task.title}</p>
