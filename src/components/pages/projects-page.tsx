@@ -109,7 +109,7 @@ export function ProjectsPage() {
     const projectsToExport = projects.filter(p => selectedProjects.includes(p.id));
 
     for (const project of projectsToExport) {
-        if (yPos > 220) { // Check space before adding content
+        if (yPos > 220) { 
             doc.addPage();
             yPos = 20;
         }
@@ -131,14 +131,10 @@ export function ProjectsPage() {
         yPos += (splitDescription.length * 4) + 5;
         doc.setTextColor(0);
 
-
-        // Render chart and add as image
         const chartElement = document.getElementById(`chart-for-project-${project.id}`);
         if (chartElement) {
             const canvas = await html2canvas(chartElement, { backgroundColor: null, scale: 2 });
             const imgData = canvas.toDataURL('image/png');
-            
-            // Calculate aspect ratio
             const imgWidth = 180;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
@@ -158,33 +154,67 @@ export function ProjectsPage() {
                 doc.addPage();
                 yPos = 20;
             }
-            const tableData = projectTasks.map(t => [
-                t.title,
-                t.description || 'N/A',
-                t.assignee || 'N/A',
-                t.status,
-                t.priority,
-                t.dueDate ? format(new Date(t.dueDate), 'dd/MM/yy') : 'N/A'
-            ]);
+            const tableData = projectTasks.map(t => {
+                const subtasksString = (t.subtasks || [])
+                    .map(st => `${st.is_completed ? '[x]' : '[ ]'} ${st.title}`)
+                    .join('\n');
+                return [
+                    t.title,
+                    t.status,
+                    t.priority,
+                    t.dueDate ? format(new Date(t.dueDate), 'dd/MM/yy') : 'N/A',
+                    subtasksString || 'N/A'
+                ];
+            });
 
             autoTable(doc, {
-                head: [['Tarea', 'Descripción', 'Responsable', 'Estado', 'Prioridad', 'Vencimiento']],
+                head: [['Tarea', 'Estado', 'Prioridad', 'Vencimiento', 'Subtareas']],
                 body: tableData,
                 startY: yPos,
                 headStyles: { fillColor: [41, 128, 185] },
-                styles: { fontSize: 8, cellPadding: 2 },
+                styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
                 columnStyles: {
-                    0: { cellWidth: 35 },
-                    1: { cellWidth: 'auto' },
-                    2: { cellWidth: 25 },
-                    3: { cellWidth: 22 },
-                    4: { cellWidth: 18 },
-                    5: { cellWidth: 20 },
+                    0: { cellWidth: 40 }, // Tarea
+                    1: { cellWidth: 25 }, // Estado
+                    2: { cellWidth: 20 }, // Prioridad
+                    3: { cellWidth: 25 }, // Vencimiento
+                    4: { cellWidth: 'auto' }, // Subtareas
                 }
             });
 
-            const finalY = (doc as any).lastAutoTable.finalY;
-            yPos = finalY + 15;
+            yPos = (doc as any).lastAutoTable.finalY + 10;
+
+            for (const task of projectTasks) {
+                if (task.image_url) {
+                    doc.addPage();
+                    yPos = 20;
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(`Imagen adjunta a la tarea: "${task.title}"`, 14, yPos);
+                    yPos += 10;
+                    try {
+                        const response = await fetch(task.image_url);
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        await new Promise<void>((resolve) => {
+                           reader.onload = (e: any) => {
+                                doc.addImage(e.target.result, 'PNG', 14, yPos, 180, 100);
+                                resolve();
+                           };
+                           reader.readAsDataURL(blob);
+                        });
+
+                    } catch (e) {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(255,0,0);
+                        doc.text('No se pudo cargar la imagen.', 14, yPos + 10);
+                        doc.setTextColor(0);
+                    }
+                }
+            }
+            yPos = doc.internal.pageSize.height - 20;
+
+
         } else {
             doc.setFontSize(9);
             doc.text('Este proyecto no tiene tareas.', 14, yPos);
