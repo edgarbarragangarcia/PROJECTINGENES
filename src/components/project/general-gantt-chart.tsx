@@ -53,11 +53,11 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
 
     const items = sortedProjects.flatMap(project => {
         const projectTasks = tasks
-            .filter(t => t.projectId === project.id && t.dueDate) // Only need due date to render
+            .filter(t => t.projectId === project.id && t.dueDate)
             .map(t => ({
                 ...t,
                 type: 'task' as const,
-                startDate: new Date(t.startDate || t.dueDate!), // Fallback to dueDate if no startDate
+                startDate: new Date(t.startDate || t.dueDate!),
                 dueDate: new Date(t.dueDate!), 
             }))
             .sort((a,b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
@@ -66,18 +66,32 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
     });
 
     const tasksWithDates = items.filter(item => item.type === 'task') as (Task & {type: 'task', startDate?: Date, dueDate?: Date})[];
+    
+    const fixedEndDate = new Date('2026-12-31');
 
     if (tasksWithDates.length === 0) {
-      return { chartItems: items, totalDays: 30, timelineDays: eachDayOfInterval({start: new Date(), end: addDays(new Date(), 29)}), months: {[format(new Date(), 'MMMM yyyy', {locale: es})]: 30} };
+      const startDate = new Date();
+      const timelineDays = eachDayOfInterval({start: startDate, end: fixedEndDate});
+      const totalDays = differenceInDays(fixedEndDate, startDate) + 1;
+       const months = timelineDays.reduce((acc, day) => {
+        const monthKey = format(day, 'MMMM yyyy', { locale: es });
+        if (!acc[monthKey]) {
+            acc[monthKey] = 0;
+        }
+        acc[monthKey]++;
+        return acc;
+    }, {} as Record<string, number>);
+      return { chartItems: items, totalDays, timelineDays, months };
     }
 
     const allDates = tasksWithDates.flatMap(t => [startOfDay(new Date(t.startDate!)).getTime(), startOfDay(new Date(t.dueDate!)).getTime()]);
 
     const minDate = startOfDay(new Date(Math.min(...allDates)));
     const maxDate = startOfDay(new Date(Math.max(...allDates)));
-
+    
     const projectStartDate = addDays(minDate, -2);
-    const projectEndDate = addDays(maxDate, 5);
+    const projectEndDate = maxDate > fixedEndDate ? addDays(maxDate, 5) : fixedEndDate;
+
 
     const totalDays = differenceInDays(projectEndDate, projectStartDate) + 1;
     const timelineDays = eachDayOfInterval({ start: projectStartDate, end: projectEndDate });
@@ -254,5 +268,3 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
     </div>
   );
 }
-
-    
