@@ -7,7 +7,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Slider } from '@/components/ui/slider';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { ZoomIn, ZoomOut, ChevronRight } from 'lucide-react';
 import { PageHeader } from '../layout/page-header';
 
 interface GeneralGanttChartProps {
@@ -29,14 +29,24 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const timelineContainerRef = useRef<HTMLDivElement>(null);
   const [dayWidth, setDayWidth] = useState(40);
+  const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
 
   const handleVerticalScroll = (e: UIEvent<HTMLDivElement>) => {
     if (leftPanelRef.current) {
       leftPanelRef.current.scrollTop = e.currentTarget.scrollTop;
     }
   };
+  
+  const handleToggleProject = (projectId: string) => {
+    setExpandedProjects(prev => 
+      prev.includes(projectId) 
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
+    );
+  };
 
-  const { chartData, totalDays, timelineDays, months } = useMemo(() => {
+
+  const { chartItems, totalDays, timelineDays, months } = useMemo(() => {
     
     const sortedProjects = [...projects].sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
@@ -51,13 +61,13 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
             }))
             .sort((a,b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
         
-        return [{ type: 'project', ...project, id: `proj-${project.id}` }, ...projectTasks];
+        return [{ type: 'project' as const, ...project, id: `proj-${project.id}` }, ...projectTasks];
     });
 
     const tasksWithDates = items.filter(item => item.type === 'task') as (Task & {type: 'task', startDate?: Date, dueDate?: Date})[];
 
     if (tasksWithDates.length === 0) {
-      return { chartData: items, totalDays: 30, timelineDays: eachDayOfInterval({start: new Date(), end: addDays(new Date(), 29)}), months: {[format(new Date(), 'MMMM yyyy', {locale: es})]: 30} };
+      return { chartItems: items, totalDays: 30, timelineDays: eachDayOfInterval({start: new Date(), end: addDays(new Date(), 29)}), months: {[format(new Date(), 'MMMM yyyy', {locale: es})]: 30} };
     }
 
     const allDates = tasksWithDates.flatMap(t => [startOfDay(new Date(t.startDate!)).getTime(), startOfDay(new Date(t.dueDate!)).getTime()]);
@@ -105,8 +115,20 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
         return acc;
     }, {} as Record<string, number>);
 
-    return { chartData: data, totalDays, timelineDays, months };
+    return { chartItems: data, totalDays, timelineDays, months };
   }, [tasks, projects]);
+  
+  const displayItems = useMemo(() => {
+    const visibleItems: any[] = [];
+    chartItems.forEach(item => {
+      if (item.type === 'project') {
+        visibleItems.push(item);
+      } else if (item.project_id && expandedProjects.includes(item.project_id)) {
+        visibleItems.push(item);
+      }
+    });
+    return visibleItems;
+  }, [chartItems, expandedProjects]);
 
 
   if (projects.length === 0) {
@@ -138,12 +160,19 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
                     ref={leftPanelRef} 
                     className="flex-1 overflow-y-hidden"
                 >
-                {chartData.map((item: any, index) => (
-                    <div key={`${item.type}-${item.id}-${index}`} className={cn("flex items-center border-b h-full", item.type === 'project' && 'bg-muted/50')} style={{ height: `${ROW_HEIGHT}px` }}>
+                {displayItems.map((item: any, index) => (
+                    <div key={`${item.type}-${item.id}-${index}`} className="flex items-center border-b h-full" style={{ height: `${ROW_HEIGHT}px` }}>
                          {item.type === 'project' ? (
-                            <div className="w-full px-2 text-sm font-bold truncate" title={item.name}>{item.name}</div>
+                            <div 
+                                className="w-full px-2 text-sm font-bold truncate flex items-center gap-1 cursor-pointer hover:bg-muted/50 h-full"
+                                title={item.name}
+                                onClick={() => handleToggleProject(item.id)}
+                             >
+                                <ChevronRight className={cn('size-4 transition-transform', expandedProjects.includes(item.id) && 'rotate-90')} />
+                                {item.name}
+                            </div>
                          ) : (
-                            <div className="w-full pl-6 pr-2 text-sm truncate" title={item.title}>{item.title}</div>
+                            <div className="w-full pl-8 pr-2 text-sm truncate" title={item.title}>{item.title}</div>
                          )}
                     </div>
                 ))}
@@ -174,22 +203,22 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
                         </div>
                     </div>
                     
-                    <div className="relative" style={{ height: chartData.length * ROW_HEIGHT }}>
+                    <div className="relative" style={{ height: displayItems.length * ROW_HEIGHT }}>
                        {/* Grid Background */}
                         <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${totalDays}, ${dayWidth}px)` }}>
                             {timelineDays.map((_, index) => (
                                 <div key={`grid-v-${index}`} className="border-r h-full"></div>
                             ))}
                         </div>
-                        <div className="absolute inset-0 grid" style={{ gridTemplateRows: `repeat(${chartData.length}, ${ROW_HEIGHT}px)` }}>
-                            {chartData.map((item) => (
-                                <div key={`grid-h-${item.id}`} className="border-b w-full"></div>
+                        <div className="absolute inset-0 grid" style={{ gridTemplateRows: `repeat(${displayItems.length}, ${ROW_HEIGHT}px)` }}>
+                            {displayItems.map((item) => (
+                                <div key={`grid-h-${item.id}`} className={cn("border-b w-full", item.type === 'project' && 'bg-muted/30')}></div>
                             ))}
                         </div>
                         
                         {/* Task Bars */}
                         <div className="absolute inset-0">
-                            {chartData.map((item: any, index) => {
+                            {displayItems.map((item: any, index) => {
                                 if (item.type === 'project' || !item.gantt) return null;
                                 const task = item;
                                 return (
