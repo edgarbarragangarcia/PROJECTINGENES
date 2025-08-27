@@ -222,6 +222,7 @@ export function TaskFormDialog({
         title: 'Error al guardar la tarea', 
         description: error.message 
       });
+      setUploadProgress(null);
     }
   };
 
@@ -593,7 +594,7 @@ export function TaskFormDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={uploadProgress !== null && uploadProgress < 100}>
-                {uploadProgress !== null ? 'Subiendo imagen...' : taskToEdit ? 'Guardar Cambios' : 'Crear Tarea'}
+                {uploadProgress !== null && uploadProgress < 100 ? `Subiendo... ${uploadProgress}%` : taskToEdit ? 'Guardar Cambios' : 'Crear Tarea'}
               </Button>
             </DialogFooter>
           </form>
@@ -602,3 +603,5 @@ export function TaskFormDialog({
     </Dialog>
   );
 }
+
+    

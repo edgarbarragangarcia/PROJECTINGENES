@@ -198,7 +198,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
-  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
+const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
@@ -214,6 +214,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
                 cacheControl: '3600',
                 upsert: false,
                 contentType: imageFile.type,
+            }, (event) => {
+              if (event.type === 'progress' && onUploadProgress) {
+                const progress = Math.round((event.loaded / event.total) * 100);
+                onUploadProgress(progress);
+              }
             });
         
         if (uploadError) throw uploadError;
@@ -294,6 +299,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
                 cacheControl: '3600',
                 upsert: false,
                 contentType: imageFile.type,
+            }, (event) => {
+              if (event.type === 'progress' && onUploadProgress) {
+                const progress = Math.round((event.loaded / event.total) * 100);
+                onUploadProgress(progress);
+              }
             });
 
         if (uploadError) throw uploadError;
@@ -451,3 +461,5 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     </GoogleCalendarProvider>
   );
 };
+
+    
