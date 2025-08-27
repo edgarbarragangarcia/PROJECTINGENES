@@ -403,10 +403,6 @@ export function ProjectsPage() {
           <div className='flex items-center gap-2'>
             {isAdmin && (
               <>
-                 <Button size="sm" variant="outline" onClick={() => router.push('/gantt')}>
-                    <GanttChartSquare />
-                    Gantt General
-                </Button>
                 <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
                   <FileDown />
                   {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
