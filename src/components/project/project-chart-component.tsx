@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis, Cell } from 'recharts';
@@ -49,7 +48,7 @@ export function ProjectChartComponent({ project, tasks }: ProjectChartComponentP
     return Object.entries(tasksByStatus).map(([status, count]) => ({
       status: status,
       tasks: count,
-      fill: `var(--color-${status.replace(/ /g, '')})`,
+      fill: chartConfig[status as keyof typeof chartConfig]?.color,
     }));
   }, [tasks]);
 
