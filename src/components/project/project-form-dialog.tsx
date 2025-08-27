@@ -75,7 +75,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   });
 
   const handleTranscript = (fieldName: 'name' | 'description') => (transcript: string) => {
-    form.setValue(fieldName, form.getValues(fieldName) + transcript);
+    form.setValue(fieldName, (form.getValues(fieldName) || '') + transcript);
   };
   
   const nameSpeech = useSpeechRecognition(handleTranscript('name'));

@@ -121,7 +121,7 @@ export function TaskFormDialog({
   });
 
   const handleTranscript = (fieldName: 'title' | 'description' | 'assignee') => (transcript: string) => {
-    form.setValue(fieldName, form.getValues(fieldName) + transcript);
+    form.setValue(fieldName, (form.getValues(fieldName) || '') + transcript);
   };
   
   const titleSpeech = useSpeechRecognition(handleTranscript('title'));
@@ -273,7 +273,6 @@ export function TaskFormDialog({
               />
             )}
             
-            {/* Título */}
             <FormField
               control={form.control}
               name="title"
@@ -299,7 +298,6 @@ export function TaskFormDialog({
               )}
             />
 
-            {/* Títulos predefinidos */}
             <div className="space-y-2">
               <Label>O elige un título predefinido</Label>
               <div className="flex flex-wrap gap-2">
@@ -318,7 +316,6 @@ export function TaskFormDialog({
               </div>
             </div>
             
-            {/* Descripción */}
             <FormField
               control={form.control}
               name="description"
@@ -344,7 +341,6 @@ export function TaskFormDialog({
               )}
             />
 
-            {/* Responsable */}
             <FormField
               control={form.control}
               name="assignee"
@@ -370,7 +366,6 @@ export function TaskFormDialog({
               )}
             />
             
-            {/* Sugerencia de IA */}
             {isSuggesting && (
               <div className="flex items-center text-sm text-muted-foreground gap-2">
                 <Sparkles className="size-4 animate-pulse" /> 
@@ -402,7 +397,6 @@ export function TaskFormDialog({
               </Alert>
             )}
 
-            {/* Estado y Prioridad */}
             <div className="flex gap-4">
               <FormField
                 control={form.control}
@@ -455,7 +449,6 @@ export function TaskFormDialog({
               />
             </div>
 
-            {/* Fechas de Inicio y Vencimiento */}
             <div className="flex gap-4">
               <FormField
                 control={form.control}
@@ -536,7 +529,6 @@ export function TaskFormDialog({
               />
             </div>
             
-            {/* Botones de acción */}
             <DialogFooter>
               <Button 
                 type="button" 
@@ -555,5 +547,3 @@ export function TaskFormDialog({
     </Dialog>
   );
 }
-
-    

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -66,7 +67,7 @@ export function NoteFormDialog({ open, onOpenChange, date, noteToEdit }: NoteFor
   });
 
   const handleTranscript = (transcript: string) => {
-    form.setValue('note', form.getValues('note') + transcript);
+    form.setValue('note', (form.getValues('note') || '') + transcript);
   };
   const speech = useSpeechRecognition(handleTranscript);
 
