@@ -204,19 +204,29 @@ const uploadFileWithProgress = async (
   file: File, 
   onProgress?: (progress: number) => void
 ) => {
-  // Start with 0% progress
   onProgress?.(0);
   
-  // Upload the file
+  // Simulate progress
+  const progressInterval = setInterval(() => {
+    onProgress?.(prev => {
+        if (prev === null) return 10;
+        if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+        }
+        return prev + 10;
+    });
+  }, 200);
+
   const { data, error } = await supabase.storage
     .from(bucket)
     .upload(fileName, file, {
       cacheControl: '3600',
-      upsert: false,
+      upsert: true, // Use upsert to replace existing files
       contentType: file.type,
     });
   
-  // Complete progress
+  clearInterval(progressInterval);
   onProgress?.(100);
   
   return { data, error };
@@ -233,7 +243,7 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${user.id}/${projectId}_${Date.now()}.${fileExt}`;
         
-        const { data: uploadData, error: uploadError } = await uploadFileWithProgress(
+        const { error: uploadError } = await uploadFileWithProgress(
           'task_attachments',
           fileName,
           imageFile,
@@ -281,7 +291,6 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
             .select();
 
         if (subtasksError) {
-            // If subtask creation fails, we should probably delete the created task to avoid orphaned tasks.
             await supabase.from('tasks').delete().eq('id', taskResult.id);
             throw subtasksError;
         }
@@ -308,6 +317,9 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     const { imageFile, onUploadProgress, ...restOfTaskData } = taskData;
     const dataToUpdate: Record<string, any> = { ...restOfTaskData };
     
+    const existingTask = tasksState.tasks.find(t => t.id === id);
+
+    // Handle image update/deletion
     if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${user.id}/${dataToUpdate.projectId || 'unknown_project'}_${Date.now()}.${fileExt}`;
@@ -326,9 +338,17 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
             .getPublicUrl(fileName);
             
         dataToUpdate.image_url = publicUrlData.publicUrl;
+    } else if (dataToUpdate.image_url === null) {
+      if (existingTask?.image_url) {
+        const oldFileName = existingTask.image_url.split('/').pop();
+        if (oldFileName) {
+          await supabase.storage.from('task_attachments').remove([`${user.id}/${oldFileName}`]);
+        }
+      }
     }
 
-    delete dataToUpdate.subtasks; // Handle subtasks separately if needed
+
+    delete dataToUpdate.subtasks;
 
     if (dataToUpdate.startDate) {
         dataToUpdate.start_date = dataToUpdate.startDate.toISOString();
@@ -350,7 +370,21 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
   };
 
   const deleteTask = async (id: string) => {
-    // Supabase is set to cascade delete subtasks, so we only need to delete the main task.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario no autenticado");
+    
+    const taskToDelete = tasksState.tasks.find(t => t.id === id);
+    if (taskToDelete?.image_url) {
+      const fileName = taskToDelete.image_url.split('/').pop();
+      if (fileName) {
+          try {
+            await supabase.storage.from('task_attachments').remove([`${user.id}/${fileName}`]);
+          } catch(e) {
+            console.error("Failed to delete stale storage object:", e);
+          }
+      }
+    }
+
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
     
@@ -440,7 +474,7 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
   
   const tasksContextValue: TasksContextType = { 
     ...tasksState, 
-    addTask: addTask as any, // Cast to avoid subtask type issues at this level 
+    addTask: addTask as any, 
     updateTask, 
     deleteTask, 
     getTasksByStatus, 
