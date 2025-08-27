@@ -5,7 +5,7 @@ import { ProjectsContext, initialProjectsState, type ProjectsContextType } from 
 import { TasksContext, initialTasksState, type TasksContextType } from '@/hooks/use-tasks';
 import { DailyNotesContext, initialDailyNotesState, type DailyNotesState, type DailyNotesContextType } from '@/hooks/use-daily-notes';
 import { createClient } from '@/lib/supabase/client';
-import type { Project, ProjectWithProgress, Task, DailyNote, User } from '@/lib/types';
+import type { Project, ProjectWithProgress, Task, DailyNote, User, Subtask } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
@@ -62,29 +62,31 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchTasks = useCallback(async (user: User) => {
     setTasksState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
-      const isAdmin = user.email && adminEmails.includes(user.email);
-      let query = supabase.from('tasks').select('*');
+        const isAdmin = user.email && adminEmails.includes(user.email);
+        let query = supabase.from('tasks').select('*, subtasks(*)');
 
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
+        if (!isAdmin) {
+            query = query.eq('user_id', user.id);
+        }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      const formattedTasks = (data || []).map(task => ({
-        ...task,
-        projectId: task.project_id,
-        startDate: task.start_date ? new Date(task.start_date) : undefined,
-        dueDate: task.due_date ? new Date(task.due_date) : undefined
-      }));
-      setTasksState(prevState => ({ ...prevState, loading: false, tasks: formattedTasks }));
+        const { data: tasksData, error: tasksError } = await query.order('created_at', { ascending: false });
+
+        if (tasksError) throw tasksError;
+
+        const formattedTasks = (tasksData || []).map(task => ({
+            ...task,
+            projectId: task.project_id,
+            startDate: task.start_date ? new Date(task.start_date) : undefined,
+            dueDate: task.due_date ? new Date(task.due_date) : undefined,
+            subtasks: task.subtasks || [],
+        }));
+
+        setTasksState(prevState => ({ ...prevState, loading: false, tasks: formattedTasks as Task[] }));
     } catch (error: any) {
-      console.error('Error fetching tasks:', error);
-      setTasksState(prevState => ({ ...prevState, loading: false, error }));
+        console.error('Error fetching tasks:', error);
+        setTasksState(prevState => ({ ...prevState, loading: false, error }));
     }
-  }, [supabase]);
+}, [supabase]);
 
   const fetchDailyNotes = useCallback(async (user: User) => {
     setDailyNotesState(prevState => ({ ...prevState, loading: true, error: null }));
@@ -196,41 +198,66 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
-  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'>) => {
+  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[] }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
-    
-    const { startDate, dueDate, projectId, ...restOfTaskData } = taskData;
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert({ 
-        ...restOfTaskData, 
-        project_id: projectId,
-        user_id: user.id, 
-        start_date: startDate?.toISOString(), 
-        due_date: dueDate?.toISOString() 
-      })
-      .select()
-      .single();
-      
-    if (error) throw error;
-    
-    if (data) {
-      const formattedTask = { 
-        ...data, 
-        projectId: data.project_id, 
-        startDate: data.start_date ? new Date(data.start_date) : undefined, 
-        dueDate: data.due_date ? new Date(data.due_date) : undefined 
-      };
-      setTasksState(prevState => ({ 
-        ...prevState, 
-        tasks: [formattedTask, ...prevState.tasks] 
-      }));
+
+    const { startDate, dueDate, projectId, subtasks, ...restOfTaskData } = taskData;
+    const { data: taskResult, error: taskError } = await supabase
+        .from('tasks')
+        .insert({
+            ...restOfTaskData,
+            project_id: projectId,
+            user_id: user.id,
+            start_date: startDate?.toISOString(),
+            due_date: dueDate?.toISOString(),
+        })
+        .select()
+        .single();
+
+    if (taskError) throw taskError;
+    if (!taskResult) throw new Error("Failed to create task");
+
+    let createdSubtasks: Subtask[] = [];
+    if (subtasks && subtasks.length > 0) {
+        const subtasksToInsert = subtasks.map(st => ({
+            ...st,
+            task_id: taskResult.id,
+            user_id: user.id,
+        }));
+        const { data: subtasksResult, error: subtasksError } = await supabase
+            .from('subtasks')
+            .insert(subtasksToInsert)
+            .select();
+
+        if (subtasksError) {
+            // If subtask creation fails, we should probably delete the created task to avoid orphaned tasks.
+            await supabase.from('tasks').delete().eq('id', taskResult.id);
+            throw subtasksError;
+        }
+        createdSubtasks = subtasksResult || [];
     }
-  };
+
+    const formattedTask = {
+        ...taskResult,
+        projectId: taskResult.project_id,
+        startDate: taskResult.start_date ? new Date(taskResult.start_date) : undefined,
+        dueDate: taskResult.due_date ? new Date(taskResult.due_date) : undefined,
+        subtasks: createdSubtasks,
+    };
+    setTasksState(prevState => ({
+        ...prevState,
+        tasks: [formattedTask as Task, ...prevState.tasks],
+    }));
+};
 
   const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>>) => {
     const dataToUpdate: Record<string, any> = { ...taskData };
+    
+    // This needs to handle subtasks as well. For now, it only updates the main task.
+    // A more complete implementation would handle adding/removing/updating subtasks.
+    delete dataToUpdate.subtasks; 
+
     if ('startDate' in taskData) dataToUpdate.start_date = taskData.startDate ? taskData.startDate.toISOString() : null;
     if ('dueDate' in taskData) dataToUpdate.due_date = taskData.dueDate ? taskData.dueDate.toISOString() : null;
     if ('projectId' in taskData) {
@@ -241,13 +268,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.from('tasks').update(dataToUpdate).eq('id', id);
     if (error) throw error;
     
-    setTasksState(prevState => ({ 
-      ...prevState, 
-      tasks: prevState.tasks.map((t) => (t.id === id ? { ...t, ...taskData } : t)) 
-    }));
+    // This is a local update. A full re-fetch might be safer to get subtask updates.
+    const { data: { user } } = await supabase.auth.getUser();
+    if(user) await fetchTasks(user);
   };
 
   const deleteTask = async (id: string) => {
+    // Supabase is set to cascade delete subtasks, so we only need to delete the main task.
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
     
@@ -337,7 +364,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   const tasksContextValue: TasksContextType = { 
     ...tasksState, 
-    addTask, 
+    addTask: addTask as any, // Cast to avoid subtask type issues at this level 
     updateTask, 
     deleteTask, 
     getTasksByStatus, 

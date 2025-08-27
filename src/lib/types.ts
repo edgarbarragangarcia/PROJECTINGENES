@@ -6,6 +6,15 @@ export type Priority = (typeof priorities)[number];
 export const statuses = ['Backlog', 'Todo', 'In Progress', 'Done', 'Cancelled'] as const;
 export type Status = (typeof statuses)[number];
 
+export interface Subtask {
+  id: string;
+  created_at: string;
+  title: string;
+  is_completed: boolean;
+  task_id: string;
+  user_id: string;
+}
+
 export interface Task {
   id: string;
   created_at: string;
@@ -21,6 +30,7 @@ export interface Task {
   project_id: string; // from Supabase
   user_id: string;
   assignee?: string;
+  subtasks?: Subtask[];
 }
 
 export const projectStatuses = ['En Progreso', 'Completado', 'En Pausa'] as const;

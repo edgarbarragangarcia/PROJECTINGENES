@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -34,23 +34,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Sparkles, Wand2, Mic } from 'lucide-react';
+import { CalendarIcon, Mic, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { suggestTaskPriority, type SuggestTaskPriorityOutput } from '@/ai/flows/suggest-task-priority';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { es } from 'date-fns/locale';
 import { Label } from '@/components/ui/label';
 import { useProjects } from '@/hooks/use-projects';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
+import { Checkbox } from '../ui/checkbox';
 
 const translatedPriorities = {
   'Low': 'Baja',
   'Medium': 'Media',
   'High': 'Alta',
 } as const;
+
+const subtaskSchema = z.object({
+  title: z.string(),
+  is_completed: z.boolean(),
+});
 
 const taskFormSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres.'),
@@ -61,6 +65,7 @@ const taskFormSchema = z.object({
   dueDate: z.date().optional(),
   projectId: z.string().uuid("Debes seleccionar un proyecto válido."),
   assignee: z.string().optional(),
+  subtasks: z.array(subtaskSchema).optional(),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -90,8 +95,8 @@ export function TaskFormDialog({
   const { addTask, updateTask } = useTasks();
   const { projects } = useProjects();
   const { toast } = useToast();
-  const [isSuggesting, setIsSuggesting] = useState(false);
-  const [suggestion, setSuggestion] = useState<SuggestTaskPriorityOutput | null>(null);
+  const [subtaskInput, setSubtaskInput] = useState('');
+  const [currentSubtasks, setCurrentSubtasks] = useState<{title: string, is_completed: boolean}[]>([]);
   
   const isProjectContext = !!projectId;
 
@@ -107,6 +112,7 @@ export function TaskFormDialog({
           dueDate: taskToEdit.dueDate,
           projectId: taskToEdit.projectId,
           assignee: taskToEdit.assignee || '',
+          subtasks: taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || [],
         }
       : {
           title: '',
@@ -117,8 +123,14 @@ export function TaskFormDialog({
           dueDate: undefined,
           projectId: projectId || '',
           assignee: '',
+          subtasks: [],
         },
   });
+  
+  useEffect(() => {
+    setCurrentSubtasks(taskToEdit?.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskToEdit]);
 
   const handleTranscript = (fieldName: 'title' | 'description' | 'assignee') => (transcript: string) => {
     form.setValue(fieldName, (form.getValues(fieldName) || '') + transcript);
@@ -128,44 +140,11 @@ export function TaskFormDialog({
   const descriptionSpeech = useSpeechRecognition(handleTranscript('description'));
   const assigneeSpeech = useSpeechRecognition(handleTranscript('assignee'));
 
-
-  const descriptionValue = useWatch({ 
-    control: form.control, 
-    name: 'description' 
-  });
-
   useEffect(() => {
     if (projectId && !form.getValues('projectId')) {
       form.setValue('projectId', projectId);
     }
   }, [projectId, form]);
-
-  useEffect(() => {
-    const handler = setTimeout(async () => {
-      if (descriptionValue && descriptionValue.length > 20) {
-        setIsSuggesting(true);
-        try {
-          const result = await suggestTaskPriority({ 
-            description: descriptionValue 
-          });
-          setSuggestion(result);
-        } catch (error) {
-          console.error("La sugerencia de IA falló:", error);
-          toast({ 
-            variant: 'destructive', 
-            title: 'Error de Sugerencia de IA', 
-            description: 'No se pudo obtener la sugerencia de prioridad de la IA.' 
-          });
-        } finally {
-          setIsSuggesting(false);
-        }
-      } else {
-        setSuggestion(null);
-      }
-    }, 1500);
-
-    return () => clearTimeout(handler);
-  }, [descriptionValue, toast]);
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
@@ -178,8 +157,9 @@ export function TaskFormDialog({
         return;
       }
       
-      const submissionData: Omit<Task, 'id' | 'created_at' | 'user_id'> = {
+      const submissionData = {
         ...data,
+        subtasks: currentSubtasks,
         project_id: data.projectId,
         description: data.description || '',
         startDate: data.startDate,
@@ -210,8 +190,9 @@ export function TaskFormDialog({
         dueDate: undefined,
         projectId: projectId || '',
         assignee: '',
+        subtasks: [],
       });
-      
+      setCurrentSubtasks([]);
       onOpenChange(false);
     } catch(error: any) {
       toast({ 
@@ -222,12 +203,21 @@ export function TaskFormDialog({
     }
   };
 
-  const handleApplySuggestion = () => {
-    if (suggestion) {
-      form.setValue('priority', suggestion.priority);
-      setSuggestion(null);
+  const handleAddSubtask = () => {
+    if (subtaskInput.trim() !== '') {
+      setCurrentSubtasks(prev => [...prev, { title: subtaskInput, is_completed: false }]);
+      setSubtaskInput('');
     }
   };
+  
+  const handleRemoveSubtask = (index: number) => {
+    setCurrentSubtasks(prev => prev.filter((_, i) => i !== index));
+  };
+  
+  const handleSubtaskCheckedChange = (checked: boolean, index: number) => {
+     setCurrentSubtasks(prev => prev.map((st, i) => i === index ? { ...st, is_completed: checked } : st));
+  }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -341,6 +331,42 @@ export function TaskFormDialog({
               )}
             />
 
+            <div className="space-y-2">
+              <Label>Subtareas</Label>
+              <div className="space-y-2">
+                {currentSubtasks.map((subtask, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Checkbox 
+                      id={`subtask-${index}`} 
+                      checked={subtask.is_completed}
+                      onCheckedChange={(checked) => handleSubtaskCheckedChange(!!checked, index)}
+                    />
+                    <label htmlFor={`subtask-${index}`} className={cn("flex-1 text-sm", subtask.is_completed && "line-through text-muted-foreground")}>
+                      {subtask.title}
+                    </label>
+                    <Button type="button" variant="ghost" size="icon" className="size-7" onClick={() => handleRemoveSubtask(index)}>
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <Input 
+                  placeholder="Añadir nueva subtarea..."
+                  value={subtaskInput}
+                  onChange={(e) => setSubtaskInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddSubtask();
+                    }
+                  }}
+                />
+                <Button type="button" onClick={handleAddSubtask}><Plus/></Button>
+              </div>
+            </div>
+
+
             <FormField
               control={form.control}
               name="assignee"
@@ -365,37 +391,6 @@ export function TaskFormDialog({
                 </FormItem>
               )}
             />
-            
-            {isSuggesting && (
-              <div className="flex items-center text-sm text-muted-foreground gap-2">
-                <Sparkles className="size-4 animate-pulse" /> 
-                La IA está analizando tu descripción...
-              </div>
-            )}
-
-            {suggestion && (
-              <Alert className="bg-accent/30 border-accent/50">
-                <AlertTitle className="flex items-center gap-2 font-semibold">
-                  <Wand2 className="size-4" />
-                  Sugerencia de IA
-                </AlertTitle>
-                <AlertDescription className="flex items-center justify-between mt-2">
-                  <p>
-                    ¿Establecer prioridad en{' '}
-                    <strong>{translatedPriorities[suggestion.priority]}</strong>?{' '}
-                    <span className="text-xs">({suggestion.reasoning})</span>
-                  </p>
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={handleApplySuggestion}
-                  >
-                    Aplicar
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
 
             <div className="flex gap-4">
               <FormField
