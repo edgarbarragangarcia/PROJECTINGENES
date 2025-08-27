@@ -8,6 +8,7 @@ import type { Project, ProjectWithProgress, Task, DailyNote, User } from '@/lib/
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
+import type { Session } from '@supabase/supabase-js';
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
 
@@ -16,8 +17,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [tasksState, setTasksState] = useState(initialTasksState);
   const [dailyNotesState, setDailyNotesState] = useState<DailyNotesState>(initialDailyNotesState);
   const supabase = createClient();
-  const [session, setSession] = useState<any>(null);
-  const [providerToken, setProviderToken] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -117,15 +117,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       
       if (session) {
-        setProviderToken(session?.provider_token || null);
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
           fetchAllData(session.user);
         }
       } else if (event === 'SIGNED_OUT') {
         setProjectsState(initialProjectsState);
         setTasksState(initialTasksState);
         setDailyNotesState(initialDailyNotesState);
-        setProviderToken(null);
       }
     });
     
@@ -360,7 +358,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <GoogleCalendarProvider session={session} providerToken={providerToken}>
+    <GoogleCalendarProvider session={session}>
       <ProjectsContext.Provider value={projectsContextValue}>
         <TasksContext.Provider value={tasksContextValue}>
           <DailyNotesContext.Provider value={dailyNotesContextValue}>

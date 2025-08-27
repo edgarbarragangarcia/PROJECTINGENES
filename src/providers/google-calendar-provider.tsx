@@ -2,8 +2,7 @@
 'use client';
 
 import { 
-  GoogleCalendarContext, 
-  initialGoogleCalendarState, 
+  GoogleCalendarContext,
 } from '@/hooks/use-google-calendar';
 import type { Session } from '@supabase/supabase-js';
 import { type ReactNode } from 'react';
@@ -11,15 +10,16 @@ import { type ReactNode } from 'react';
 interface GoogleCalendarProviderProps {
     children: ReactNode;
     session: Session | null;
-    providerToken: string | null;
 }
 
-export const GoogleCalendarProvider = ({ children, session, providerToken }: GoogleCalendarProviderProps) => {
+export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProviderProps) => {
 
   const getCalendarList = async () => {
+    const providerToken = session?.provider_token;
     if (!providerToken) {
-      throw new Error("Provider token not available.");
+      throw new Error("No estás autenticado con Google o el token ha expirado. Por favor, inicia sesión de nuevo.");
     }
+
     const response = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
       headers: {
         'Authorization': `Bearer ${providerToken}`
@@ -28,7 +28,8 @@ export const GoogleCalendarProvider = ({ children, session, providerToken }: Goo
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error.message || 'Failed to fetch calendar list.');
+      console.error('Google API Error:', errorData);
+      throw new Error(errorData.error.message || 'No se pudieron obtener los calendarios de Google.');
     }
     
     return response.json();
@@ -36,9 +37,9 @@ export const GoogleCalendarProvider = ({ children, session, providerToken }: Goo
 
   const value = {
     session,
-    providerToken,
-    setProviderToken: () => {}, // No-op, managed by CombinedProvider
-    setSession: () => {}, // No-op, managed by CombinedProvider
+    providerToken: session?.provider_token || null,
+    setProviderToken: () => {}, 
+    setSession: () => {},
     getCalendarList,
   };
 

@@ -39,7 +39,7 @@ export function CalendarPage() {
   const { tasks } = useTasks();
   const { getNotesByDate } = useDailyNotes();
   const { toast } = useToast();
-  const { getCalendarList, providerToken, session } = useGoogleCalendar();
+  const { getCalendarList } = useGoogleCalendar();
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDateForNotes, setSelectedDateForNotes] = useState<Date | null>(null);
@@ -86,14 +86,6 @@ export function CalendarPage() {
   };
   
   const handleGoogleConnect = async () => {
-    if (!providerToken || !session) {
-      toast({
-        variant: 'destructive',
-        title: "No conectado a Google",
-        description: "Por favor, inicia sesión con Google para conectar tu calendario.",
-      });
-      return;
-    }
     try {
       const calendars = await getCalendarList();
       console.log('Calendarios de Google:', calendars);
@@ -101,12 +93,12 @@ export function CalendarPage() {
         title: "Conexión Exitosa",
         description: "Se han obtenido tus calendarios de Google. Revisa la consola del navegador.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       toast({
         variant: 'destructive',
         title: "Error de Conexión",
-        description: "No se pudieron obtener los calendarios de Google.",
+        description: error.message || "No se pudieron obtener los calendarios de Google.",
       });
     }
   };
