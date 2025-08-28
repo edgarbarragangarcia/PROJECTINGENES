@@ -157,16 +157,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     onProgress?: (progress: number) => void
   ) => {
     onProgress?.(0);
-    let currentProgress = 0;
-  
-    const progressInterval = setInterval(() => {
-      currentProgress += 10;
-      if (currentProgress < 90) {
-        onProgress?.(currentProgress);
-      } else {
-        clearInterval(progressInterval);
-      }
-    }, 200);
   
     const { data, error } = await supabase.storage
       .from(bucket)
@@ -176,7 +166,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         contentType: file.type,
       });
     
-    clearInterval(progressInterval);
     onProgress?.(100);
     
     return { data, error };
@@ -211,8 +200,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }
     
     if (documentFile) {
-        const fileExt = documentFile.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}_${documentFile.name}`;
+        const sanitizedName = documentFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const fileName = `${user.id}/${Date.now()}_${sanitizedName}`;
         
         const { error: uploadError } = await uploadFileWithProgress(
           'project_documents',
@@ -294,7 +283,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             }
         }
 
-        const fileName = `${user.id}/${Date.now()}_${documentFile.name}`;
+        const sanitizedName = documentFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const fileName = `${user.id}/${Date.now()}_${sanitizedName}`;
         
         const { error: uploadError } = await uploadFileWithProgress(
           'project_documents',
@@ -463,7 +453,7 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
         }
 
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${user.id}/${dataToUpdate.projectId || 'unknown_project'}_${Date.now()}.${fileExt}`;
+        const fileName = `${user.id}/${dataToUpdate.projectId || existingTask?.projectId || 'unknown_project'}_${Date.now()}.${fileExt}`;
         
         const { error: uploadError } = await uploadFileWithProgress(
           'task_attachments',
