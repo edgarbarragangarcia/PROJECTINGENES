@@ -33,6 +33,7 @@ import { ProjectListView } from '../project/project-list-view';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter } from 'next/navigation';
 import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
@@ -41,17 +42,22 @@ export function ProjectsPage() {
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCreator, setSelectedCreator] = useState('');
   const { toast } = useToast();
   const supabase = createClient();
   const router = useRouter();
 
+  const creators = useMemo(() => {
+    const emails = projects
+      .map(p => p.creator_email)
+      .filter((email): email is string => !!email);
+    return [...new Set(emails)];
+  }, [projects]);
+
   const filteredProjects = useMemo(() => {
-    if (!searchTerm) return projects;
-    return projects.filter(p => 
-      p.creator_email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [projects, searchTerm]);
+    if (!selectedCreator) return projects;
+    return projects.filter(p => p.creator_email === selectedCreator);
+  }, [projects, selectedCreator]);
   
   const projectsToShow = filteredProjects.filter(p => selectedProjects.includes(p.id));
 
@@ -444,15 +450,17 @@ export function ProjectsPage() {
           <div className='flex items-center gap-2'>
             {isAdmin && (
               <>
-                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Filtrar por creador..."
-                      className="w-full sm:w-64 pl-9"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
+                <Select value={selectedCreator} onValueChange={setSelectedCreator}>
+                  <SelectTrigger className="w-[250px]">
+                    <SelectValue placeholder="Filtrar por creador..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos los creadores</SelectItem>
+                    {creators.map(creator => (
+                      <SelectItem key={creator} value={creator}>{creator}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
                   <FileDown />
                   {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
