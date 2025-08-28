@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -42,7 +41,7 @@ export function ProjectsPage() {
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [selectedCreator, setSelectedCreator] = useState('');
+  const [selectedCreator, setSelectedCreator] = useState('all');
   const { toast } = useToast();
   const supabase = createClient();
   const router = useRouter();
@@ -55,7 +54,7 @@ export function ProjectsPage() {
   }, [projects]);
 
   const filteredProjects = useMemo(() => {
-    if (!selectedCreator) return projects;
+    if (selectedCreator === 'all') return projects;
     return projects.filter(p => p.creator_email === selectedCreator);
   }, [projects, selectedCreator]);
   
@@ -455,7 +454,7 @@ export function ProjectsPage() {
                     <SelectValue placeholder="Filtrar por creador..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los creadores</SelectItem>
+                    <SelectItem value="all">Todos los creadores</SelectItem>
                     {creators.map(creator => (
                       <SelectItem key={creator} value={creator}>{creator}</SelectItem>
                     ))}
@@ -491,3 +490,5 @@ export function ProjectsPage() {
     </>
   );
 }
+
+    
