@@ -34,7 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useProjects } from '@/hooks/use-projects';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
-import { Mic, Upload, X } from 'lucide-react';
+import { Mic, Upload, X, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -46,6 +46,7 @@ const projectFormSchema = z.object({
   description: z.string().optional(),
   status: z.enum(projectStatuses),
   image_url: z.string().optional(),
+  document_url: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -62,6 +63,10 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(projectToEdit?.image_url || null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [documentName, setDocumentName] = useState<string | null>(projectToEdit?.document_url?.split('/').pop() || null);
+  const [docUploadProgress, setDocUploadProgress] = useState<number | null>(null);
 
 
   const form = useForm<ProjectFormValues>({
@@ -72,23 +77,27 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
         description: projectToEdit.description || '',
         status: projectToEdit.status,
         image_url: projectToEdit.image_url || '',
+        document_url: projectToEdit.document_url || '',
        }
       : {
           name: '',
           description: '',
           status: 'En Progreso',
           image_url: '',
+          document_url: '',
         },
   });
   
   useEffect(() => {
     if (projectToEdit) {
       setImagePreview(projectToEdit.image_url || null);
+      setDocumentName(projectToEdit.document_url?.split('/').pop() || null);
       form.reset({
         name: projectToEdit.name,
         description: projectToEdit.description || '',
         status: projectToEdit.status,
         image_url: projectToEdit.image_url || '',
+        document_url: projectToEdit.document_url || '',
       });
     } else {
         form.reset({
@@ -96,6 +105,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
           description: '',
           status: 'En Progreso',
           image_url: '',
+          document_url: '',
         });
     }
   }, [projectToEdit, form]);
@@ -118,6 +128,13 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
             submissionData.image_url = null;
         }
 
+        if (documentFile) {
+            submissionData.documentFile = documentFile;
+            submissionData.onDocUploadProgress = setDocUploadProgress;
+        } else if (documentName === null && projectToEdit?.document_url) {
+            submissionData.document_url = null;
+        }
+
 
         if (projectToEdit) {
             await updateProject(projectToEdit.id, submissionData);
@@ -134,6 +151,9 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
       setUploadProgress(null);
       setImageFile(null);
       setImagePreview(null);
+      setDocUploadProgress(null);
+      setDocumentFile(null);
+      setDocumentName(null);
     }
   };
   
@@ -153,6 +173,21 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
       setImageFile(null);
       setImagePreview(null);
   };
+  
+  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        setDocumentFile(file);
+        setDocumentName(file.name);
+    }
+  };
+
+  const handleRemoveDocument = () => {
+      setDocumentFile(null);
+      setDocumentName(null);
+  };
+
+  const isUploading = (uploadProgress !== null && uploadProgress < 100) || (docUploadProgress !== null && docUploadProgress < 100);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -227,6 +262,31 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
                     <Progress value={uploadProgress} className="w-full h-2 mt-2" />
                 )}
             </div>
+            
+            <div className="space-y-2">
+                <FormLabel>Adjuntar Documento</FormLabel>
+                 {documentName ? (
+                    <div className="relative group flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                        <div className="flex items-center gap-2">
+                          <FileText className="size-5 text-primary" />
+                          <span className="text-sm font-medium truncate">{documentName}</span>
+                        </div>
+                        <Button type="button" size="icon" variant="ghost" className="size-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleRemoveDocument}>
+                            <X className="size-4 text-destructive" />
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        <FormControl>
+                            <Input id="project-document" type="file" className="w-full h-10 pl-12" onChange={handleDocumentChange} accept=".pdf,.doc,.docx"/>
+                        </FormControl>
+                        <Upload className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                    </div>
+                )}
+                 {docUploadProgress !== null && (
+                    <Progress value={docUploadProgress} className="w-full h-2 mt-2" />
+                )}
+            </div>
 
             <FormField
               control={form.control}
@@ -256,8 +316,8 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={uploadProgress !== null && uploadProgress < 100}>
-                {uploadProgress !== null && uploadProgress < 100 ? `Subiendo... ${uploadProgress}%` : projectToEdit ? 'Guardar Cambios' : 'Crear Proyecto'}
+              <Button type="submit" disabled={isUploading}>
+                {isUploading ? `Subiendo...` : projectToEdit ? 'Guardar Cambios' : 'Crear Proyecto'}
               </Button>
             </DialogFooter>
           </form>

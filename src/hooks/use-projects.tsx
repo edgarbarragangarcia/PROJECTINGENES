@@ -22,8 +22,8 @@ export const initialProjectsState: ProjectsState = {
 // --- CONTEXT ---
 
 export interface ProjectsContextType extends ProjectsState {
-  addProject: (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'> & { imageFile?: File, onUploadProgress?: (progress: number) => void }) => Promise<void>;
-  updateProject: (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>> & { imageFile?: File, onUploadProgress?: (progress: number) => void }) => Promise<void>;
+  addProject: (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'> & { imageFile?: File, onUploadProgress?: (progress: number) => void, documentFile?: File, onDocUploadProgress?: (progress: number) => void }) => Promise<void>;
+  updateProject: (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'users'>> & { imageFile?: File, onUploadProgress?: (progress: number) => void, documentFile?: File, onDocUploadProgress?: (progress: number) => void }) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   fetchProjects: (user: User) => Promise<void>;
   setProjects: (projects: ProjectWithProgress[]) => void;

@@ -43,6 +43,7 @@ export interface Project {
   name: string;
   description: string;
   image_url: string;
+  document_url?: string;
   status: ProjectStatus;
   user_id: string;
 }
