@@ -34,7 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useProjects } from '@/hooks/use-projects';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
-import { Mic, Upload, X, FileText } from 'lucide-react';
+import { Mic, Upload, X, FileText, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -65,7 +65,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   
   const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [documentName, setDocumentName] = useState<string | null>(projectToEdit?.document_url?.split('/').pop() || null);
+  const [documentName, setDocumentName] = useState<string | null>(projectToEdit?.document_url?.split('/').pop()?.split('?')[0].split('_').slice(1).join('_') || null);
   const [docUploadProgress, setDocUploadProgress] = useState<number | null>(null);
 
 
@@ -91,7 +91,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   useEffect(() => {
     if (projectToEdit) {
       setImagePreview(projectToEdit.image_url || null);
-      setDocumentName(projectToEdit.document_url?.split('/').pop() || null);
+      setDocumentName(projectToEdit.document_url?.split('/').pop()?.split('?')[0].split('_').slice(1).join('_') || null);
       form.reset({
         name: projectToEdit.name,
         description: projectToEdit.description || '',
@@ -267,13 +267,22 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
                 <FormLabel>Adjuntar Documento</FormLabel>
                  {documentName ? (
                     <div className="relative group flex items-center justify-between p-2 border rounded-md bg-muted/50">
-                        <div className="flex items-center gap-2">
-                          <FileText className="size-5 text-primary" />
-                          <span className="text-sm font-medium truncate">{documentName}</span>
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <FileText className="size-5 text-primary flex-shrink-0" />
+                          <span className="text-sm font-medium truncate" title={documentName}>{documentName}</span>
                         </div>
-                        <Button type="button" size="icon" variant="ghost" className="size-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleRemoveDocument}>
-                            <X className="size-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center flex-shrink-0">
+                          {projectToEdit?.document_url && !documentFile && (
+                            <a href={projectToEdit.document_url} target="_blank" rel="noopener noreferrer">
+                              <Button type="button" size="icon" variant="ghost" className="size-7">
+                                <Download className="size-4" />
+                              </Button>
+                            </a>
+                          )}
+                          <Button type="button" size="icon" variant="ghost" className="size-7" onClick={handleRemoveDocument}>
+                              <X className="size-4 text-destructive" />
+                          </Button>
+                        </div>
                     </div>
                 ) : (
                     <div className="relative">
