@@ -39,7 +39,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
         const isAdmin = user.email && adminEmails.includes(user.email);
-        let query = supabase.from('projects').select('*, users(email)');
+        let query = supabase.from('projects').select('*');
 
         if (!isAdmin) {
             query = query.eq('user_id', user.id);
@@ -51,14 +51,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             console.error("Supabase error fetching projects:", error);
             throw error;
         }
-
-        const projectsWithCreator = data.map((p: any) => ({
-            ...p,
-            creator_email: p.users?.email || 'Desconocido',
-            users: undefined, // remove the nested object
-        }));
         
-        setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithCreator || [] }));
+        setProjectsState(prevState => ({ ...prevState, loading: false, projects: data || [] }));
     } catch (error: any) {
         console.error('Error fetching projects:', error);
         setProjectsState(prevState => ({ ...prevState, loading: false, error }));

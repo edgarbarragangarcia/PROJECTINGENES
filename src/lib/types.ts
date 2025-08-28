@@ -47,7 +47,7 @@ export interface Project {
   document_url?: string;
   status: ProjectStatus;
   user_id: string;
-  creator_email?: string; // Added for filtering
+  creator_email?: string;
 }
 
 export interface ProjectWithProgress extends Project {
