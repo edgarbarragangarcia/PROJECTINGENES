@@ -100,7 +100,7 @@ export function TaskFormDialog({
   const [subtaskInput, setSubtaskInput] = useState('');
   const [currentSubtasks, setCurrentSubtasks] = useState<{title: string, is_completed: boolean}[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(taskToEdit?.image_url || null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   
@@ -136,9 +136,38 @@ export function TaskFormDialog({
   });
   
   useEffect(() => {
-    setCurrentSubtasks(taskToEdit?.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || []);
-    setImagePreview(taskToEdit?.image_url || null);
-  }, [taskToEdit]);
+    if (taskToEdit) {
+      setCurrentSubtasks(taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || []);
+      setImagePreview(taskToEdit.image_url || null);
+      form.reset({
+        title: taskToEdit.title,
+        description: taskToEdit.description || '',
+        status: taskToEdit.status,
+        priority: taskToEdit.priority,
+        startDate: taskToEdit.startDate ? new Date(taskToEdit.startDate) : undefined,
+        dueDate: taskToEdit.dueDate ? new Date(taskToEdit.dueDate) : undefined,
+        projectId: taskToEdit.projectId,
+        assignee: taskToEdit.assignee || '',
+        subtasks: taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || [],
+        image_url: taskToEdit.image_url || '',
+      });
+    } else {
+       form.reset({
+          title: '',
+          description: '',
+          status: 'Todo',
+          priority: 'Medium',
+          startDate: undefined,
+          dueDate: undefined,
+          projectId: projectId || '',
+          assignee: '',
+          subtasks: [],
+          image_url: '',
+        });
+        setCurrentSubtasks([]);
+        setImagePreview(null);
+    }
+  }, [taskToEdit, projectId, form]);
 
   const handleTranscript = (fieldName: 'title' | 'description' | 'assignee') => (transcript: string) => {
     form.setValue(fieldName, (form.getValues(fieldName) || '') + transcript);
@@ -178,7 +207,7 @@ export function TaskFormDialog({
       if (imageFile) {
         submissionData.imageFile = imageFile;
         submissionData.onUploadProgress = setUploadProgress;
-      } else if (imagePreview === null && taskToEdit?.image_url) {
+      } else if (imagePreview === null) {
         submissionData.image_url = null;
       }
 
@@ -254,6 +283,7 @@ export function TaskFormDialog({
   const handleRemoveImage = () => {
       setImageFile(null);
       setImagePreview(null);
+      form.setValue('image_url', '');
   };
 
   return (

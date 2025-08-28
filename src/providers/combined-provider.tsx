@@ -156,8 +156,16 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     file: File,
     onProgress?: (progress: number) => void
   ) => {
-    onProgress?.(0);
-  
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
+        currentProgress += 10;
+        if (currentProgress < 100) {
+            onProgress?.(currentProgress);
+        } else {
+            clearInterval(progressInterval);
+        }
+    }, 100);
+
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(fileName, file, {
@@ -166,6 +174,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         contentType: file.type,
       });
     
+    clearInterval(progressInterval);
     onProgress?.(100);
     
     return { data, error };
@@ -416,7 +425,7 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
             .select();
 
         if (subtasksError) {
-            await supabase.from('tasks').delete().eq('id', taskResult.id);
+            await supabase.from('tasks').delete().eq('id', taskResult.id); // Rollback
             throw subtasksError;
         }
         createdSubtasks = subtasksResult || [];
@@ -435,11 +444,11 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     }));
 };
 
-  const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> & { imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
+  const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
-    const { imageFile, onUploadProgress, ...restOfTaskData } = taskData;
+    const { imageFile, onUploadProgress, subtasks, ...restOfTaskData } = taskData;
     const dataToUpdate: Record<string, any> = { ...restOfTaskData };
     
     const existingTask = tasksState.tasks.find(t => t.id === id);
@@ -479,8 +488,6 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     }
 
 
-    delete dataToUpdate.subtasks;
-
     if (dataToUpdate.startDate) {
         dataToUpdate.start_date = dataToUpdate.startDate.toISOString();
         delete dataToUpdate.startDate;
@@ -497,6 +504,24 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     const { error } = await supabase.from('tasks').update(dataToUpdate).eq('id', id);
     if (error) throw error;
     
+    // Handle subtasks
+    if (subtasks) {
+      // 1. Delete existing subtasks
+      const { error: deleteError } = await supabase.from('subtasks').delete().eq('task_id', id);
+      if (deleteError) throw deleteError;
+
+      // 2. Insert new subtasks if any
+      if (subtasks.length > 0) {
+        const subtasksToInsert = subtasks.map(st => ({
+            ...st,
+            task_id: id,
+            user_id: user.id,
+        }));
+        const { error: insertError } = await supabase.from('subtasks').insert(subtasksToInsert);
+        if (insertError) throw insertError;
+      }
+    }
+
     await fetchTasks(user);
   };
 
@@ -515,6 +540,10 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
           }
       }
     }
+    
+    // Delete associated subtasks first
+    const { error: subtaskError } = await supabase.from('subtasks').delete().eq('task_id', id);
+    if (subtaskError) throw subtaskError;
 
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
@@ -606,7 +635,7 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
   const tasksContextValue: TasksContextType = { 
     ...tasksState, 
     addTask: addTask as any, 
-    updateTask, 
+    updateTask: updateTask as any, 
     deleteTask, 
     getTasksByStatus, 
     getTasksByProject, 
