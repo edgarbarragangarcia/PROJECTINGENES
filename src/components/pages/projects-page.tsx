@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -404,7 +405,7 @@ export function ProjectsPage() {
                 <Checkbox 
                   id="select-all"
                   checked={allSelected}
-                  onCheckedChange={handleSelectAll}
+                  onCheckedChange={(checked: boolean) => handleSelectAll(checked)}
                   aria-label="Seleccionar todo"
                 />
                 <label htmlFor="select-all" className="text-sm font-medium">

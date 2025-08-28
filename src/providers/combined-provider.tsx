@@ -39,7 +39,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
         const isAdmin = user.email && adminEmails.includes(user.email);
-        let query = supabase.from('projects').select('*, user:user_id(email)');
+        let query = supabase.from('projects').select('*, users(email)');
 
         if (!isAdmin) {
             query = query.eq('user_id', user.id);
@@ -54,7 +54,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
         const projectsWithCreator = data.map((p: any) => ({
             ...p,
-            creator_email: p.user?.email || null,
+            creator_email: p.users?.email || 'Desconocido',
+            users: undefined, // remove the nested object
         }));
         
         setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithCreator || [] }));
@@ -191,7 +192,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     const { imageFile, onUploadProgress, documentFile, onDocUploadProgress, ...restOfProjectData } = projectData;
 
-    const dataToInsert: Record<string, any> = { ...restOfProjectData, user_id: user.id };
+    const dataToInsert: Record<string, any> = { ...restOfProjectData, user_id: user.id, creator_email: user.email };
 
     if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
