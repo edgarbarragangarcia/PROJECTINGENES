@@ -38,26 +38,31 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
-      const isAdmin = user.email && adminEmails.includes(user.email);
-      let query = supabase.from('projects').select('*');
+        const isAdmin = user.email && adminEmails.includes(user.email);
+        let query = supabase.from('projects').select('*, user:user_id(email)');
 
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error("Supabase error fetching projects:", error);
-        throw error;
-      }
-      
-      setProjectsState(prevState => ({ ...prevState, loading: false, projects: data || [] }));
+        if (!isAdmin) {
+            query = query.eq('user_id', user.id);
+        }
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
+        
+        if (error) {
+            console.error("Supabase error fetching projects:", error);
+            throw error;
+        }
+
+        const projectsWithCreator = data.map((p: any) => ({
+            ...p,
+            creator_email: p.user?.email || null,
+        }));
+        
+        setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsWithCreator || [] }));
     } catch (error: any) {
-      console.error('Error fetching projects:', error);
-      setProjectsState(prevState => ({ ...prevState, loading: false, error }));
+        console.error('Error fetching projects:', error);
+        setProjectsState(prevState => ({ ...prevState, loading: false, error }));
     }
-  }, [supabase]);
+}, [supabase]);
 
 
   const fetchTasks = useCallback(async (user: User) => {

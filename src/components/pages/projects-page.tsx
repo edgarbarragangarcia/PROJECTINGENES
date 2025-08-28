@@ -4,11 +4,11 @@
 import { PageHeader } from '../layout/page-header';
 import type { Project, ProjectWithProgress, Task } from '@/lib/types';
 import { Button } from '../ui/button';
-import { MoreVertical, PlusCircle, Trash2, Edit, FileDown, LayoutGrid, List, GanttChartSquare } from 'lucide-react';
+import { MoreVertical, PlusCircle, Trash2, Edit, FileDown, LayoutGrid, List, GanttChartSquare, Search } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Progress } from '../ui/progress';
 import { useProjects } from '@/hooks/use-projects';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ProjectFormDialog } from '../project/project-form-dialog';
 import Link from 'next/link';
 import { Skeleton } from '../ui/skeleton';
@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectListView } from '../project/project-list-view';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter } from 'next/navigation';
+import { Input } from '../ui/input';
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
@@ -39,11 +40,19 @@ export function ProjectsPage() {
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const supabase = createClient();
   const router = useRouter();
+
+  const filteredProjects = useMemo(() => {
+    if (!searchTerm) return projects;
+    return projects.filter(p => 
+      p.creator_email?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [projects, searchTerm]);
   
-  const projectsToShow = projects.filter(p => selectedProjects.includes(p.id));
+  const projectsToShow = filteredProjects.filter(p => selectedProjects.includes(p.id));
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -105,7 +114,7 @@ export function ProjectsPage() {
     
     yPos += 15;
     
-    const projectsToExport = projects.filter(p => selectedProjects.includes(p.id));
+    const projectsToExport = filteredProjects.filter(p => selectedProjects.includes(p.id));
 
     for (const project of projectsToExport) {
         if (yPos > 150) { 
@@ -234,7 +243,7 @@ export function ProjectsPage() {
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedProjects(projects.map(p => p.id));
+      setSelectedProjects(filteredProjects.map(p => p.id));
     } else {
       setSelectedProjects([]);
     }
@@ -255,7 +264,7 @@ export function ProjectsPage() {
 
   const renderCardView = () => (
      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {projects.map((project) => (
+        {filteredProjects.map((project) => (
           <Card key={project.id} className={cn("flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm relative", selectedProjects.includes(project.id) && "ring-2 ring-primary")}>
              <div className="absolute top-2 right-2 z-10 bg-background/50 backdrop-blur-sm rounded-sm p-1">
                 <Checkbox
@@ -340,6 +349,9 @@ export function ProjectsPage() {
                     </div>
                 </div>
             </CardContent>
+             <CardFooter className="p-3 text-xs text-muted-foreground">
+              Creado por: {project.creator_email || 'Desconocido'}
+            </CardFooter>
           </Card>
         ))}
       </div>
@@ -383,9 +395,7 @@ export function ProjectsPage() {
       );
     }
 
-    const allSelected = selectedProjects.length === projects.length && projects.length > 0;
-    const isIndeterminate = selectedProjects.length > 0 && !allSelected;
-
+    const allSelected = selectedProjects.length === filteredProjects.length && filteredProjects.length > 0;
 
     return (
       <Tabs defaultValue="grid" className="w-full">
@@ -399,7 +409,7 @@ export function ProjectsPage() {
                 />
                 <label htmlFor="select-all" className="text-sm font-medium">
                   {selectedProjects.length > 0 
-                   ? `${selectedProjects.length} de ${projects.length} seleccionado(s)`
+                   ? `${selectedProjects.length} de ${filteredProjects.length} seleccionado(s)`
                    : `Seleccionar todo`
                   }
                 </label>
@@ -414,7 +424,7 @@ export function ProjectsPage() {
         </TabsContent>
         <TabsContent value="list">
             <ProjectListView 
-              projects={projects} 
+              projects={filteredProjects} 
               tasks={tasks} 
               onEdit={handleEdit} 
               onDelete={handleDelete}
@@ -433,6 +443,15 @@ export function ProjectsPage() {
           <div className='flex items-center gap-2'>
             {isAdmin && (
               <>
+                 <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrar por creador..."
+                      className="w-full sm:w-64 pl-9"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
                 <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
                   <FileDown />
                   {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}

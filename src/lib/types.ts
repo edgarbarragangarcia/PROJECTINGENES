@@ -1,3 +1,4 @@
+
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
 export const priorities = ['Low', 'Medium', 'High'] as const;
@@ -46,6 +47,7 @@ export interface Project {
   document_url?: string;
   status: ProjectStatus;
   user_id: string;
+  creator_email?: string; // Added for filtering
 }
 
 export interface ProjectWithProgress extends Project {
