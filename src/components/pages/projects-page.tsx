@@ -359,7 +359,7 @@ export function ProjectsPage() {
   );
 
   const renderContent = () => {
-    if (loading) {
+    if (loading && projects.length === 0) {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -379,7 +379,7 @@ export function ProjectsPage() {
       );
     }
 
-    if (projects.length === 0) {
+    if (!loading && projects.length === 0) {
       return (
         <div className="flex items-center justify-center h-full">
             <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
