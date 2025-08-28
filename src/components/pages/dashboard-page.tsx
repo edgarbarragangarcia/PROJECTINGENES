@@ -68,12 +68,12 @@ export function DashboardPage() {
     }));
 
     const totalTasks = tasks.length;
-    const completedTasks = tasksByStatus['Done'] || 0;
+    const completedTasks = (tasksByStatus['Done'] || 0) + (tasksByStatus['Backlog'] || 0);
     const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     const totalProjects = projects.length;
 
     const upcomingTasks = tasks
-        .filter(task => task.dueDate && new Date(task.dueDate) >= new Date() && task.status !== 'Done' && task.status !== 'Cancelled')
+        .filter(task => task.dueDate && new Date(task.dueDate) >= new Date() && !['Done', 'Cancelled', 'Backlog'].includes(task.status))
         .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
         .slice(0, 5);
 
@@ -110,7 +110,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{completedTasks}</div>
-                     <p className="text-xs text-muted-foreground">Marcadas como 'Done'</p>
+                     <p className="text-xs text-muted-foreground">Marcadas como 'Done' o 'Backlog'</p>
                 </CardContent>
             </Card>
             <Card>

@@ -139,7 +139,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const calculateProgress = useCallback((projectId: string, allTasks: Task[]): number => {
     const projectTasks = allTasks.filter(t => t.projectId === projectId);
     if (projectTasks.length === 0) return 0;
-    const completedTasks = projectTasks.filter(t => t.status === 'Done').length;
+    const completedTasks = projectTasks.filter(t => t.status === 'Done' || t.status === 'Backlog').length;
     return Math.round((completedTasks / projectTasks.length) * 100);
   }, []);
   
