@@ -63,4 +63,17 @@ export interface DailyNote {
   user_id: string;
 }
 
+export interface UserStory {
+    id: string;
+    created_at: string;
+    project_id: string;
+    user_id: string;
+    name: string;
+    stakeholders?: string;
+    i_want_to?: string;
+    so_that?: string;
+    acceptance_criteria?: string[];
+}
+
+
 export type User = SupabaseUser;

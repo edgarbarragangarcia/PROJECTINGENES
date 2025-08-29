@@ -6,11 +6,12 @@ import { ProjectsContext, initialProjectsState, type ProjectsContextType } from 
 import { TasksContext, initialTasksState, type TasksContextType } from '@/hooks/use-tasks';
 import { DailyNotesContext, initialDailyNotesState, type DailyNotesState, type DailyNotesContextType } from '@/hooks/use-daily-notes';
 import { createClient } from '@/lib/supabase/client';
-import type { Project, ProjectWithProgress, Task, DailyNote, User, Subtask } from '@/lib/types';
+import type { Project, ProjectWithProgress, Task, DailyNote, User, Subtask, UserStory } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 import type { Session } from '@supabase/supabase-js';
+import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
 
@@ -18,6 +19,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [projectsState, setProjectsState] = useState(initialProjectsState);
   const [tasksState, setTasksState] = useState(initialTasksState);
   const [dailyNotesState, setDailyNotesState] = useState<DailyNotesState>(initialDailyNotesState);
+  const [userStoriesState, setUserStoriesState] = useState(initialUserStoriesState);
   const supabase = createClient();
   const [session, setSession] = useState<Session | null>(null);
 
@@ -34,6 +36,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   // --- Daily Notes ---
   const setDailyNotes = (notes: DailyNote[]) => setDailyNotesState(prevState => ({ ...prevState, notes }));
   const setDailyNotesLoading = (loading: boolean) => setDailyNotesState(prevState => ({ ...prevState, loading }));
+
+  // --- User Stories ---
+  const setUserStories = (stories: UserStory[]) => setUserStoriesState(prevState => ({ ...prevState, userStories: stories }));
+  const setUserStoriesLoading = (loading: boolean) => setUserStoriesState(prevState => ({ ...prevState, loading }));
+
 
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
@@ -52,7 +59,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             throw error;
         }
         
-        // Enrich data with creator_name if missing
         const enrichedData = (data || []).map(p => {
           if (!p.creator_name && p.creator_email === user.email && user.user_metadata?.full_name) {
             return { ...p, creator_name: user.user_metadata.full_name };
@@ -65,7 +71,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         console.error('Error fetching projects:', error);
         setProjectsState(prevState => ({ ...prevState, loading: false, error }));
     }
-}, [supabase]);
+  }, [supabase]);
 
 
   const fetchTasks = useCallback(async (user: User) => {
@@ -95,7 +101,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         console.error('Error fetching tasks:', error);
         setTasksState(prevState => ({ ...prevState, loading: false, error }));
     }
-}, [supabase]);
+  }, [supabase]);
 
   const fetchDailyNotes = useCallback(async (user: User) => {
     setDailyNotesState(prevState => ({ ...prevState, loading: true, error: null }));
@@ -115,13 +121,34 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [supabase]);
 
+   const fetchUserStories = useCallback(async (user: User) => {
+    setUserStoriesLoading(true);
+    try {
+      const isAdmin = user.email && adminEmails.includes(user.email);
+      let query = supabase.from('user_stories').select('*');
+
+      // Non-admins can only see stories for projects they have access to.
+      // This simple implementation lets them see all stories, adjust if needed.
+      // For more complex scenarios, you might need RLS or joins.
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      setUserStories(data || []);
+    } catch (error: any) {
+      console.error('Error fetching user stories:', error);
+    } finally {
+      setUserStoriesLoading(false);
+    }
+  }, [supabase]);
+
   const fetchAllData = useCallback(async (user: User) => {
     await Promise.all([
       fetchProjects(user),
       fetchTasks(user),
-      fetchDailyNotes(user)
+      fetchDailyNotes(user),
+      fetchUserStories(user),
     ]);
-  }, [fetchProjects, fetchTasks, fetchDailyNotes]);
+  }, [fetchProjects, fetchTasks, fetchDailyNotes, fetchUserStories]);
 
 
   useEffect(() => {
@@ -136,6 +163,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         setProjectsState(initialProjectsState);
         setTasksState(initialTasksState);
         setDailyNotesState(initialDailyNotesState);
+        setUserStoriesState(initialUserStoriesState);
       }
     });
     
@@ -297,10 +325,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             }
         }
     }
-
-    const { error: tasksError } = await supabase.from('tasks').delete().eq('project_id', id);
-    if(tasksError) throw tasksError;
     
+    // RLS and CASCADE should handle deleting user stories and tasks
     const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) throw error;
     
@@ -308,89 +334,93 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       ...prevState, 
       tasks: prevState.tasks.filter((t) => t.projectId !== id)
     }));
+    setUserStoriesState(prevState => ({
+      ...prevState,
+      userStories: prevState.userStories.filter((us) => us.project_id !== id)
+    }));
     setProjectsState(prevState => ({ 
       ...prevState, 
       projects: prevState.projects.filter((p) => p.id !== id) 
     }));
   };
 
-const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Usuario no autenticado");
+  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuario no autenticado");
 
-    const { startDate, dueDate, projectId, subtasks, imageFile, onUploadProgress, ...restOfTaskData } = taskData;
-    
-    let imageUrl: string | undefined = undefined;
-    if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${user.id}/${projectId}_${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await uploadFileWithProgress(
-          'task_attachments',
-          fileName,
-          imageFile,
-          onUploadProgress
-        );
-        
-        if (uploadError) throw uploadError;
+      const { startDate, dueDate, projectId, subtasks, imageFile, onUploadProgress, ...restOfTaskData } = taskData;
+      
+      let imageUrl: string | undefined = undefined;
+      if (imageFile) {
+          const fileExt = imageFile.name.split('.').pop();
+          const fileName = `${user.id}/${projectId}_${Date.now()}.${fileExt}`;
+          
+          const { error: uploadError } = await uploadFileWithProgress(
+            'task_attachments',
+            fileName,
+            imageFile,
+            onUploadProgress
+          );
+          
+          if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage
-            .from('task_attachments')
-            .getPublicUrl(fileName);
-            
-        imageUrl = publicUrlData.publicUrl;
-    }
+          const { data: publicUrlData } = supabase.storage
+              .from('task_attachments')
+              .getPublicUrl(fileName);
+              
+          imageUrl = publicUrlData.publicUrl;
+      }
 
-    const dataToInsert: any = {
-      ...restOfTaskData,
-      user_id: user.id,
-      project_id: projectId,
-      image_url: imageUrl,
-    };
-    if (startDate) dataToInsert.start_date = startDate.toISOString();
-    if (dueDate) dataToInsert.due_date = dueDate.toISOString();
+      const dataToInsert: any = {
+        ...restOfTaskData,
+        user_id: user.id,
+        project_id: projectId,
+        image_url: imageUrl,
+      };
+      if (startDate) dataToInsert.start_date = startDate.toISOString();
+      if (dueDate) dataToInsert.due_date = dueDate.toISOString();
 
 
-    const { data: taskResult, error: taskError } = await supabase
-        .from('tasks')
-        .insert(dataToInsert)
-        .select()
-        .single();
+      const { data: taskResult, error: taskError } = await supabase
+          .from('tasks')
+          .insert(dataToInsert)
+          .select()
+          .single();
 
-    if (taskError) throw taskError;
-    if (!taskResult) throw new Error("Failed to create task");
+      if (taskError) throw taskError;
+      if (!taskResult) throw new Error("Failed to create task");
 
-    let createdSubtasks: Subtask[] = [];
-    if (subtasks && subtasks.length > 0) {
-        const subtasksToInsert = subtasks.map(st => ({
-            ...st,
-            task_id: taskResult.id,
-            user_id: user.id,
-        }));
-        const { data: subtasksResult, error: subtasksError } = await supabase
-            .from('subtasks')
-            .insert(subtasksToInsert)
-            .select();
+      let createdSubtasks: Subtask[] = [];
+      if (subtasks && subtasks.length > 0) {
+          const subtasksToInsert = subtasks.map(st => ({
+              ...st,
+              task_id: taskResult.id,
+              user_id: user.id,
+          }));
+          const { data: subtasksResult, error: subtasksError } = await supabase
+              .from('subtasks')
+              .insert(subtasksToInsert)
+              .select();
 
-        if (subtasksError) {
-            await supabase.from('tasks').delete().eq('id', taskResult.id); // Rollback
-            throw subtasksError;
-        }
-        createdSubtasks = subtasksResult || [];
-    }
+          if (subtasksError) {
+              await supabase.from('tasks').delete().eq('id', taskResult.id); // Rollback
+              throw subtasksError;
+          }
+          createdSubtasks = subtasksResult || [];
+      }
 
-    const formattedTask = {
-        ...taskResult,
-        projectId: taskResult.project_id,
-        startDate: taskResult.start_date ? new Date(taskResult.start_date) : undefined,
-        dueDate: taskResult.due_date ? new Date(taskResult.due_date) : undefined,
-        subtasks: createdSubtasks,
-    };
-    setTasksState(prevState => ({
-        ...prevState,
-        tasks: [formattedTask as Task, ...prevState.tasks],
-    }));
-};
+      const formattedTask = {
+          ...taskResult,
+          projectId: taskResult.project_id,
+          startDate: taskResult.start_date ? new Date(taskResult.start_date) : undefined,
+          dueDate: taskResult.due_date ? new Date(taskResult.due_date) : undefined,
+          subtasks: createdSubtasks,
+      };
+      setTasksState(prevState => ({
+          ...prevState,
+          tasks: [formattedTask as Task, ...prevState.tasks],
+      }));
+  };
 
   const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -452,13 +482,10 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     const { error } = await supabase.from('tasks').update(dataToUpdate).eq('id', id);
     if (error) throw error;
     
-    // Handle subtasks
     if (subtasks) {
-      // 1. Delete existing subtasks
       const { error: deleteError } = await supabase.from('subtasks').delete().eq('task_id', id);
       if (deleteError) throw deleteError;
 
-      // 2. Insert new subtasks if any
       if (subtasks.length > 0) {
         const subtasksToInsert = subtasks.map(st => ({
             ...st,
@@ -489,7 +516,6 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
       }
     }
     
-    // Delete associated subtasks first
     const { error: subtaskError } = await supabase.from('subtasks').delete().eq('task_id', id);
     if (subtaskError) throw subtaskError;
 
@@ -568,6 +594,52 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     return dailyNotesState.notes.filter(n => n.date === dateString);
   };
   
+    const addUserStory = async (storyData: Omit<UserStory, 'id' | 'created_at' | 'user_id'>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario no autenticado");
+
+    const { data, error } = await supabase
+      .from('user_stories')
+      .insert({ ...storyData, user_id: user.id })
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (data) {
+      setUserStoriesState(prevState => ({
+        ...prevState,
+        userStories: [data, ...prevState.userStories],
+      }));
+    }
+  };
+
+  const updateUserStory = async (id: string, storyData: Partial<Omit<UserStory, 'id' | 'created_at' | 'user_id' | 'project_id'>>) => {
+    const { data, error } = await supabase
+      .from('user_stories')
+      .update(storyData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (data) {
+      setUserStoriesState(prevState => ({
+        ...prevState,
+        userStories: prevState.userStories.map(s => s.id === id ? data : s),
+      }));
+    }
+  };
+
+  const deleteUserStory = async (id: string) => {
+    const { error } = await supabase.from('user_stories').delete().eq('id', id);
+    if (error) throw error;
+    setUserStoriesState(prevState => ({
+      ...prevState,
+      userStories: prevState.userStories.filter(s => s.id !== id),
+    }));
+  };
+
+
   const projectsContextValue: ProjectsContextType = { 
     ...projectsState, 
     projects: projectsWithProgress, 
@@ -603,13 +675,24 @@ const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & {
     deleteNote, 
     getNotesByDate 
   };
+  
+  const userStoriesContextValue: UserStoriesContextType = {
+    ...userStoriesState,
+    addUserStory,
+    updateUserStory,
+    deleteUserStory,
+    fetchUserStories,
+  };
+
 
   return (
     <GoogleCalendarProvider session={session}>
       <ProjectsContext.Provider value={projectsContextValue}>
         <TasksContext.Provider value={tasksContextValue}>
           <DailyNotesContext.Provider value={dailyNotesContextValue}>
-            {children}
+             <UserStoriesContext.Provider value={userStoriesContextValue}>
+              {children}
+             </UserStoriesContext.Provider>
           </DailyNotesContext.Provider>
         </TasksContext.Provider>
       </ProjectsContext.Provider>
