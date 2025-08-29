@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Progress } from '../ui/progress';
+import { Label } from '../ui/label';
 
 const projectFormSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
@@ -376,3 +377,5 @@ ${acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n') || '- Ninguno de
     </Dialog>
   );
 }
+
+    
