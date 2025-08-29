@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -51,9 +52,6 @@ export function ProjectsPage() {
     projects.forEach(p => {
       if (p.creator_email && p.creator_name) {
         creatorMap.set(p.creator_email, p.creator_name);
-      } else if (p.creator_email) {
-        // Fallback for older data, though the provider should handle this
-        creatorMap.set(p.creator_email, p.creator_email);
       }
     });
     return Array.from(creatorMap.entries()).map(([email, name]) => ({ email, name }));
@@ -107,7 +105,7 @@ export function ProjectsPage() {
   const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
     switch (status) {
       case 'Completado': return 'default';
-      case 'En Progreso': return 'default';
+      case 'En Progreso': return 'secondary';
       case 'En Pausa': return 'outline';
       default: return 'outline';
     }
@@ -264,13 +262,13 @@ export function ProjectsPage() {
 
   const getStatusBadgeClass = (status: ProjectWithProgress['status']) => {
     switch (status) {
-      case 'Completado': 
+      case 'Completado':
         return 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600';
-      case 'En Progreso': 
-        return 'bg-green-500 hover:bg-green-600 text-white border-green-500';
-      case 'En Pausa': 
+      case 'En Progreso':
+        return 'bg-orange-500 hover:bg-orange-600 text-white border-orange-500';
+      case 'En Pausa':
         return ''; // Default outline style
-      default: 
+      default:
         return ''; // Default outline style
     }
   };
@@ -278,14 +276,24 @@ export function ProjectsPage() {
   const renderCardView = () => (
      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {filteredProjects.map((project) => (
-          <Card key={project.id} className={cn("flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm relative", selectedProjects.includes(project.id) && "ring-2 ring-primary")}>
-             <div className="absolute top-2 right-2 z-10 bg-background/50 backdrop-blur-sm rounded-sm p-1">
+          <Card key={project.id} className={cn(
+              "flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm relative", 
+              selectedProjects.includes(project.id) && "ring-2 ring-primary",
+              project.status === 'Completado' && "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/20"
+            )}>
+            <div className="absolute top-2 right-2 z-10 bg-background/50 backdrop-blur-sm rounded-sm p-1">
                 <Checkbox
                     id={`select-${project.id}`}
                     checked={selectedProjects.includes(project.id)}
                     onCheckedChange={() => handleSelectProject(project.id)}
                 />
             </div>
+            <div className="absolute top-2 left-2 z-10">
+                <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs", getStatusBadgeClass(project.status))}>
+                    {project.status}
+                </Badge>
+            </div>
+
             <Link href={`/projects/${project.id}`} className="block">
                 <div className="aspect-[16/9] relative">
                      <Image 
@@ -349,21 +357,10 @@ export function ProjectsPage() {
                         </div>
                         <Progress value={project.progress} className="h-1.5" />
                     </div>
-                     <div>
-                        <span className="text-xs text-muted-foreground">Estado</span>
-                        <div className="mt-1">
-                             <Badge 
-                                variant={getStatusBadgeVariant(project.status)} 
-                                className={cn("text-xs", getStatusBadgeClass(project.status))}
-                              >
-                                {project.status}
-                              </Badge>
-                        </div>
-                    </div>
                 </div>
             </CardContent>
              <CardFooter className="p-3 text-xs text-muted-foreground">
-              Creado por: {project.creator_name || 'Desconocido'}
+              Creado por: {project.creator_name || project.creator_email || 'Desconocido'}
             </CardFooter>
           </Card>
         ))}
