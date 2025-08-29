@@ -49,6 +49,7 @@ export interface Project {
   status: ProjectStatus;
   user_id: string;
   creator_email?: string;
+  creator_name?: string;
 }
 
 export interface ProjectWithProgress extends Project {

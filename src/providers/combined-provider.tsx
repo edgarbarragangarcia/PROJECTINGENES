@@ -180,13 +180,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     return { data, error };
   };
 
-  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'creator_email'> & { imageFile?: File, onUploadProgress?: (progress: number) => void, documentFile?: File, onDocUploadProgress?: (progress: number) => void }) => {
+  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'creator_email' | 'creator_name'> & { imageFile?: File, onUploadProgress?: (progress: number) => void, documentFile?: File, onDocUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
     const { imageFile, onUploadProgress, documentFile, onDocUploadProgress, ...restOfProjectData } = projectData;
 
-    const dataToInsert: Record<string, any> = { ...restOfProjectData, user_id: user.id, creator_email: user.email };
+    const dataToInsert: Record<string, any> = { 
+      ...restOfProjectData, 
+      user_id: user.id, 
+      creator_email: user.email,
+      creator_name: user.user_metadata?.full_name || user.email,
+    };
 
     if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();

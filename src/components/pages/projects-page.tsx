@@ -47,10 +47,13 @@ export function ProjectsPage() {
   const router = useRouter();
 
   const creators = useMemo(() => {
-    const emails = projects
-      .map(p => p.creator_email)
-      .filter((email): email is string => !!email);
-    return [...new Set(emails)];
+    const creatorMap = new Map<string, string>();
+    projects.forEach(p => {
+      if (p.creator_email && p.creator_name) {
+        creatorMap.set(p.creator_email, p.creator_name);
+      }
+    });
+    return Array.from(creatorMap.entries()).map(([email, name]) => ({ email, name }));
   }, [projects]);
 
   const filteredProjects = useMemo(() => {
@@ -356,7 +359,7 @@ export function ProjectsPage() {
                 </div>
             </CardContent>
              <CardFooter className="p-3 text-xs text-muted-foreground">
-              Creado por: {project.creator_email || 'Desconocido'}
+              Creado por: {project.creator_name || project.creator_email || 'Desconocido'}
             </CardFooter>
           </Card>
         ))}
@@ -456,7 +459,7 @@ export function ProjectsPage() {
                   <SelectContent>
                     <SelectItem value="all">Todos los creadores</SelectItem>
                     {creators.map(creator => (
-                      <SelectItem key={creator} value={creator}>{creator}</SelectItem>
+                      <SelectItem key={creator.email} value={creator.email}>{creator.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
