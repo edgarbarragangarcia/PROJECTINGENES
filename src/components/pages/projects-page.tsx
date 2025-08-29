@@ -5,7 +5,7 @@
 import { PageHeader } from '../layout/page-header';
 import type { Project, ProjectWithProgress, Task } from '@/lib/types';
 import { Button } from '../ui/button';
-import { MoreVertical, PlusCircle, Trash2, Edit, FileDown, LayoutGrid, List, GanttChartSquare, Search } from 'lucide-react';
+import { MoreVertical, PlusCircle, Trash2, Edit, FileDown, LayoutGrid, List } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Progress } from '../ui/progress';
 import { useProjects } from '@/hooks/use-projects';
@@ -17,21 +17,17 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { createClient } from '@/lib/supabase/client';
 import { adminEmails } from '@/providers/combined-provider';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useTasks } from '@/hooks/use-tasks';
 import { ProjectChartComponent } from '../project/project-chart-component';
-import html2canvas from 'html2canvas';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectListView } from '../project/project-list-view';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useRouter } from 'next/navigation';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
@@ -45,7 +41,6 @@ export function ProjectsPage() {
   const [selectedCreator, setSelectedCreator] = useState('all');
   const { toast } = useToast();
   const supabase = createClient();
-  const router = useRouter();
 
   const creators = useMemo(() => {
     const creatorMap = new Map<string, string>();
@@ -102,16 +97,10 @@ export function ProjectsPage() {
     }
   };
   
-  const getStatusBadgeVariant = (status: ProjectWithProgress['status']) => {
-    switch (status) {
-      case 'Completado': return 'default';
-      case 'En Progreso': return 'secondary';
-      case 'En Pausa': return 'outline';
-      default: return 'outline';
-    }
-  };
-  
   const handleDownloadPdf = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
     const doc = new jsPDF({ orientation: 'landscape' });
     let yPos = 28;
 
@@ -267,14 +256,14 @@ export function ProjectsPage() {
       case 'En Progreso':
         return 'bg-orange-500 hover:bg-orange-600 text-white border-orange-500';
       case 'En Pausa':
-        return ''; // Default outline style
+        return 'bg-gray-500 hover:bg-gray-600 text-white border-gray-500';
       default:
         return ''; // Default outline style
     }
   };
 
   const renderCardView = () => (
-     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredProjects.map((project) => (
           <Card key={project.id} className={cn(
               "flex flex-col hover:shadow-lg transition-shadow duration-300 text-sm relative", 
@@ -289,7 +278,7 @@ export function ProjectsPage() {
                 />
             </div>
             <div className="absolute top-2 left-2 z-10">
-                <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs", getStatusBadgeClass(project.status))}>
+                <Badge className={cn("text-xs", getStatusBadgeClass(project.status))}>
                     {project.status}
                 </Badge>
             </div>
@@ -360,7 +349,7 @@ export function ProjectsPage() {
                 </div>
             </CardContent>
              <CardFooter className="p-3 text-xs text-muted-foreground">
-              Creado por: {project.creator_name || project.creator_email || 'Desconocido'}
+              Creado por: {project.creator_name || project.creator_email}
             </CardFooter>
           </Card>
         ))}
