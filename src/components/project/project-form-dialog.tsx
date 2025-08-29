@@ -58,9 +58,6 @@ interface ProjectFormDialogProps {
   projectToEdit?: ProjectWithProgress;
 }
 
-const MAX_FILE_SIZE_MB = 1;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-
 export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: ProjectFormDialogProps) {
   const { addProject, updateProject } = useProjects();
   const { toast } = useToast();
@@ -184,15 +181,6 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-            toast({
-                variant: 'destructive',
-                title: 'Archivo demasiado grande',
-                description: `El archivo no puede superar ${MAX_FILE_SIZE_MB}MB.`,
-            });
-            e.target.value = ''; // Clear the input
-            return;
-        }
         setDocumentFile(file);
         setDocumentName(file.name);
     }
@@ -354,8 +342,6 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
                     {isSendingWebhook ? <Loader2 className="animate-spin" /> : "Enviar a n8n"}
                 </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Tamaño máximo del archivo: {MAX_FILE_SIZE_MB}MB.</p>
-
                  {docUploadProgress !== null && (
                     <Progress value={docUploadProgress} className="w-full h-2 mt-2" />
                 )}
