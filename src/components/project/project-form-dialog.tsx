@@ -58,6 +58,9 @@ interface ProjectFormDialogProps {
   projectToEdit?: ProjectWithProgress;
 }
 
+const MAX_FILE_SIZE_MB = 1;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: ProjectFormDialogProps) {
   const { addProject, updateProject } = useProjects();
   const { toast } = useToast();
@@ -69,6 +72,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   const [documentName, setDocumentName] = useState<string | null>(projectToEdit?.document_url?.split('/').pop()?.split('?')[0].split('_').slice(1).join('_') || null);
   const [docUploadProgress, setDocUploadProgress] = useState<number | null>(null);
   const [isSendingWebhook, setIsSendingWebhook] = useState(false);
+  const [documentSent, setDocumentSent] = useState(false);
 
 
   const form = useForm<ProjectFormValues>({
@@ -130,7 +134,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
             submissionData.image_url = null;
         }
 
-        if (documentFile) {
+        if (documentFile && !documentSent) {
             submissionData.documentFile = documentFile;
             submissionData.onDocUploadProgress = setDocUploadProgress;
         } else if (documentName === null && projectToEdit?.document_url) {
@@ -156,6 +160,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
       setDocUploadProgress(null);
       setDocumentFile(null);
       setDocumentName(null);
+      setDocumentSent(false);
     }
   };
   
@@ -179,6 +184,15 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+            toast({
+                variant: 'destructive',
+                title: 'Archivo demasiado grande',
+                description: `El archivo no puede superar ${MAX_FILE_SIZE_MB}MB.`,
+            });
+            e.target.value = ''; // Clear the input
+            return;
+        }
         setDocumentFile(file);
         setDocumentName(file.name);
     }
@@ -187,6 +201,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   const handleRemoveDocument = () => {
       setDocumentFile(null);
       setDocumentName(null);
+      setDocumentSent(false);
   };
   
   const handleSendWebhook = async () => {
@@ -213,7 +228,8 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
         });
 
         if (result.success) {
-          toast({ title: 'Éxito', description: 'El documento ha sido enviado correctamente.' });
+          setDocumentSent(true);
+          toast({ title: 'Éxito', description: 'El documento ha sido enviado correctamente a n8n.' });
         } else {
           throw new Error(result.message);
         }
@@ -334,10 +350,11 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
                         <Upload className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
                     </div>
                 )}
-                <Button type="button" onClick={handleSendWebhook} disabled={!documentFile || isSendingWebhook}>
-                    {isSendingWebhook ? <Loader2 className="animate-spin" /> : "Enviar"}
+                <Button type="button" onClick={handleSendWebhook} disabled={!documentFile || isSendingWebhook || documentSent}>
+                    {isSendingWebhook ? <Loader2 className="animate-spin" /> : "Enviar a n8n"}
                 </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">Tamaño máximo del archivo: {MAX_FILE_SIZE_MB}MB.</p>
 
                  {docUploadProgress !== null && (
                     <Progress value={docUploadProgress} className="w-full h-2 mt-2" />

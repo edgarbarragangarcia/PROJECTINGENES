@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow to send a document to a webhook.
@@ -50,6 +51,12 @@ const sendDocumentFlow = ai.defineFlow(
       });
 
       if (!response.ok) {
+        if (response.status === 413) {
+            return {
+                success: false,
+                message: 'El archivo es demasiado grande. El servidor del webhook no puede procesar archivos de este tamaño.',
+            };
+        }
         const errorBody = await response.text();
         throw new Error(
           `Webhook failed with status ${response.status}: ${errorBody}`
