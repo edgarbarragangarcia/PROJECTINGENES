@@ -188,11 +188,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     return { data, error };
   };
 
-  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'> & { imageFile?: File, onUploadProgress?: (progress: number) => void, documentFile?: File, onDocUploadProgress?: (progress: number) => void }) => {
+  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'> & { imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
-    const { imageFile, onUploadProgress, documentFile, onDocUploadProgress, ...restOfProjectData } = projectData;
+    const { imageFile, onUploadProgress, ...restOfProjectData } = projectData;
 
     const dataToInsert: Record<string, any> = { 
       ...restOfProjectData, 
@@ -221,26 +221,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         dataToInsert.image_url = publicUrlData.publicUrl;
     }
     
-    if (documentFile) {
-        const sanitizedName = documentFile.name.replace(/[^a-zA-Z0-9.-_]/g, '_');
-        const fileName = `${user.id}/${Date.now()}_${sanitizedName}`;
-        
-        const { error: uploadError } = await uploadFileWithProgress(
-          'project_documents',
-          fileName,
-          documentFile,
-          onDocUploadProgress
-        );
-        
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-            .from('project_documents')
-            .getPublicUrl(fileName);
-            
-        dataToInsert.document_url = publicUrlData.publicUrl;
-    }
-    
     const { data, error } = await supabase
       .from('projects')
       .insert(dataToInsert)
@@ -254,11 +234,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>> & { imageFile?: File, onUploadProgress?: (progress: number) => void, documentFile?: File, onDocUploadProgress?: (progress: number) => void }) => {
+  const updateProject = async (id: string, data: Partial<Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'>> & { imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
-    const { imageFile, onUploadProgress, documentFile, onDocUploadProgress, ...restOfProjectData } = data;
+    const { imageFile, onUploadProgress, ...restOfProjectData } = data;
     const dataToUpdate: Record<string, any> = { ...restOfProjectData, creator_name: user.user_metadata?.full_name || user.email, };
     
     const existingProject = projectsState.projects.find(p => p.id === id);
@@ -296,41 +276,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     }
-    
-    if (documentFile) {
-        if (existingProject?.document_url) {
-            const oldFileName = existingProject.document_url.split(`${user.id}/`).pop();
-            if (oldFileName) {
-              await supabase.storage.from('project_documents').remove([`${user.id}/${oldFileName}`]);
-            }
-        }
-
-        const sanitizedName = documentFile.name.replace(/[^a-zA-Z0-9.-_]/g, '_');
-        const fileName = `${user.id}/${Date.now()}_${sanitizedName}`;
-        
-        const { error: uploadError } = await uploadFileWithProgress(
-          'project_documents',
-          fileName,
-          documentFile,
-          onDocUploadProgress
-        );
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-            .from('project_documents')
-            .getPublicUrl(fileName);
-            
-        dataToUpdate.document_url = publicUrlData.publicUrl;
-    } else if (dataToUpdate.document_url === null) {
-      if (existingProject?.document_url) {
-        const oldFileName = existingProject.document_url.split(`${user.id}/`).pop();
-        if (oldFileName) {
-          await supabase.storage.from('project_documents').remove([`${user.id}/${oldFileName}`]);
-        }
-      }
-    }
-
 
     const { error } = await supabase.from('projects').update(dataToUpdate).eq('id', id);
     if (error) throw error;
@@ -347,16 +292,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         if (fileName) {
             try {
                 await supabase.storage.from('project_images').remove([`${user.id}/${fileName}`]);
-            } catch(e) {
-                console.error("Failed to delete stale storage object:", e);
-            }
-        }
-    }
-    if (projectToDelete?.document_url) {
-        const fileName = projectToDelete.document_url.split('/').pop();
-        if (fileName) {
-            try {
-                await supabase.storage.from('project_documents').remove([`${user.id}/${fileName}`]);
             } catch(e) {
                 console.error("Failed to delete stale storage object:", e);
             }

@@ -34,20 +34,17 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useProjects } from '@/hooks/use-projects';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
-import { Mic, Upload, X, FileText, Download, Loader2 } from 'lucide-react';
+import { Mic, Upload, X, PlusCircle, Trash2, Library, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Progress } from '../ui/progress';
-import { sendDocumentToWebhook } from '@/ai/flows/send-document-webhook';
-
 
 const projectFormSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
   description: z.string().optional(),
   status: z.enum(projectStatuses),
   image_url: z.string().optional(),
-  document_url: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -64,13 +61,15 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(projectToEdit?.image_url || null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [documentName, setDocumentName] = useState<string | null>(projectToEdit?.document_url?.split('/').pop()?.split('?')[0].split('_').slice(1).join('_') || null);
-  const [docUploadProgress, setDocUploadProgress] = useState<number | null>(null);
-  const [isSendingWebhook, setIsSendingWebhook] = useState(false);
-  const [documentSent, setDocumentSent] = useState(false);
 
+  // State for user story form
+  const [showUserStoryForm, setShowUserStoryForm] = useState(false);
+  const [userStoryName, setUserStoryName] = useState('');
+  const [stakeholders, setStakeholders] = useState('');
+  const [iWantTo, setIWantTo] = useState('');
+  const [soThat, setSoThat] = useState('');
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState<string[]>([]);
+  const [currentCriterion, setCurrentCriterion] = useState('');
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -80,27 +79,23 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
         description: projectToEdit.description || '',
         status: projectToEdit.status,
         image_url: projectToEdit.image_url || '',
-        document_url: projectToEdit.document_url || '',
        }
       : {
           name: '',
           description: '',
           status: 'En Progreso',
           image_url: '',
-          document_url: '',
         },
   });
   
   useEffect(() => {
     if (projectToEdit) {
       setImagePreview(projectToEdit.image_url || null);
-      setDocumentName(projectToEdit.document_url?.split('/').pop()?.split('?')[0].split('_').slice(1).join('_') || null);
       form.reset({
         name: projectToEdit.name,
         description: projectToEdit.description || '',
         status: projectToEdit.status,
         image_url: projectToEdit.image_url || '',
-        document_url: projectToEdit.document_url || '',
       });
     } else {
         form.reset({
@@ -108,7 +103,6 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
           description: '',
           status: 'En Progreso',
           image_url: '',
-          document_url: '',
         });
     }
   }, [projectToEdit, form]);
@@ -131,14 +125,6 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
             submissionData.image_url = null;
         }
 
-        if (documentFile && !documentSent) {
-            submissionData.documentFile = documentFile;
-            submissionData.onDocUploadProgress = setDocUploadProgress;
-        } else if (documentName === null && projectToEdit?.document_url) {
-            submissionData.document_url = null;
-        }
-
-
         if (projectToEdit) {
             await updateProject(projectToEdit.id, submissionData);
             toast({ title: 'Proyecto Actualizado', description: `"${data.name}" ha sido actualizado.`});
@@ -154,10 +140,6 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
       setUploadProgress(null);
       setImageFile(null);
       setImagePreview(null);
-      setDocUploadProgress(null);
-      setDocumentFile(null);
-      setDocumentName(null);
-      setDocumentSent(false);
     }
   };
   
@@ -177,73 +159,51 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
       setImageFile(null);
       setImagePreview(null);
   };
-  
-  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-        setDocumentFile(file);
-        setDocumentName(file.name);
-        setDocumentSent(false); // Reset sent status if a new file is chosen
+
+  const handleAddCriterion = () => {
+    if (currentCriterion.trim()) {
+      setAcceptanceCriteria([...acceptanceCriteria, currentCriterion.trim()]);
+      setCurrentCriterion('');
     }
   };
 
-  const handleRemoveDocument = () => {
-      setDocumentFile(null);
-      setDocumentName(null);
-      setDocumentSent(false);
+  const handleRemoveCriterion = (index: number) => {
+    setAcceptanceCriteria(acceptanceCriteria.filter((_, i) => i !== index));
   };
   
-  const handleSendWebhook = async () => {
-    if (!documentFile) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Por favor, selecciona un documento primero.' });
-        return;
+  const handleAddUserStoryToDescription = () => {
+    if(!userStoryName){
+      toast({ variant: 'destructive', title: 'Campo requerido', description: 'El nombre de la historia de usuario es obligatorio.' });
+      return;
     }
+    const userStoryText = `
+--- HISTORIA DE USUARIO: ${userStoryName} ---
+Stakeholders: ${stakeholders || 'No definidos'}
+COMO usuario QUIERO ${iWantTo || '...'} PARA ${soThat || '...'}.
+
+Criterios de Aceptación:
+${acceptanceCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n') || '- Ninguno definido'}
+------------------------------------
+`;
+    const currentDescription = form.getValues('description') || '';
+    form.setValue('description', `${currentDescription}\n${userStoryText}`.trim());
     
-    setIsSendingWebhook(true);
-
-    try {
-      const reader = new FileReader();
-      reader.readAsDataURL(documentFile);
-      reader.onload = async (event) => {
-        try {
-          const base64String = (event.target?.result as string).split(',')[1];
-          if (!base64String) {
-            throw new Error('No se pudo leer el archivo.');
-          }
-
-          const result = await sendDocumentToWebhook({
-            fileName: documentFile.name,
-            mimeType: documentFile.type,
-            fileData: base64String,
-          });
-
-          if (result.success) {
-            setDocumentSent(true);
-            toast({ title: 'Éxito', description: 'El documento ha sido enviado correctamente a n8n.' });
-          } else {
-             toast({ variant: 'destructive', title: 'Error al enviar', description: result.message });
-          }
-        } catch (error: any) {
-           toast({ variant: 'destructive', title: 'Error', description: error.message });
-        } finally {
-            setIsSendingWebhook(false);
-        }
-      };
-      reader.onerror = (error) => {
-        setIsSendingWebhook(false);
-        toast({ variant: 'destructive', title: 'Error de Lectura', description: 'No se pudo leer el archivo del disco.' });
-      }
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error inesperado', description: error.message });
-        setIsSendingWebhook(false);
-    }
-  }
-
-  const isUploading = (uploadProgress !== null && uploadProgress < 100) || (docUploadProgress !== null && docUploadProgress < 100);
+    // Reset user story form
+    setUserStoryName('');
+    setStakeholders('');
+    setIWantTo('');
+    setSoThat('');
+    setAcceptanceCriteria([]);
+    setCurrentCriterion('');
+    setShowUserStoryForm(false);
+    toast({ title: 'Historia de Usuario Añadida', description: `Se ha anexado "${userStoryName}" a la descripción del proyecto.` });
+  };
+  
+  const isUploading = (uploadProgress !== null && uploadProgress < 100);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline">{projectToEdit ? 'Editar Proyecto' : 'Añadir Nuevo Proyecto'}</DialogTitle>
           <DialogDescription>
@@ -280,7 +240,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
                   <FormLabel>Descripción</FormLabel>
                   <div className="relative">
                     <FormControl>
-                      <Textarea placeholder="Añade una descripción detallada del proyecto..." className="resize-none pr-10" {...field} />
+                      <Textarea placeholder="Añade una descripción detallada del proyecto..." className="resize-y min-h-[120px] pr-10" {...field} />
                     </FormControl>
                      {descriptionSpeech.isSupported && (
                       <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-2 h-8 w-8" onClick={descriptionSpeech.isListening ? descriptionSpeech.stopListening : descriptionSpeech.startListening}>
@@ -293,6 +253,69 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
               )}
             />
             
+            {!showUserStoryForm ? (
+              <Button type="button" variant="outline" className="w-full" onClick={() => setShowUserStoryForm(true)}>
+                <Library className="mr-2"/>
+                Anexar Historia de Usuario
+              </Button>
+            ) : (
+              <div className="p-4 border rounded-lg space-y-4 bg-muted/50">
+                <h3 className="font-semibold text-base flex items-center gap-2"><Library/>Nueva Historia de Usuario</h3>
+                
+                <div className="space-y-2">
+                   <Label htmlFor="us-name">Nombre de Historia de Usuario</Label>
+                   <Input id="us-name" placeholder="p.ej., Gestionar perfil de usuario" value={userStoryName} onChange={e => setUserStoryName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                   <Label htmlFor="us-stakeholders">Stakeholders</Label>
+                   <Input id="us-stakeholders" placeholder="p.ej., Cliente, Equipo de Soporte" value={stakeholders} onChange={e => setStakeholders(e.target.value)} />
+                </div>
+                 <div className="space-y-2">
+                   <Label>Como usuario, quiero...</Label>
+                   <Textarea placeholder="p.ej., editar mi información personal" value={iWantTo} onChange={e => setIWantTo(e.target.value)} />
+                </div>
+                 <div className="space-y-2">
+                   <Label>...para...</Label>
+                   <Textarea placeholder="p.ej., mantener mis datos actualizados" value={soThat} onChange={e => setSoThat(e.target.value)} />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Criterios de Aceptación</Label>
+                  <div className="space-y-2">
+                    {acceptanceCriteria.map((criterion, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <ListChecks className="size-4 text-primary flex-shrink-0"/>
+                        <p className="text-sm flex-1">{criterion}</p>
+                        <Button type="button" variant="ghost" size="icon" className="size-7" onClick={() => handleRemoveCriterion(index)}>
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      placeholder="Añadir nuevo criterio..."
+                      value={currentCriterion}
+                      onChange={(e) => setCurrentCriterion(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCriterion();
+                        }
+                      }}
+                    />
+                    <Button type="button" size="sm" onClick={handleAddCriterion}><PlusCircle/></Button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="ghost" onClick={() => setShowUserStoryForm(false)}>Cancelar</Button>
+                  <Button type="button" onClick={handleAddUserStoryToDescription}>Añadir a Descripción</Button>
+                </div>
+              </div>
+            )}
+
+
             <div className="space-y-2">
                 <FormLabel>Imagen del Proyecto</FormLabel>
                  {imagePreview ? (
@@ -315,45 +338,6 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
                 )}
             </div>
             
-            <div className="space-y-2">
-                <FormLabel>Adjuntar Documento</FormLabel>
-                <div className="flex gap-2">
-                 {documentName ? (
-                    <div className="relative group flex items-center justify-between p-2 border rounded-md bg-muted/50 flex-grow">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <FileText className="size-5 text-primary flex-shrink-0" />
-                          <span className="text-sm font-medium truncate" title={documentName}>{documentName}</span>
-                        </div>
-                        <div className="flex items-center flex-shrink-0">
-                          {projectToEdit?.document_url && !documentFile && (
-                            <a href={projectToEdit.document_url} target="_blank" rel="noopener noreferrer">
-                              <Button type="button" size="icon" variant="ghost" className="size-7">
-                                <Download className="size-4" />
-                              </Button>
-                            </a>
-                          )}
-                          <Button type="button" size="icon" variant="ghost" className="size-7" onClick={handleRemoveDocument}>
-                              <X className="size-4 text-destructive" />
-                          </Button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="relative flex-grow">
-                        <FormControl>
-                            <Input id="project-document" type="file" className="w-full h-10 pl-12" onChange={handleDocumentChange} accept=".pdf,.doc,.docx,.txt"/>
-                        </FormControl>
-                        <Upload className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
-                    </div>
-                )}
-                <Button type="button" onClick={handleSendWebhook} disabled={!documentFile || isSendingWebhook || documentSent}>
-                    {isSendingWebhook ? <Loader2 className="animate-spin" /> : "Enviar a n8n"}
-                </Button>
-                </div>
-                 {docUploadProgress !== null && (
-                    <Progress value={docUploadProgress} className="w-full h-2 mt-2" />
-                )}
-            </div>
-
             <FormField
               control={form.control}
               name="status"
@@ -392,5 +376,3 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
     </Dialog>
   );
 }
-
-    
