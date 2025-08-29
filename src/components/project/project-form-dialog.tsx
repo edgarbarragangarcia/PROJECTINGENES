@@ -183,6 +183,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
     if (file) {
         setDocumentFile(file);
         setDocumentName(file.name);
+        setDocumentSent(false); // Reset sent status if a new file is chosen
     }
   };
 
@@ -204,30 +205,36 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
       const reader = new FileReader();
       reader.readAsDataURL(documentFile);
       reader.onload = async (event) => {
-        const base64String = (event.target?.result as string).split(',')[1];
-        if (!base64String) {
-          throw new Error('No se pudo leer el archivo.');
-        }
+        try {
+          const base64String = (event.target?.result as string).split(',')[1];
+          if (!base64String) {
+            throw new Error('No se pudo leer el archivo.');
+          }
 
-        const result = await sendDocumentToWebhook({
-          fileName: documentFile.name,
-          mimeType: documentFile.type,
-          fileData: base64String,
-        });
+          const result = await sendDocumentToWebhook({
+            fileName: documentFile.name,
+            mimeType: documentFile.type,
+            fileData: base64String,
+          });
 
-        if (result.success) {
-          setDocumentSent(true);
-          toast({ title: 'Éxito', description: 'El documento ha sido enviado correctamente a n8n.' });
-        } else {
-          throw new Error(result.message);
+          if (result.success) {
+            setDocumentSent(true);
+            toast({ title: 'Éxito', description: 'El documento ha sido enviado correctamente a n8n.' });
+          } else {
+             toast({ variant: 'destructive', title: 'Error al enviar', description: result.message });
+          }
+        } catch (error: any) {
+           toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSendingWebhook(false);
         }
       };
       reader.onerror = (error) => {
-        throw new Error('Error al leer el archivo: ' + error);
+        setIsSendingWebhook(false);
+        toast({ variant: 'destructive', title: 'Error de Lectura', description: 'No se pudo leer el archivo del disco.' });
       }
     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error al enviar', description: error.message });
-    } finally {
+        toast({ variant: 'destructive', title: 'Error inesperado', description: error.message });
         setIsSendingWebhook(false);
     }
   }
@@ -385,3 +392,5 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
     </Dialog>
   );
 }
+
+    
