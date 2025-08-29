@@ -1,5 +1,4 @@
 
-
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
 export const priorities = ['Low', 'Medium', 'High'] as const;
