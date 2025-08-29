@@ -49,13 +49,16 @@ export function ProjectsPage() {
   const creators = useMemo(() => {
     const creatorMap = new Map<string, string>();
     projects.forEach(p => {
-      if (p.creator_email) {
-        // Use name if available, otherwise fallback to email
-        creatorMap.set(p.creator_email, p.creator_name || p.creator_email);
+      if (p.creator_email && p.creator_name) {
+        creatorMap.set(p.creator_email, p.creator_name);
+      } else if (p.creator_email) {
+        // Fallback for older data, though the provider should handle this
+        creatorMap.set(p.creator_email, p.creator_email);
       }
     });
     return Array.from(creatorMap.entries()).map(([email, name]) => ({ email, name }));
   }, [projects]);
+
 
   const filteredProjects = useMemo(() => {
     if (selectedCreator === 'all') return projects;
@@ -360,7 +363,7 @@ export function ProjectsPage() {
                 </div>
             </CardContent>
              <CardFooter className="p-3 text-xs text-muted-foreground">
-              Creado por: {project.creator_name || project.creator_email || 'Desconocido'}
+              Creado por: {project.creator_name || 'Desconocido'}
             </CardFooter>
           </Card>
         ))}

@@ -52,7 +52,15 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             throw error;
         }
         
-        setProjectsState(prevState => ({ ...prevState, loading: false, projects: data || [] }));
+        // Enrich data with creator_name if missing
+        const enrichedData = (data || []).map(p => {
+          if (!p.creator_name && p.creator_email === user.email && user.user_metadata?.full_name) {
+            return { ...p, creator_name: user.user_metadata.full_name };
+          }
+          return p;
+        });
+
+        setProjectsState(prevState => ({ ...prevState, loading: false, projects: enrichedData || [] }));
     } catch (error: any) {
         console.error('Error fetching projects:', error);
         setProjectsState(prevState => ({ ...prevState, loading: false, error }));
@@ -180,7 +188,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     return { data, error };
   };
 
-  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress' | 'creator_email' | 'creator_name'> & { imageFile?: File, onUploadProgress?: (progress: number) => void, documentFile?: File, onDocUploadProgress?: (progress: number) => void }) => {
+  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'> & { imageFile?: File, onUploadProgress?: (progress: number) => void, documentFile?: File, onDocUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
 
@@ -214,7 +222,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }
     
     if (documentFile) {
-        const sanitizedName = documentFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const sanitizedName = documentFile.name.replace(/[^a-zA-Z0-9.-_]/g, '_');
         const fileName = `${user.id}/${Date.now()}_${sanitizedName}`;
         
         const { error: uploadError } = await uploadFileWithProgress(
@@ -251,7 +259,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (!user) throw new Error("Usuario no autenticado");
 
     const { imageFile, onUploadProgress, documentFile, onDocUploadProgress, ...restOfProjectData } = data;
-    const dataToUpdate: Record<string, any> = { ...restOfProjectData };
+    const dataToUpdate: Record<string, any> = { ...restOfProjectData, creator_name: user.user_metadata?.full_name || user.email, };
     
     const existingProject = projectsState.projects.find(p => p.id === id);
 
@@ -297,7 +305,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             }
         }
 
-        const sanitizedName = documentFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const sanitizedName = documentFile.name.replace(/[^a-zA-Z0-9.-_]/g, '_');
         const fileName = `${user.id}/${Date.now()}_${sanitizedName}`;
         
         const { error: uploadError } = await uploadFileWithProgress(
