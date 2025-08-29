@@ -49,8 +49,9 @@ export function ProjectsPage() {
   const creators = useMemo(() => {
     const creatorMap = new Map<string, string>();
     projects.forEach(p => {
-      if (p.creator_email && p.creator_name) {
-        creatorMap.set(p.creator_email, p.creator_name);
+      if (p.creator_email) {
+        // Use name if available, otherwise fallback to email
+        creatorMap.set(p.creator_email, p.creator_name || p.creator_email);
       }
     });
     return Array.from(creatorMap.entries()).map(([email, name]) => ({ email, name }));
@@ -493,5 +494,3 @@ export function ProjectsPage() {
     </>
   );
 }
-
-    
