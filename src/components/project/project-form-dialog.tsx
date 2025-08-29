@@ -34,11 +34,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useProjects } from '@/hooks/use-projects';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
-import { Mic, Upload, X, FileText, Download } from 'lucide-react';
+import { Mic, Upload, X, FileText, Download, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Progress } from '../ui/progress';
+import { sendDocumentToWebhook } from '@/ai/flows/send-document-webhook';
 
 
 const projectFormSchema = z.object({
@@ -67,6 +68,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [documentName, setDocumentName] = useState<string | null>(projectToEdit?.document_url?.split('/').pop()?.split('?')[0].split('_').slice(1).join('_') || null);
   const [docUploadProgress, setDocUploadProgress] = useState<number | null>(null);
+  const [isSendingWebhook, setIsSendingWebhook] = useState(false);
 
 
   const form = useForm<ProjectFormValues>({
@@ -186,6 +188,45 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
       setDocumentFile(null);
       setDocumentName(null);
   };
+  
+  const handleSendWebhook = async () => {
+    if (!documentFile) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Por favor, selecciona un documento primero.' });
+        return;
+    }
+    
+    setIsSendingWebhook(true);
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(documentFile);
+      reader.onload = async (event) => {
+        const base64String = (event.target?.result as string).split(',')[1];
+        if (!base64String) {
+          throw new Error('No se pudo leer el archivo.');
+        }
+
+        const result = await sendDocumentToWebhook({
+          fileName: documentFile.name,
+          mimeType: documentFile.type,
+          fileData: base64String,
+        });
+
+        if (result.success) {
+          toast({ title: 'Éxito', description: 'El documento ha sido enviado correctamente.' });
+        } else {
+          throw new Error(result.message);
+        }
+      };
+      reader.onerror = (error) => {
+        throw new Error('Error al leer el archivo: ' + error);
+      }
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error al enviar', description: error.message });
+    } finally {
+        setIsSendingWebhook(false);
+    }
+  }
 
   const isUploading = (uploadProgress !== null && uploadProgress < 100) || (docUploadProgress !== null && docUploadProgress < 100);
 
@@ -265,8 +306,9 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
             
             <div className="space-y-2">
                 <FormLabel>Adjuntar Documento</FormLabel>
+                <div className="flex gap-2">
                  {documentName ? (
-                    <div className="relative group flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                    <div className="relative group flex items-center justify-between p-2 border rounded-md bg-muted/50 flex-grow">
                         <div className="flex items-center gap-2 overflow-hidden">
                           <FileText className="size-5 text-primary flex-shrink-0" />
                           <span className="text-sm font-medium truncate" title={documentName}>{documentName}</span>
@@ -285,13 +327,18 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
                         </div>
                     </div>
                 ) : (
-                    <div className="relative">
+                    <div className="relative flex-grow">
                         <FormControl>
-                            <Input id="project-document" type="file" className="w-full h-10 pl-12" onChange={handleDocumentChange} accept=".pdf,.doc,.docx"/>
+                            <Input id="project-document" type="file" className="w-full h-10 pl-12" onChange={handleDocumentChange} accept=".pdf,.doc,.docx,.txt"/>
                         </FormControl>
                         <Upload className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
                     </div>
                 )}
+                <Button type="button" onClick={handleSendWebhook} disabled={!documentFile || isSendingWebhook}>
+                    {isSendingWebhook ? <Loader2 className="animate-spin" /> : "Enviar"}
+                </Button>
+                </div>
+
                  {docUploadProgress !== null && (
                     <Progress value={docUploadProgress} className="w-full h-2 mt-2" />
                 )}
