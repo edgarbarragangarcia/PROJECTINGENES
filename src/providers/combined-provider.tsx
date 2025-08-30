@@ -12,8 +12,6 @@ import { format } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
-import { sendAssignmentNotification } from '@/ai/flows/send-assignment-notification';
-import { useToast } from '@/hooks/use-toast';
 
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
@@ -25,7 +23,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [userStoriesState, setUserStoriesState] = useState(initialUserStoriesState);
   const supabase = createClient();
   const [session, setSession] = useState<Session | null>(null);
-  const { toast } = useToast();
   const [allUsers, setAllUsers] = useState<Profile[]>([]);
 
   // --- Projects ---
@@ -436,29 +433,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           ...prevState,
           tasks: [formattedTask as Task, ...prevState.tasks],
       }));
-      
-      if (assignees && assignees.length > 0) {
-          const project = projectsWithProgress.find(p => p.id === projectId);
-          assignees.forEach(assigneeEmail => {
-            sendAssignmentNotification({
-                assigneeEmail: assigneeEmail,
-                taskTitle: taskResult.title,
-                projectName: project?.name || 'Unknown Project',
-                assignedBy: user.email || 'un usuario',
-            }).then(result => {
-                if (!result.success) {
-                    console.warn("Email notification may have failed:", result.message);
-                    if (result.message.includes('RESEND_API_KEY is not configured')) {
-                      toast({
-                        variant: 'default',
-                        title: 'Notificación por correo no configurada',
-                        description: 'Para notificar a los usuarios asignados, configura la API key de Resend.',
-                      });
-                    }
-                }
-            });
-          });
-      }
   };
 
   const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
@@ -536,36 +510,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     
-    const newAssignees = dataToUpdate.assignees;
-    if (newAssignees) {
-        const oldAssignees = existingTask?.assignees || [];
-        const addedAssignees = newAssignees.filter((a: string) => !oldAssignees.includes(a));
-
-        if (addedAssignees.length > 0) {
-            const project = projectsWithProgress.find(p => p.id === (dataToUpdate.project_id || existingTask?.projectId));
-            addedAssignees.forEach((assigneeEmail: string) => {
-                sendAssignmentNotification({
-                    assigneeEmail: assigneeEmail,
-                    taskTitle: dataToUpdate.title || existingTask?.title || 'una tarea',
-                    projectName: project?.name || 'un proyecto desconocido',
-                    assignedBy: user.email || 'un usuario',
-                }).then(result => {
-                    if (!result.success) {
-                        console.warn("Email notification may have failed:", result.message);
-                        if (result.message.includes('RESEND_API_KEY is not configured')) {
-                            toast({
-                                variant: 'default',
-                                title: 'Notificación por correo no configurada',
-                                description: 'Para notificar a los usuarios asignados, configura la API key de Resend.',
-                            });
-                        }
-                    }
-                });
-            });
-        }
-    }
-
-
     await fetchTasks(user);
   };
 
