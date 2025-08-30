@@ -70,7 +70,7 @@ export default function ProjectDetailPage() {
               <TabsTrigger value="gantt"><BarChartHorizontal className='size-4 mr-2'/>Gantt</TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="board" className="flex-1 flex flex-col mt-0">
+          <TabsContent value="board" className="flex-1 flex flex-col mt-0 overflow-x-auto">
               <KanbanBoard projectId={project.id} />
           </TabsContent>
           <TabsContent value="table" className="flex-1 overflow-auto mt-0">

@@ -5,7 +5,7 @@ export function KanbanPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader title="Tablero Kanban" />
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-x-auto">
         <KanbanBoard />
       </div>
     </div>
