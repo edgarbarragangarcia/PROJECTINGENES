@@ -476,7 +476,7 @@ export function TaskFormDialog({
                           <div className="flex gap-1 flex-wrap">
                             {field.value && field.value.length > 0
                               ? allUsers
-                                .filter(user => field.value?.includes(user.email || ''))
+                                .filter(user => user.email && field.value?.includes(user.email))
                                 .map(user => (
                                     <Badge
                                       variant="secondary"
@@ -487,7 +487,7 @@ export function TaskFormDialog({
                                         field.onChange(newValue);
                                       }}
                                     >
-                                      {user.email}
+                                      {user.full_name || user.email}
                                       <X className="ml-1 h-3 w-3" />
                                     </Badge>
                                 ))
@@ -504,15 +504,16 @@ export function TaskFormDialog({
                         <CommandGroup>
                           {allUsers.map((user) => (
                             <CommandItem
-                              value={user.email}
+                              value={user.email || user.id}
                               key={user.id}
                               onSelect={() => {
+                                if (!user.email) return;
                                 const selectedValues = field.value || [];
-                                const isSelected = selectedValues.includes(user.email || '');
+                                const isSelected = selectedValues.includes(user.email);
                                 if (isSelected) {
                                   field.onChange(selectedValues.filter(v => v !== user.email));
                                 } else {
-                                  field.onChange([...selectedValues, user.email || '']);
+                                  field.onChange([...selectedValues, user.email]);
                                 }
                               }}
                             >
@@ -524,7 +525,7 @@ export function TaskFormDialog({
                                     : "opacity-0"
                                 )}
                               />
-                              {user.email}
+                              {user.full_name || user.email}
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -572,7 +573,7 @@ export function TaskFormDialog({
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar prioridad" />
-                        </SelectTrigger>
+                        </Trigger>
                       </FormControl>
                       <SelectContent>
                         {priorities.map((p) => (

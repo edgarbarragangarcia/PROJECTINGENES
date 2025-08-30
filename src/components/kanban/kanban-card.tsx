@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { Task } from '@/lib/types';
@@ -43,7 +44,7 @@ const stringToHash = (str: string) => {
 
 
 export function KanbanCard({ task }: KanbanCardProps) {
-  const { setDraggedTask, deleteTask } = useTasks();
+  const { setDraggedTask, deleteTask, allUsers } = useTasks();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
 
@@ -90,9 +91,18 @@ export function KanbanCard({ task }: KanbanCardProps) {
     }
   };
   
-  const getAssigneeInitials = (assignee?: string) => {
-    if (!assignee) return '?';
-    return assignee.split('@')[0].substring(0, 2).toUpperCase();
+  const getAssigneeInitials = (email?: string) => {
+    if (!email) return '?';
+    const user = allUsers.find(u => u.email === email);
+    if (user?.full_name) {
+      return user.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    }
+    return email.substring(0, 2).toUpperCase();
+  }
+
+  const getAssigneeName = (email: string) => {
+    const user = allUsers.find(u => u.email === email);
+    return user?.full_name || email;
   }
 
   return (
@@ -195,7 +205,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
                             </div>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p>{task.assignees.join(', ')}</p>
+                            <p>{task.assignees.map(getAssigneeName).join(', ')}</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>

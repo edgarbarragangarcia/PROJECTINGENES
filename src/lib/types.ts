@@ -30,7 +30,7 @@ export interface Task {
   projectId: string;
   project_id: string; // from Supabase
   user_id: string;
-  assignees?: string[]; // Changed from assignee: string to assignees: string[]
+  assignees?: string[]; // Array of user emails
   subtasks?: Subtask[];
   image_url?: string;
 }
@@ -74,6 +74,13 @@ export interface UserStory {
     acceptance_criteria?: string[];
 }
 
+export interface Profile {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+}
+
 
 export type User = SupabaseUser;
+
 

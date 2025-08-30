@@ -31,7 +31,7 @@ interface TaskTableProps {
 
 export function TaskTable({ tasks }: TaskTableProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const { deleteTask } = useTasks();
+  const { deleteTask, allUsers } = useTasks();
   const { toast } = useToast();
 
   const getPriorityBadgeVariant = (priority: Task['priority']) => {
@@ -63,9 +63,13 @@ export function TaskTable({ tasks }: TaskTableProps) {
     }
   }
   
-  const getAssigneeInitials = (assignee?: string) => {
-    if (!assignee) return '?';
-    return assignee.split('@')[0].substring(0, 2).toUpperCase();
+  const getAssigneeInitials = (email?: string) => {
+    if (!email) return '?';
+    const user = allUsers.find(u => u.email === email);
+    if (user?.full_name) {
+      return user.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    }
+    return email.substring(0, 2).toUpperCase();
   }
 
 

@@ -2,7 +2,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import type { Task, Status, User } from '@/lib/types';
+import type { Task, Status, User, Profile } from '@/lib/types';
 import React, { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from 'react';
 
 // --- STATE ---
@@ -12,7 +12,7 @@ export interface TasksState {
   loading: boolean;
   error: Error | null;
   draggedTask: string | null;
-  allUsers: User[];
+  allUsers: Profile[];
 }
 
 export const initialTasksState: TasksState = {
@@ -48,3 +48,4 @@ export const useTasks = () => {
   }
   return context;
 };
+

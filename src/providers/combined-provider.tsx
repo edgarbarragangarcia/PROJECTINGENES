@@ -6,7 +6,7 @@ import { ProjectsContext, initialProjectsState, type ProjectsContextType } from 
 import { TasksContext, initialTasksState, type TasksContextType } from '@/hooks/use-tasks';
 import { DailyNotesContext, initialDailyNotesState, type DailyNotesState, type DailyNotesContextType } from '@/hooks/use-daily-notes';
 import { createClient } from '@/lib/supabase/client';
-import type { Project, ProjectWithProgress, Task, DailyNote, User, Subtask, UserStory } from '@/lib/types';
+import type { Project, ProjectWithProgress, Task, DailyNote, User, Subtask, UserStory, Profile } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
@@ -26,7 +26,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
   const [session, setSession] = useState<Session | null>(null);
   const { toast } = useToast();
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<Profile[]>([]);
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -48,12 +48,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('profiles').select('id, email');
+      const { data, error } = await supabase.from('profiles').select('id, email, full_name');
       if (error) {
         console.error("Error fetching users directly:", error);
         throw error;
       }
-      setAllUsers((data as User[]) || []);
+      setAllUsers((data as Profile[]) || []);
     } catch (error) {
        console.error('Error fetching users:', error);
        setAllUsers([]);
