@@ -66,7 +66,7 @@ export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
           </span>
         </h3>
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" style={{height: 'calc(100vh - 300px)'}}>
         <div className="p-2 flex flex-col gap-2">
           {tasks.map((task) => (
             <KanbanCard key={task.id} task={task} />
