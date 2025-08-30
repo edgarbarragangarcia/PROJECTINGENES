@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Task } from '@/lib/types';
@@ -21,6 +22,7 @@ import { TaskFormDialog } from './task-form-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { useTasks } from '@/hooks/use-tasks';
 import { useToast } from '@/hooks/use-toast';
+import { Avatar, AvatarFallback } from '../ui/avatar';
 
 
 interface TaskTableProps {
@@ -60,6 +62,11 @@ export function TaskTable({ tasks }: TaskTableProps) {
       toast({ variant: 'destructive', title: "Error al eliminar", description: error.message });
     }
   }
+  
+  const getAssigneeInitials = (assignee?: string) => {
+    if (!assignee) return '?';
+    return assignee.split('@')[0].substring(0, 2).toUpperCase();
+  }
 
 
   return (
@@ -71,7 +78,7 @@ export function TaskTable({ tasks }: TaskTableProps) {
               <TableHead className="w-[30%]">Nombre de la tarea</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Prioridad</TableHead>
-              <TableHead>Responsable</TableHead>
+              <TableHead>Responsables</TableHead>
               <TableHead>Fecha Vencimiento</TableHead>
               <TableHead className="text-right"></TableHead>
             </TableRow>
@@ -89,7 +96,22 @@ export function TaskTable({ tasks }: TaskTableProps) {
                     {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
                   </Badge>
                 </TableCell>
-                <TableCell>{task.assignee || 'N/A'}</TableCell>
+                <TableCell>
+                  {task.assignees && task.assignees.length > 0 ? (
+                     <div className="flex items-center -space-x-2">
+                        {task.assignees.slice(0, 3).map(assignee => (
+                            <Avatar key={assignee} className='size-7 text-xs border-2 border-background'>
+                                <AvatarFallback>{getAssigneeInitials(assignee)}</AvatarFallback>
+                            </Avatar>
+                        ))}
+                        {task.assignees.length > 3 && (
+                              <Avatar className='size-7 text-xs border-2 border-background'>
+                                <AvatarFallback>+{task.assignees.length - 3}</AvatarFallback>
+                            </Avatar>
+                        )}
+                    </div>
+                  ) : 'N/A'}
+                </TableCell>
                 <TableCell>
                   {task.dueDate ? format(task.dueDate, 'dd MMM, yyyy', { locale: es }) : 'N/A'}
                 </TableCell>

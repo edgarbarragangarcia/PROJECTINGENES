@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
@@ -11,6 +12,7 @@ export interface TasksState {
   loading: boolean;
   error: Error | null;
   draggedTask: string | null;
+  allUsers: User[];
 }
 
 export const initialTasksState: TasksState = {
@@ -18,6 +20,7 @@ export const initialTasksState: TasksState = {
   loading: true,
   error: null,
   draggedTask: null,
+  allUsers: [],
 };
 
 // --- CONTEXT ---

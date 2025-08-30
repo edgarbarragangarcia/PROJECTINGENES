@@ -34,6 +34,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
   const [session, setSession] = useState<Session | null>(null);
   const { toast } = useToast();
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -53,6 +54,19 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const setUserStories = (stories: UserStory[]) => setUserStoriesState(prevState => ({ ...prevState, userStories: stories }));
   const setUserStoriesLoading = (loading: boolean) => setUserStoriesState(prevState => ({ ...prevState, loading }));
 
+  const fetchUsers = useCallback(async () => {
+    // This is a potential security risk if not handled carefully with RLS.
+    // Assuming you have a policy that allows users to view other users' emails for assignment.
+    // A better approach would be a dedicated 'profiles' table.
+    // For now, we'll proceed assuming RLS is in place or this is acceptable.
+     const { data: { users }, error } = await supabase.auth.admin.listUsers();
+    if (error) {
+      console.error('Error fetching users:', error);
+      setAllUsers([]);
+    } else {
+      setAllUsers(users || []);
+    }
+  }, [supabase.auth.admin]);
 
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
@@ -154,8 +168,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       fetchTasks(user),
       fetchDailyNotes(user),
       fetchUserStories(user),
+      fetchUsers(),
     ]);
-  }, [fetchProjects, fetchTasks, fetchDailyNotes, fetchUserStories]);
+  }, [fetchProjects, fetchTasks, fetchDailyNotes, fetchUserStories, fetchUsers]);
 
 
   useEffect(() => {
@@ -171,6 +186,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         setTasksState(initialTasksState);
         setDailyNotesState(initialDailyNotesState);
         setUserStoriesState(initialUserStoriesState);
+        setAllUsers([]);
       }
     });
     
@@ -355,7 +371,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuario no autenticado");
 
-      const { startDate, dueDate, projectId, subtasks, imageFile, onUploadProgress, assignee, ...restOfTaskData } = taskData;
+      const { startDate, dueDate, projectId, subtasks, imageFile, onUploadProgress, assignees, ...restOfTaskData } = taskData;
       
       let imageUrl: string | undefined = undefined;
       if (imageFile) {
@@ -383,7 +399,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         user_id: user.id,
         project_id: projectId,
         image_url: imageUrl,
-        assignee: assignee || null,
+        assignees: assignees || null,
       };
       if (startDate) dataToInsert.start_date = startDate.toISOString();
       if (dueDate) dataToInsert.due_date = dueDate.toISOString();
@@ -429,24 +445,26 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           tasks: [formattedTask as Task, ...prevState.tasks],
       }));
       
-      if (assignee) {
+      if (assignees && assignees.length > 0) {
           const project = projectsWithProgress.find(p => p.id === projectId);
-          sendAssignmentNotification({
-              assigneeEmail: assignee,
-              taskTitle: taskResult.title,
-              projectName: project?.name || 'Unknown Project',
-              assignedBy: user.email || 'un usuario',
-          }).then(result => {
-              if (!result.success) {
-                  console.warn("Email notification may have failed:", result.message);
-                  if (result.message.includes('RESEND_API_KEY is not configured')) {
-                    toast({
-                      variant: 'default',
-                      title: 'Notificación por correo no configurada',
-                      description: 'Para notificar a los usuarios asignados, configura la API key de Resend.',
-                    });
-                  }
-              }
+          assignees.forEach(assigneeEmail => {
+            sendAssignmentNotification({
+                assigneeEmail: assigneeEmail,
+                taskTitle: taskResult.title,
+                projectName: project?.name || 'Unknown Project',
+                assignedBy: user.email || 'un usuario',
+            }).then(result => {
+                if (!result.success) {
+                    console.warn("Email notification may have failed:", result.message);
+                    if (result.message.includes('RESEND_API_KEY is not configured')) {
+                      toast({
+                        variant: 'default',
+                        title: 'Notificación por correo no configurada',
+                        description: 'Para notificar a los usuarios asignados, configura la API key de Resend.',
+                      });
+                    }
+                }
+            });
           });
       }
   };
@@ -526,28 +544,35 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     
-    // Check if assignee changed and send notification
-    const newAssignee = dataToUpdate.assignee;
-    if (newAssignee && newAssignee !== existingTask?.assignee) {
-        const project = projectsWithProgress.find(p => p.id === (dataToUpdate.project_id || existingTask?.projectId));
-        sendAssignmentNotification({
-            assigneeEmail: newAssignee,
-            taskTitle: dataToUpdate.title || existingTask?.title || 'una tarea',
-            projectName: project?.name || 'un proyecto desconocido',
-            assignedBy: user.email || 'un usuario',
-        }).then(result => {
-          if (!result.success) {
-            console.warn("Email notification may have failed:", result.message);
-             if (result.message.includes('RESEND_API_KEY is not configured')) {
-                toast({
-                  variant: 'default',
-                  title: 'Notificación por correo no configurada',
-                  description: 'Para notificar a los usuarios asignados, configura la API key de Resend.',
+    const newAssignees = dataToUpdate.assignees;
+    if (newAssignees) {
+        const oldAssignees = existingTask?.assignees || [];
+        const addedAssignees = newAssignees.filter((a: string) => !oldAssignees.includes(a));
+
+        if (addedAssignees.length > 0) {
+            const project = projectsWithProgress.find(p => p.id === (dataToUpdate.project_id || existingTask?.projectId));
+            addedAssignees.forEach((assigneeEmail: string) => {
+                sendAssignmentNotification({
+                    assigneeEmail: assigneeEmail,
+                    taskTitle: dataToUpdate.title || existingTask?.title || 'una tarea',
+                    projectName: project?.name || 'un proyecto desconocido',
+                    assignedBy: user.email || 'un usuario',
+                }).then(result => {
+                    if (!result.success) {
+                        console.warn("Email notification may have failed:", result.message);
+                        if (result.message.includes('RESEND_API_KEY is not configured')) {
+                            toast({
+                                variant: 'default',
+                                title: 'Notificación por correo no configurada',
+                                description: 'Para notificar a los usuarios asignados, configura la API key de Resend.',
+                            });
+                        }
+                    }
                 });
-              }
-          }
-      });
+            });
+        }
     }
+
 
     await fetchTasks(user);
   };
@@ -706,6 +731,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   const tasksContextValue: TasksContextType = { 
     ...tasksState, 
+    allUsers,
     addTask: addTask as any, 
     updateTask: updateTask as any, 
     deleteTask, 

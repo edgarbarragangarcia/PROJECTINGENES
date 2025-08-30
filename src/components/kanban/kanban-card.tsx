@@ -4,7 +4,7 @@
 import type { Task } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTasks } from '@/hooks/use-tasks';
-import { MoreHorizontal, CalendarIcon, Trash2, Edit, UserCircle, Paperclip } from 'lucide-react';
+import { MoreHorizontal, CalendarIcon, Trash2, Edit, UserCircle, Paperclip, Users } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '../task/priority-icon';
@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import Image from 'next/image';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 interface KanbanCardProps {
   task: Task;
@@ -91,7 +92,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
   
   const getAssigneeInitials = (assignee?: string) => {
     if (!assignee) return '?';
-    return assignee.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    return assignee.split('@')[0].substring(0, 2).toUpperCase();
   }
 
   return (
@@ -176,13 +177,28 @@ export function KanbanCard({ task }: KanbanCardProps) {
                 )}
             </div>
 
-             {task.assignee && (
-                <div className="flex items-center gap-1.5" title={task.assignee}>
-                    <Avatar className='size-5 text-xs'>
-                        <AvatarFallback>{getAssigneeInitials(task.assignee)}</AvatarFallback>
-                    </Avatar>
-                    <span className="truncate max-w-[100px]">{task.assignee.split('@')[0]}</span>
-                </div>
+            {task.assignees && task.assignees.length > 0 && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="flex items-center -space-x-2">
+                                {task.assignees.slice(0, 2).map(assignee => (
+                                    <Avatar key={assignee} className='size-6 text-xs border-2 border-background'>
+                                        <AvatarFallback>{getAssigneeInitials(assignee)}</AvatarFallback>
+                                    </Avatar>
+                                ))}
+                                {task.assignees.length > 2 && (
+                                     <Avatar className='size-6 text-xs border-2 border-background'>
+                                        <AvatarFallback>+{task.assignees.length - 2}</AvatarFallback>
+                                    </Avatar>
+                                )}
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{task.assignees.join(', ')}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             )}
           </div>
         </CardContent>

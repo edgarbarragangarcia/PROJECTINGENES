@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -33,7 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Mic, Plus, Trash2, Upload, X } from 'lucide-react';
+import { CalendarIcon, Mic, Plus, Trash2, Upload, X, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -45,6 +46,8 @@ import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { Checkbox } from '../ui/checkbox';
 import Image from 'next/image';
 import { Progress } from '../ui/progress';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '../ui/command';
+import { Badge } from '../ui/badge';
 
 const translatedPriorities = {
   'Low': 'Baja',
@@ -65,7 +68,7 @@ const taskFormSchema = z.object({
   startDate: z.date().optional(),
   dueDate: z.date().optional(),
   projectId: z.string().uuid("Debes seleccionar un proyecto válido."),
-  assignee: z.string().optional(),
+  assignees: z.array(z.string()).optional(),
   subtasks: z.array(subtaskSchema).optional(),
   image_url: z.string().optional(),
 });
@@ -94,7 +97,7 @@ export function TaskFormDialog({
   taskToEdit, 
   projectId 
 }: TaskFormDialogProps) {
-  const { addTask, updateTask } = useTasks();
+  const { addTask, updateTask, allUsers } = useTasks();
   const { projects } = useProjects();
   const { toast } = useToast();
   const [subtaskInput, setSubtaskInput] = useState('');
@@ -117,7 +120,7 @@ export function TaskFormDialog({
           startDate: taskToEdit.startDate,
           dueDate: taskToEdit.dueDate,
           projectId: taskToEdit.projectId,
-          assignee: taskToEdit.assignee || '',
+          assignees: taskToEdit.assignees || [],
           subtasks: taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || [],
           image_url: taskToEdit.image_url || '',
         }
@@ -129,7 +132,7 @@ export function TaskFormDialog({
           startDate: undefined,
           dueDate: undefined,
           projectId: projectId || '',
-          assignee: '',
+          assignees: [],
           subtasks: [],
           image_url: '',
         },
@@ -147,7 +150,7 @@ export function TaskFormDialog({
         startDate: taskToEdit.startDate ? new Date(taskToEdit.startDate) : undefined,
         dueDate: taskToEdit.dueDate ? new Date(taskToEdit.dueDate) : undefined,
         projectId: taskToEdit.projectId,
-        assignee: taskToEdit.assignee || '',
+        assignees: taskToEdit.assignees || [],
         subtasks: taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || [],
         image_url: taskToEdit.image_url || '',
       });
@@ -160,7 +163,7 @@ export function TaskFormDialog({
           startDate: undefined,
           dueDate: undefined,
           projectId: projectId || '',
-          assignee: '',
+          assignees: [],
           subtasks: [],
           image_url: '',
         });
@@ -169,13 +172,12 @@ export function TaskFormDialog({
     }
   }, [taskToEdit, projectId, form]);
 
-  const handleTranscript = (fieldName: 'title' | 'description' | 'assignee') => (transcript: string) => {
+  const handleTranscript = (fieldName: 'title' | 'description') => (transcript: string) => {
     form.setValue(fieldName, (form.getValues(fieldName) || '') + transcript);
   };
   
   const titleSpeech = useSpeechRecognition(handleTranscript('title'));
   const descriptionSpeech = useSpeechRecognition(handleTranscript('description'));
-  const assigneeSpeech = useSpeechRecognition(handleTranscript('assignee'));
 
   useEffect(() => {
     if (projectId && !form.getValues('projectId')) {
@@ -201,7 +203,7 @@ export function TaskFormDialog({
         description: data.description || '',
         startDate: data.startDate,
         dueDate: data.dueDate,
-        assignee: data.assignee || '',
+        assignees: data.assignees || [],
       };
       
       if (imageFile) {
@@ -234,7 +236,7 @@ export function TaskFormDialog({
         startDate: undefined,
         dueDate: undefined,
         projectId: projectId || '',
-        assignee: '',
+        assignees: [],
         subtasks: [],
         image_url: '',
       });
@@ -454,27 +456,81 @@ export function TaskFormDialog({
               </div>
             </div>
 
-
             <FormField
               control={form.control}
-              name="assignee"
+              name="assignees"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Responsable</FormLabel>
-                   <div className="relative">
-                    <FormControl>
-                      <Input 
-                        placeholder="p. ej., nombre@ejemplo.com" 
-                        {...field} 
-                        className="pr-10"
-                      />
-                    </FormControl>
-                     {assigneeSpeech.isSupported && (
-                        <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={assigneeSpeech.isListening ? assigneeSpeech.stopListening : assigneeSpeech.startListening}>
-                          <Mic className={cn("size-4", assigneeSpeech.isListening && "text-red-500")} />
+                  <FormLabel>Responsables</FormLabel>
+                   <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between h-auto",
+                            !field.value?.length && "text-muted-foreground"
+                          )}
+                        >
+                          <div className="flex gap-1 flex-wrap">
+                            {field.value && field.value.length > 0
+                              ? allUsers
+                                .filter(user => field.value?.includes(user.email || ''))
+                                .map(user => (
+                                    <Badge
+                                      variant="secondary"
+                                      key={user.id}
+                                      className="mr-1"
+                                      onClick={() => {
+                                        const newValue = field.value?.filter(v => v !== user.email) || [];
+                                        field.onChange(newValue);
+                                      }}
+                                    >
+                                      {user.email}
+                                      <X className="ml-1 h-3 w-3" />
+                                    </Badge>
+                                ))
+                              : "Seleccionar responsables..."}
+                          </div>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
-                      )}
-                  </div>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[450px] p-0">
+                      <Command>
+                        <CommandInput placeholder="Buscar usuario..." />
+                        <CommandEmpty>No se encontró ningún usuario.</CommandEmpty>
+                        <CommandGroup>
+                          {allUsers.map((user) => (
+                            <CommandItem
+                              value={user.email}
+                              key={user.id}
+                              onSelect={() => {
+                                const selectedValues = field.value || [];
+                                const isSelected = selectedValues.includes(user.email || '');
+                                if (isSelected) {
+                                  field.onChange(selectedValues.filter(v => v !== user.email));
+                                } else {
+                                  field.onChange([...selectedValues, user.email || '']);
+                                }
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value?.includes(user.email || '')
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {user.email}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
