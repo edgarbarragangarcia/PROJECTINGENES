@@ -30,8 +30,9 @@ const getUsersFlow = ai.defineFlow(
     outputSchema: GetUsersOutputSchema,
   },
   async () => {
-    // Note: We create a new server client here because the default one might have issues
-    // with environment variables in this context.
+    // Note: It's important that the 'profiles' table exists for this to work.
+    // If you see a "table not found" error, it means the SQL script to create
+    // the 'profiles' table and its associated trigger was not run in the Supabase SQL Editor.
     const supabase = createClient();
     
     const { data, error } = await supabase.from('profiles').select('id, email');
