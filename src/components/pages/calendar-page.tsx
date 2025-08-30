@@ -4,7 +4,7 @@
 import { PageHeader } from '../layout/page-header';
 import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay, getDay, differenceInDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -26,10 +26,10 @@ const GoogleCalendarIcon = () => (
 );
 
 const statusColors: { [key in Status]: string } = {
-  'Backlog': 'bg-amber-500/70',
-  'Todo': 'bg-sky-500/70',
-  'In Progress': 'bg-orange-500/70',
-  'Done': 'bg-green-500/70',
+  'Backlog': 'bg-amber-500/80',
+  'Todo': 'bg-sky-500/80',
+  'In Progress': 'bg-orange-500/80',
+  'Done': 'bg-green-500/80',
 };
 
 const chunkArray = <T,>(array: T[], size: number): T[][] => {
@@ -54,7 +54,7 @@ export function CalendarPage() {
     setCurrentDate(new Date());
   }, []);
 
-  const { daysInGrid, monthStart, monthEnd, weeks } = useMemo(() => {
+  const { monthStart, monthEnd, weeks } = useMemo(() => {
     if (!currentDate) {
       return { daysInGrid: [], monthStart: null, monthEnd: null, weeks: [] };
     }
@@ -62,7 +62,7 @@ export function CalendarPage() {
     const monthEnd = endOfMonth(currentDate);
     
     const dayOfWeek = monthStart.getDay();
-    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1; // 0 (Domingo) a 6 (Sábado) -> Lunes = 1
+    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1; 
     const startDate = subDays(monthStart, diff);
     const endDate = addDays(startDate, 41);
     
@@ -81,14 +81,13 @@ export function CalendarPage() {
       const currentDay = startOfDay(day);
 
       if (taskStart && taskDue) {
-        // Incluye el día de fin en el intervalo
         return isWithinInterval(currentDay, { start: taskStart, end: taskDue });
       }
       if (taskDue) {
         return isSameDay(currentDay, taskDue);
       }
       return false;
-    });
+    }).sort((a,b) => (a.startDate?.getTime() || 0) - (b.startDate?.getTime() || 0));
   };
   
   const googleEventsByDay = useMemo(() => {
@@ -156,15 +155,16 @@ export function CalendarPage() {
           {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
               <div key={day} className="p-2 border-b border-r text-center font-semibold text-sm bg-muted/50">{day}</div>
           ))}
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="col-span-7 grid grid-cols-7 relative">
-              {week.map((day) => {
+          {weeks.map((week, weekIndex) => week.map((day) => {
+                 const dayTasks = getTasksForDay(day);
                  const dayNotes = getNotesByDate(day);
                  const dayGgEvents = googleEventsByDay.get(format(day, 'yyyy-MM-dd')) || [];
+                 const maxTasksToShow = 1;
+
                  return (
                   <div 
                     key={day.toISOString()} 
-                    className={cn("relative border-b border-r p-1.5 h-32 flex flex-col group",
+                    className={cn("relative border-b border-r p-1.5 h-40 flex flex-col group", // increased height
                     !isSameMonth(day, currentDate) && 'bg-muted/30',
                     isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
                   )}>
@@ -181,6 +181,21 @@ export function CalendarPage() {
                       </Button>
                     </div>
                      <div className="mt-1 flex-1 space-y-0.5 overflow-hidden">
+                       {dayTasks.slice(0, maxTasksToShow).map(task => (
+                         <div 
+                          key={task.id}
+                          className={cn("text-xs p-1 rounded-sm text-white font-medium truncate cursor-pointer", statusColors[task.status])}
+                          title={task.title}
+                          onClick={() => handleTaskClick(task)}
+                         >
+                           {task.title}
+                         </div>
+                       ))}
+                       {dayTasks.length > maxTasksToShow && (
+                         <div className='text-xs text-muted-foreground font-medium pt-1'>
+                            y {dayTasks.length - maxTasksToShow} más tareas...
+                          </div>
+                       )}
                        {dayNotes.slice(0, 1).map(note => (
                          <div key={note.id} className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm line-clamp-1' title={note.note}>
                             - {note.note}
@@ -188,7 +203,7 @@ export function CalendarPage() {
                        ))}
                        {dayNotes.length > 1 && (
                           <div className='text-xs text-muted-foreground font-medium'>
-                            y {dayNotes.length - 1} más...
+                            y {dayNotes.length - 1} más notas...
                           </div>
                        )}
                        {dayGgEvents.map((event) => (
@@ -203,39 +218,7 @@ export function CalendarPage() {
                     </div>
                   </div>
                 )
-              })}
-
-              {tasks.filter(task => 
-                  task.startDate && task.dueDate &&
-                  (isWithinInterval(task.startDate, {start: week[0], end: week[6]}) ||
-                   isWithinInterval(task.dueDate, {start: week[0], end: week[6]}) ||
-                   (task.startDate < week[0] && task.dueDate > week[6]))
-                ).map((task, taskIndex) => {
-                    const taskStart = startOfDay(task.startDate!);
-                    const taskEnd = startOfDay(task.dueDate!);
-
-                    const startDayOfWeek = taskStart < week[0] ? 0 : differenceInDays(taskStart, week[0]);
-                    const endDayOfWeek = taskEnd > week[6] ? 6 : differenceInDays(taskEnd, week[0]);
-                    
-                    const durationInWeek = endDayOfWeek - startDayOfWeek + 1;
-                    const topPosition = 50 + taskIndex * 24;
-                    const leftPosition = `calc(${(startDayOfWeek / 7) * 100}% + 4px)`;
-                    const width = `calc(${(durationInWeek / 7) * 100}% - 8px)`;
-
-                    return (
-                        <div
-                            key={task.id}
-                            className={cn("absolute h-5 rounded px-2 flex items-center text-white font-medium text-xs truncate cursor-pointer", statusColors[task.status])}
-                            style={{ top: `${topPosition}px`, left: leftPosition, width: width }}
-                            title={task.title}
-                            onClick={() => handleTaskClick(task)}
-                        >
-                            {task.title}
-                        </div>
-                    );
-              })}
-            </div>
-          ))}
+              }))}
         </div>
       </div>
        {editingTask && (
@@ -256,5 +239,3 @@ export function CalendarPage() {
     </div>
   );
 }
-
-    
