@@ -14,7 +14,6 @@ import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
 import { sendAssignmentNotification } from '@/ai/flows/send-assignment-notification';
 import { useToast } from '@/hooks/use-toast';
-import { getUsers } from '@/ai/flows/get-users-flow';
 
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
@@ -49,13 +48,17 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const { users } = await getUsers();
-      setAllUsers(users as User[]);
+      const { data, error } = await supabase.from('profiles').select('id, email');
+      if (error) {
+        console.error("Error fetching users directly:", error);
+        throw error;
+      }
+      setAllUsers((data as User[]) || []);
     } catch (error) {
-       console.error('Error fetching users via flow:', error);
+       console.error('Error fetching users:', error);
        setAllUsers([]);
     }
-  }, []);
+  }, [supabase]);
 
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
