@@ -22,6 +22,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Checkbox } from '../ui/checkbox';
+import Link from 'next/link';
 
 interface ProjectListViewProps {
   projects: ProjectWithProgress[];
@@ -87,10 +88,10 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
                     checked={selectedProjects.includes(project.id)}
                     onCheckedChange={() => onSelectProject(project.id)}
                   />
-                  <AccordionTrigger className='py-0 flex-1 justify-start'>
+                  <AccordionTrigger className='py-0 flex-1 justify-start [&_svg]:data-[state=closed]:-rotate-90'>
                     <div className="flex items-center gap-2">
                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                       <span className="font-medium text-base">{project.name}</span>
+                       <Link href={`/projects/${project.id}`} className="font-medium text-base hover:underline">{project.name}</Link>
                     </div>
                   </AccordionTrigger>
                 </div>
