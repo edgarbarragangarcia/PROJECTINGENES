@@ -8,7 +8,7 @@ import { DailyNotesContext, initialDailyNotesState, type DailyNotesState, type D
 import { createClient } from '@/lib/supabase/client';
 import type { Project, ProjectWithProgress, Task, DailyNote, User, Subtask, UserStory, Profile } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, formatISO } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
@@ -390,8 +390,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         image_url: imageUrl,
         assignees: assignees || null,
       };
-      if (startDate) dataToInsert.start_date = startDate.toISOString();
-      if (dueDate) dataToInsert.due_date = dueDate.toISOString();
+      if (startDate) dataToInsert.start_date = formatISO(startDate, { representation: 'date' });
+      if (dueDate) dataToInsert.due_date = formatISO(dueDate, { representation: 'date' });
 
 
       const { data: taskResult, error: taskError } = await supabase
@@ -480,11 +480,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
 
     if (dataToUpdate.startDate) {
-        dataToUpdate.start_date = dataToUpdate.startDate.toISOString();
+        dataToUpdate.start_date = formatISO(dataToUpdate.startDate, { representation: 'date' });
         delete dataToUpdate.startDate;
     }
     if (dataToUpdate.dueDate) {
-        dataToUpdate.due_date = dataToUpdate.dueDate.toISOString();
+        dataToUpdate.due_date = formatISO(dataToUpdate.dueDate, { representation: 'date' });
         delete dataToUpdate.dueDate;
     }
     if (dataToUpdate.projectId) {
