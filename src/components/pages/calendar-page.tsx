@@ -1,16 +1,15 @@
 
-
 'use client';
 
 import { PageHeader } from '../layout/page-header';
 import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay, getDay, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
-import { ChevronLeft, ChevronRight, NotebookPen, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, NotebookPen } from 'lucide-react';
 import { TaskFormDialog } from '../task/task-form-dialog';
 import { DailyNotesDialog } from '../note/daily-notes-dialog';
 import { useDailyNotes } from '@/hooks/use-daily-notes';
@@ -26,12 +25,19 @@ const GoogleCalendarIcon = () => (
   </svg>
 );
 
-
 const statusColors: { [key in Status]: string } = {
-  'Backlog': 'bg-amber-400/70',
-  'Todo': 'bg-sky-400/70',
-  'In Progress': 'bg-orange-400/70',
-  'Done': 'bg-green-400/70',
+  'Backlog': 'bg-amber-500/70',
+  'Todo': 'bg-sky-500/70',
+  'In Progress': 'bg-orange-500/70',
+  'Done': 'bg-green-500/70',
+};
+
+const chunkArray = <T,>(array: T[], size: number): T[][] => {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
 };
 
 export function CalendarPage() {
@@ -48,22 +54,22 @@ export function CalendarPage() {
     setCurrentDate(new Date());
   }, []);
 
-  const { daysInGrid, monthStart, monthEnd } = useMemo(() => {
+  const { daysInGrid, monthStart, monthEnd, weeks } = useMemo(() => {
     if (!currentDate) {
-      return { daysInGrid: [], monthStart: null, monthEnd: null };
+      return { daysInGrid: [], monthStart: null, monthEnd: null, weeks: [] };
     }
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     
     const dayOfWeek = monthStart.getDay();
-    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
+    const diff = (dayOfWeek === 0) ? 6 : dayOfWeek - 1; // 0 (Domingo) a 6 (Sábado) -> Lunes = 1
     const startDate = subDays(monthStart, diff);
-
     const endDate = addDays(startDate, 41);
+    
     const daysInGrid = eachDayOfInterval({ start: startDate, end: endDate });
-    return { daysInGrid, monthStart, monthEnd };
+    const weeks = chunkArray(daysInGrid, 7);
+    return { daysInGrid, monthStart, monthEnd, weeks };
   }, [currentDate]);
-
 
   const handleNextMonth = () => currentDate && setCurrentDate(addMonths(currentDate, 1));
   const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
@@ -75,6 +81,7 @@ export function CalendarPage() {
       const currentDay = startOfDay(day);
 
       if (taskStart && taskDue) {
+        // Incluye el día de fin en el intervalo
         return isWithinInterval(currentDay, { start: taskStart, end: taskDue });
       }
       if (taskDue) {
@@ -83,7 +90,7 @@ export function CalendarPage() {
       return false;
     });
   };
-
+  
   const googleEventsByDay = useMemo(() => {
     const dailyEvents = new Map<string, any[]>();
     googleEvents.forEach(event => {
@@ -121,18 +128,15 @@ export function CalendarPage() {
   };
 
   useEffect(() => {
-    // Auto-fetch events when month changes, if already connected once
     if (googleEvents.length > 0 && monthStart && monthEnd) {
       handleGoogleConnect();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
-
   if (!currentDate || !monthStart) {
     return <div className="flex-1 flex items-center justify-center">Cargando calendario...</div>
   }
-
 
   return (
     <div className="flex flex-col h-full">
@@ -152,68 +156,86 @@ export function CalendarPage() {
           {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
               <div key={day} className="p-2 border-b border-r text-center font-semibold text-sm bg-muted/50">{day}</div>
           ))}
-          {daysInGrid.map((day) => {
-            const dayKey = format(day, 'yyyy-MM-dd');
-            const dayTasks = getTasksForDay(day);
-            const dayNotes = getNotesByDate(day);
-            const dayGgEvents = googleEventsByDay.get(dayKey) || [];
-
-            return (
-              <div 
-                key={day.toISOString()} 
-                className={cn("relative border-b border-r p-1.5 min-h-[80px] flex flex-col group",
-                !isSameMonth(day, currentDate) && 'bg-muted/30',
-                isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
-              )}>
-                <div className='flex justify-between items-center'>
-                  <time dateTime={day.toISOString()} className={cn(
-                    "font-medium text-sm", 
-                    isSameDay(day, new Date()) && 'text-primary font-bold',
-                    !isSameMonth(day, currentDate) && 'text-muted-foreground'
+          {weeks.map((week, weekIndex) => (
+            <div key={weekIndex} className="col-span-7 grid grid-cols-7 relative">
+              {week.map((day) => {
+                 const dayNotes = getNotesByDate(day);
+                 const dayGgEvents = googleEventsByDay.get(format(day, 'yyyy-MM-dd')) || [];
+                 return (
+                  <div 
+                    key={day.toISOString()} 
+                    className={cn("relative border-b border-r p-1.5 h-32 flex flex-col group",
+                    !isSameMonth(day, currentDate) && 'bg-muted/30',
+                    isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
                   )}>
-                    {format(day, 'd')}
-                  </time>
-                  <Button variant="ghost" size="icon" className="size-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedDateForNotes(day)}>
-                    <NotebookPen className="size-4" />
-                  </Button>
-                </div>
-                <div className="mt-1 flex-1 space-y-0.5 overflow-hidden">
-                   {dayNotes.slice(0, 1).map(note => (
-                     <div key={note.id} className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm line-clamp-1' title={note.note}>
-                        - {note.note}
-                      </div>
-                   ))}
-                   {dayNotes.length > 1 && (
-                      <div className='text-xs text-muted-foreground font-medium'>
-                        y {dayNotes.length - 1} más...
-                      </div>
-                   )}
-                   {dayGgEvents.map((event) => (
-                    <div 
-                      key={event.id}
-                      className="text-xs p-1 rounded-sm bg-gray-200 dark:bg-gray-700 font-medium truncate"
-                      title={event.summary}
-                    >
-                      {event.summary}
+                    <div className='flex justify-between items-center'>
+                      <time dateTime={day.toISOString()} className={cn(
+                        "font-medium text-sm", 
+                        isSameDay(day, new Date()) && 'text-primary font-bold',
+                        !isSameMonth(day, currentDate) && 'text-muted-foreground'
+                      )}>
+                        {format(day, 'd')}
+                      </time>
+                      <Button variant="ghost" size="icon" className="size-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedDateForNotes(day)}>
+                        <NotebookPen className="size-4" />
+                      </Button>
                     </div>
-                  ))}
-                  {dayTasks.map((task) => (
-                    <div 
-                      key={task.id}
-                      className={cn(
-                        "text-xs p-1 rounded-sm text-black/80 font-medium truncate cursor-pointer hover:opacity-80",
-                        statusColors[task.status]
-                      )}
-                      onClick={() => handleTaskClick(task)}
-                      title={task.title}
-                    >
-                      {task.title}
+                     <div className="mt-1 flex-1 space-y-0.5 overflow-hidden">
+                       {dayNotes.slice(0, 1).map(note => (
+                         <div key={note.id} className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm line-clamp-1' title={note.note}>
+                            - {note.note}
+                          </div>
+                       ))}
+                       {dayNotes.length > 1 && (
+                          <div className='text-xs text-muted-foreground font-medium'>
+                            y {dayNotes.length - 1} más...
+                          </div>
+                       )}
+                       {dayGgEvents.map((event) => (
+                        <div 
+                          key={event.id}
+                          className="text-xs p-1 rounded-sm bg-gray-200 dark:bg-gray-700 font-medium truncate"
+                          title={event.summary}
+                        >
+                          {event.summary}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
+                  </div>
+                )
+              })}
+
+              {tasks.filter(task => 
+                  task.startDate && task.dueDate &&
+                  (isWithinInterval(task.startDate, {start: week[0], end: week[6]}) ||
+                   isWithinInterval(task.dueDate, {start: week[0], end: week[6]}) ||
+                   (task.startDate < week[0] && task.dueDate > week[6]))
+                ).map((task, taskIndex) => {
+                    const taskStart = startOfDay(task.startDate!);
+                    const taskEnd = startOfDay(task.dueDate!);
+
+                    const startDayOfWeek = taskStart < week[0] ? 0 : differenceInDays(taskStart, week[0]);
+                    const endDayOfWeek = taskEnd > week[6] ? 6 : differenceInDays(taskEnd, week[0]);
+                    
+                    const durationInWeek = endDayOfWeek - startDayOfWeek + 1;
+                    const topPosition = 50 + taskIndex * 24;
+                    const leftPosition = `calc(${(startDayOfWeek / 7) * 100}% + 4px)`;
+                    const width = `calc(${(durationInWeek / 7) * 100}% - 8px)`;
+
+                    return (
+                        <div
+                            key={task.id}
+                            className={cn("absolute h-5 rounded px-2 flex items-center text-white font-medium text-xs truncate cursor-pointer", statusColors[task.status])}
+                            style={{ top: `${topPosition}px`, left: leftPosition, width: width }}
+                            title={task.title}
+                            onClick={() => handleTaskClick(task)}
+                        >
+                            {task.title}
+                        </div>
+                    );
+              })}
+            </div>
+          ))}
         </div>
       </div>
        {editingTask && (
@@ -234,3 +256,5 @@ export function CalendarPage() {
     </div>
   );
 }
+
+    
