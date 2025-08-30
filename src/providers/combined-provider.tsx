@@ -12,6 +12,17 @@ import { format } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
+import { sendAssignmentNotification } from '@/ai/flows/send-assignment-notification';
+import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const SendAssignmentNotificationSchema = z.object({
+  assigneeEmail: z.string().email().describe('The email of the user assigned to the task.'),
+  taskTitle: z.string().describe('The title of the task.'),
+  projectName: z.string().describe('The name of the project the task belongs to.'),
+  assignedBy: z.string().describe('The email of the user who assigned the task.'),
+});
+type SendAssignmentNotificationInput = z.infer<typeof SendAssignmentNotificationSchema>;
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
 
@@ -22,6 +33,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [userStoriesState, setUserStoriesState] = useState(initialUserStoriesState);
   const supabase = createClient();
   const [session, setSession] = useState<Session | null>(null);
+  const { toast } = useToast();
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -124,12 +136,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
    const fetchUserStories = useCallback(async (user: User) => {
     setUserStoriesLoading(true);
     try {
-      const isAdmin = user.email && adminEmails.includes(user.email);
       let query = supabase.from('user_stories').select('*');
-
-      // Non-admins can only see stories for projects they have access to.
-      // This simple implementation lets them see all stories, adjust if needed.
-      // For more complex scenarios, you might need RLS or joins.
 
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
@@ -348,7 +355,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuario no autenticado");
 
-      const { startDate, dueDate, projectId, subtasks, imageFile, onUploadProgress, ...restOfTaskData } = taskData;
+      const { startDate, dueDate, projectId, subtasks, imageFile, onUploadProgress, assignee, ...restOfTaskData } = taskData;
       
       let imageUrl: string | undefined = undefined;
       if (imageFile) {
@@ -376,6 +383,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         user_id: user.id,
         project_id: projectId,
         image_url: imageUrl,
+        assignee: assignee || null,
       };
       if (startDate) dataToInsert.start_date = startDate.toISOString();
       if (dueDate) dataToInsert.due_date = dueDate.toISOString();
@@ -420,16 +428,37 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           ...prevState,
           tasks: [formattedTask as Task, ...prevState.tasks],
       }));
+      
+      if (assignee) {
+          const project = projectsWithProgress.find(p => p.id === projectId);
+          sendAssignmentNotification({
+              assigneeEmail: assignee,
+              taskTitle: taskResult.title,
+              projectName: project?.name || 'Unknown Project',
+              assignedBy: user.email || 'un usuario',
+          }).then(result => {
+              if (!result.success) {
+                  console.warn("Email notification may have failed:", result.message);
+                  if (result.message.includes('RESEND_API_KEY is not configured')) {
+                    toast({
+                      variant: 'default',
+                      title: 'Notificación por correo no configurada',
+                      description: 'Para notificar a los usuarios asignados, configura la API key de Resend.',
+                    });
+                  }
+              }
+          });
+      }
   };
 
   const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuario no autenticado");
+    
+    const existingTask = tasksState.tasks.find(t => t.id === id);
 
     const { imageFile, onUploadProgress, subtasks, ...restOfTaskData } = taskData;
     const dataToUpdate: Record<string, any> = { ...restOfTaskData };
-    
-    const existingTask = tasksState.tasks.find(t => t.id === id);
 
     if (imageFile) {
         if (existingTask?.image_url) {
@@ -495,6 +524,29 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         const { error: insertError } = await supabase.from('subtasks').insert(subtasksToInsert);
         if (insertError) throw insertError;
       }
+    }
+    
+    // Check if assignee changed and send notification
+    const newAssignee = dataToUpdate.assignee;
+    if (newAssignee && newAssignee !== existingTask?.assignee) {
+        const project = projectsWithProgress.find(p => p.id === (dataToUpdate.project_id || existingTask?.projectId));
+        sendAssignmentNotification({
+            assigneeEmail: newAssignee,
+            taskTitle: dataToUpdate.title || existingTask?.title || 'una tarea',
+            projectName: project?.name || 'un proyecto desconocido',
+            assignedBy: user.email || 'un usuario',
+        }).then(result => {
+          if (!result.success) {
+            console.warn("Email notification may have failed:", result.message);
+             if (result.message.includes('RESEND_API_KEY is not configured')) {
+                toast({
+                  variant: 'default',
+                  title: 'Notificación por correo no configurada',
+                  description: 'Para notificar a los usuarios asignados, configura la API key de Resend.',
+                });
+              }
+          }
+      });
     }
 
     await fetchTasks(user);
