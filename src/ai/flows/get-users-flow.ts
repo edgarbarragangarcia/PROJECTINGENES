@@ -1,12 +1,12 @@
 'use server';
 /**
- * @fileOverview A flow to securely fetch all application users.
+ * @fileOverview A flow to securely fetch all application users from the profiles table.
  *
  * - getUsers - A function that returns a list of all users.
  */
 
 import { ai } from '@/ai/genkit';
-import { supabase } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { z } from 'genkit';
 
 const UserSchema = z.object({
@@ -30,14 +30,18 @@ const getUsersFlow = ai.defineFlow(
     outputSchema: GetUsersOutputSchema,
   },
   async () => {
-    const { data: { users }, error } = await supabase.auth.admin.listUsers();
+    // Note: We create a new server client here because the default one might have issues
+    // with environment variables in this context.
+    const supabase = createClient();
+    
+    const { data, error } = await supabase.from('profiles').select('id, email');
     
     if (error) {
-      console.error('Error fetching users from admin client:', error);
+      console.error('Error fetching users from profiles table:', error);
       throw new Error(`Failed to fetch users: ${error.message}`);
     }
 
-    const filteredUsers = users.map(u => ({
+    const filteredUsers = (data || []).map(u => ({
         id: u.id,
         email: u.email || '',
     }));

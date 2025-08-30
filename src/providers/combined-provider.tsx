@@ -14,16 +14,7 @@ import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
 import { sendAssignmentNotification } from '@/ai/flows/send-assignment-notification';
 import { useToast } from '@/hooks/use-toast';
-import { z } from 'zod';
 import { getUsers } from '@/ai/flows/get-users-flow';
-
-const SendAssignmentNotificationSchema = z.object({
-  assigneeEmail: z.string().email().describe('The email of the user assigned to the task.'),
-  taskTitle: z.string().describe('The title of the task.'),
-  projectName: z.string().describe('The name of the project the task belongs to.'),
-  assignedBy: z.string().describe('The email of the user who assigned the task.'),
-});
-type SendAssignmentNotificationInput = z.infer<typeof SendAssignmentNotificationSchema>;
 
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
