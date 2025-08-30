@@ -59,8 +59,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchUsers = useCallback(async () => {
     try {
       const { users } = await getUsers();
-      // The flow returns a simple object, we need to cast it to the Supabase User type for consistency
-      // This is a safe cast because we control both ends (the flow and the client)
       setAllUsers(users as User[]);
     } catch (error) {
        console.error('Error fetching users via flow:', error);

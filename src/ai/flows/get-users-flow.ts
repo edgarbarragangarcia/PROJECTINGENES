@@ -12,7 +12,6 @@ import { z } from 'genkit';
 const UserSchema = z.object({
     id: z.string(),
     email: z.string().optional(),
-    // Add other user properties you might need from user_metadata
 });
 
 const GetUsersOutputSchema = z.object({
@@ -40,7 +39,7 @@ const getUsersFlow = ai.defineFlow(
 
     const filteredUsers = users.map(u => ({
         id: u.id,
-        email: u.email,
+        email: u.email || '',
     }));
 
     return { users: filteredUsers };
