@@ -9,12 +9,12 @@ import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
-import { ChevronLeft, ChevronRight, NotebookPen } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { TaskFormDialog } from '../task/task-form-dialog';
-import { DailyNotesDialog } from '../note/daily-notes-dialog';
 import { useDailyNotes } from '@/hooks/use-daily-notes';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
+import { DailySummaryDialog } from '../note/daily-summary-dialog';
 
 const GoogleCalendarIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="size-4 mr-2" viewBox="0 0 24 24">
@@ -47,7 +47,7 @@ export function CalendarPage() {
   const { getCalendarEvents } = useGoogleCalendar();
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [selectedDateForNotes, setSelectedDateForNotes] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [googleEvents, setGoogleEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -81,9 +81,14 @@ export function CalendarPage() {
       const currentDay = startOfDay(day);
 
       if (taskStart && taskDue) {
+        // For tasks with a duration, check if the current day is within the interval (inclusive)
+        if (isSameDay(taskStart, taskDue)) {
+          return isSameDay(currentDay, taskStart);
+        }
         return isWithinInterval(currentDay, { start: taskStart, end: taskDue });
       }
       if (taskDue) {
+        // For tasks with only a due date, show them on that day
         return isSameDay(currentDay, taskDue);
       }
       return false;
@@ -103,7 +108,8 @@ export function CalendarPage() {
     return dailyEvents;
   }, [googleEvents]);
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation();
     setEditingTask(task);
   };
   
@@ -159,54 +165,41 @@ export function CalendarPage() {
                  const dayTasks = getTasksForDay(day);
                  const dayNotes = getNotesByDate(day);
                  const dayGgEvents = googleEventsByDay.get(format(day, 'yyyy-MM-dd')) || [];
-                 const maxTasksToShow = 1;
+                 const allItems = [...dayTasks, ...dayNotes, ...dayGgEvents];
+                 const maxItemsToShow = 2;
 
                  return (
                   <div 
                     key={day.toISOString()} 
-                    className={cn("relative border-b border-r p-1.5 h-40 flex flex-col group", // increased height
-                    !isSameMonth(day, currentDate) && 'bg-muted/30',
-                    isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
-                  )}>
-                    <div className='flex justify-between items-center'>
-                      <time dateTime={day.toISOString()} className={cn(
-                        "font-medium text-sm", 
-                        isSameDay(day, new Date()) && 'text-primary font-bold',
-                        !isSameMonth(day, currentDate) && 'text-muted-foreground'
-                      )}>
-                        {format(day, 'd')}
-                      </time>
-                      <Button variant="ghost" size="icon" className="size-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedDateForNotes(day)}>
-                        <NotebookPen className="size-4" />
-                      </Button>
-                    </div>
+                    className={cn("relative border-b border-r p-1.5 h-40 flex flex-col group cursor-pointer hover:bg-muted/50",
+                      !isSameMonth(day, currentDate) && 'bg-muted/30 text-muted-foreground',
+                      isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
+                    )}
+                    onClick={() => setSelectedDate(day)}
+                  >
+                    <time dateTime={day.toISOString()} className={cn(
+                      "font-medium text-sm", 
+                      isSameDay(day, new Date()) && 'text-primary font-bold'
+                    )}>
+                      {format(day, 'd')}
+                    </time>
                      <div className="mt-1 flex-1 space-y-0.5 overflow-hidden">
-                       {dayTasks.slice(0, maxTasksToShow).map(task => (
+                       {dayTasks.slice(0, maxItemsToShow).map(task => (
                          <div 
                           key={task.id}
                           className={cn("text-xs p-1 rounded-sm text-white font-medium truncate cursor-pointer", statusColors[task.status])}
                           title={task.title}
-                          onClick={() => handleTaskClick(task)}
+                          onClick={(e) => handleTaskClick(e, task)}
                          >
                            {task.title}
                          </div>
                        ))}
-                       {dayTasks.length > maxTasksToShow && (
-                         <div className='text-xs text-muted-foreground font-medium pt-1'>
-                            y {dayTasks.length - maxTasksToShow} más tareas...
-                          </div>
-                       )}
-                       {dayNotes.slice(0, 1).map(note => (
+                       {dayNotes.slice(0, maxItemsToShow - dayTasks.length).map(note => (
                          <div key={note.id} className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm line-clamp-1' title={note.note}>
                             - {note.note}
                           </div>
                        ))}
-                       {dayNotes.length > 1 && (
-                          <div className='text-xs text-muted-foreground font-medium'>
-                            y {dayNotes.length - 1} más notas...
-                          </div>
-                       )}
-                       {dayGgEvents.map((event) => (
+                       {dayGgEvents.slice(0, maxItemsToShow - dayTasks.length - dayNotes.length).map((event) => (
                         <div 
                           key={event.id}
                           className="text-xs p-1 rounded-sm bg-gray-200 dark:bg-gray-700 font-medium truncate"
@@ -215,6 +208,11 @@ export function CalendarPage() {
                           {event.summary}
                         </div>
                       ))}
+                      {allItems.length > maxItemsToShow && (
+                         <div className='text-xs text-muted-foreground font-medium pt-1'>
+                            y {allItems.length - maxItemsToShow} más...
+                          </div>
+                       )}
                     </div>
                   </div>
                 )
@@ -229,11 +227,14 @@ export function CalendarPage() {
           projectId={editingTask.projectId}
         />
       )}
-      {selectedDateForNotes && (
-        <DailyNotesDialog
-          open={!!selectedDateForNotes}
-          onOpenChange={(isOpen) => !isOpen && setSelectedDateForNotes(null)}
-          date={selectedDateForNotes}
+      {selectedDate && (
+        <DailySummaryDialog
+          open={!!selectedDate}
+          onOpenChange={(isOpen) => !isOpen && setSelectedDate(null)}
+          date={selectedDate}
+          tasks={getTasksForDay(selectedDate)}
+          notes={getNotesByDate(selectedDate)}
+          onEditTask={(task) => setEditingTask(task)}
         />
       )}
     </div>
