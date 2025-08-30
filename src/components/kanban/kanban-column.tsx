@@ -41,8 +41,6 @@ export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
         return 'border-orange-500/20 text-orange-500/60';
       case 'Done':
         return 'border-green-500/20 text-green-500/60';
-      case 'Cancelled':
-        return 'border-red-500/20 text-red-500/60';
       default:
         return 'border-muted-foreground/20 text-muted-foreground/50';
     }
@@ -54,7 +52,7 @@ export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       className={cn(
-        'w-64 lg:w-80 h-full flex-shrink-0 rounded-lg bg-secondary/50 flex flex-col transition-colors',
+        'h-full flex-shrink-0 rounded-lg bg-secondary/50 flex flex-col transition-colors',
         isOver && 'bg-primary/20'
       )}
     >
