@@ -5,7 +5,7 @@
 import { PageHeader } from '../layout/page-header';
 import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -32,7 +32,6 @@ const statusColors: { [key in Status]: string } = {
   'Todo': 'bg-sky-400/70',
   'In Progress': 'bg-orange-400/70',
   'Done': 'bg-green-400/70',
-  'Cancelled': 'bg-red-400/70',
 };
 
 export function CalendarPage() {
@@ -68,18 +67,22 @@ export function CalendarPage() {
 
   const handleNextMonth = () => currentDate && setCurrentDate(addMonths(currentDate, 1));
   const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
+  
+  const getTasksForDay = (day: Date) => {
+    return tasks.filter(task => {
+      const taskStart = task.startDate ? startOfDay(task.startDate) : null;
+      const taskDue = task.dueDate ? startOfDay(task.dueDate) : null;
+      const currentDay = startOfDay(day);
 
-  const tasksByDay = useMemo(() => {
-    const dailyTasks = new Map<string, Task[]>();
-    tasks.forEach(task => {
-      if (task.dueDate) {
-        const dayKey = format(new Date(task.dueDate), 'yyyy-MM-dd');
-        const existingTasks = dailyTasks.get(dayKey) || [];
-        dailyTasks.set(dayKey, [...existingTasks, task]);
+      if (taskStart && taskDue) {
+        return isWithinInterval(currentDay, { start: taskStart, end: taskDue });
       }
+      if (taskDue) {
+        return isSameDay(currentDay, taskDue);
+      }
+      return false;
     });
-    return dailyTasks;
-  }, [tasks]);
+  };
 
   const googleEventsByDay = useMemo(() => {
     const dailyEvents = new Map<string, any[]>();
@@ -151,7 +154,7 @@ export function CalendarPage() {
           ))}
           {daysInGrid.map((day) => {
             const dayKey = format(day, 'yyyy-MM-dd');
-            const dayTasks = tasksByDay.get(dayKey) || [];
+            const dayTasks = getTasksForDay(day);
             const dayNotes = getNotesByDate(day);
             const dayGgEvents = googleEventsByDay.get(dayKey) || [];
 
