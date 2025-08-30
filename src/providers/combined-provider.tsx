@@ -15,6 +15,7 @@ import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextTyp
 import { sendAssignmentNotification } from '@/ai/flows/send-assignment-notification';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { getUsers } from '@/ai/flows/get-users-flow';
 
 const SendAssignmentNotificationSchema = z.object({
   assigneeEmail: z.string().email().describe('The email of the user assigned to the task.'),
@@ -23,6 +24,7 @@ const SendAssignmentNotificationSchema = z.object({
   assignedBy: z.string().describe('The email of the user who assigned the task.'),
 });
 type SendAssignmentNotificationInput = z.infer<typeof SendAssignmentNotificationSchema>;
+
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
 
@@ -55,18 +57,16 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const setUserStoriesLoading = (loading: boolean) => setUserStoriesState(prevState => ({ ...prevState, loading }));
 
   const fetchUsers = useCallback(async () => {
-    // This is a potential security risk if not handled carefully with RLS.
-    // Assuming you have a policy that allows users to view other users' emails for assignment.
-    // A better approach would be a dedicated 'profiles' table.
-    // For now, we'll proceed assuming RLS is in place or this is acceptable.
-     const { data: { users }, error } = await supabase.auth.admin.listUsers();
-    if (error) {
-      console.error('Error fetching users:', error);
-      setAllUsers([]);
-    } else {
-      setAllUsers(users || []);
+    try {
+      const { users } = await getUsers();
+      // The flow returns a simple object, we need to cast it to the Supabase User type for consistency
+      // This is a safe cast because we control both ends (the flow and the client)
+      setAllUsers(users as User[]);
+    } catch (error) {
+       console.error('Error fetching users via flow:', error);
+       setAllUsers([]);
     }
-  }, [supabase.auth.admin]);
+  }, []);
 
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
