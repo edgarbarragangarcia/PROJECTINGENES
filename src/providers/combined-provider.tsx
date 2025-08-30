@@ -8,13 +8,21 @@ import { DailyNotesContext, initialDailyNotesState, type DailyNotesState, type D
 import { createClient } from '@/lib/supabase/client';
 import type { Project, ProjectWithProgress, Task, DailyNote, User, Subtask, UserStory, Profile } from '@/lib/types';
 import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
-import { format, formatISO } from 'date-fns';
+import { format, formatISO, startOfDay,parseISO } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
 
 
 export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
+
+const convertUTCDateToLocalDate = (date: Date) => {
+  const newDate = new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000);
+  const offset = date.getTimezoneOffset() / 60;
+  const hours = date.getHours();
+  newDate.setHours(hours - offset);
+  return newDate;
+}
 
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [projectsState, setProjectsState] = useState(initialProjectsState);
@@ -106,8 +114,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         const formattedTasks = (tasksData || []).map(task => ({
             ...task,
             projectId: task.project_id,
-            startDate: task.start_date ? new Date(task.start_date) : undefined,
-            dueDate: task.due_date ? new Date(task.due_date) : undefined,
+            startDate: task.start_date ? parseISO(task.start_date) : undefined,
+            dueDate: task.due_date ? parseISO(task.due_date) : undefined,
             subtasks: task.subtasks || [],
         }));
 
@@ -390,8 +398,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         image_url: imageUrl,
         assignees: assignees || null,
       };
-      if (startDate) dataToInsert.start_date = formatISO(startDate, { representation: 'date' });
-      if (dueDate) dataToInsert.due_date = formatISO(dueDate, { representation: 'date' });
+      if (startDate) dataToInsert.start_date = format(startDate, 'yyyy-MM-dd');
+      if (dueDate) dataToInsert.due_date = format(dueDate, 'yyyy-MM-dd');
 
 
       const { data: taskResult, error: taskError } = await supabase
@@ -421,18 +429,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           }
           createdSubtasks = subtasksResult || [];
       }
-
-      const formattedTask = {
-          ...taskResult,
-          projectId: taskResult.project_id,
-          startDate: taskResult.start_date ? new Date(taskResult.start_date) : undefined,
-          dueDate: taskResult.due_date ? new Date(taskResult.due_date) : undefined,
-          subtasks: createdSubtasks,
-      };
-      setTasksState(prevState => ({
-          ...prevState,
-          tasks: [formattedTask as Task, ...prevState.tasks],
-      }));
+      
+      await fetchTasks(user);
   };
 
   const updateTask = async (id: string, taskData: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>> & { subtasks?: { title: string; is_completed: boolean }[], imageFile?: File, onUploadProgress?: (progress: number) => void }) => {
@@ -480,13 +478,21 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
 
     if (dataToUpdate.startDate) {
-        dataToUpdate.start_date = formatISO(dataToUpdate.startDate, { representation: 'date' });
+        dataToUpdate.start_date = format(dataToUpdate.startDate, 'yyyy-MM-dd');
+        delete dataToUpdate.startDate;
+    } else if (dataToUpdate.startDate === null) {
+        dataToUpdate.start_date = null;
         delete dataToUpdate.startDate;
     }
+
     if (dataToUpdate.dueDate) {
-        dataToUpdate.due_date = formatISO(dataToUpdate.dueDate, { representation: 'date' });
+        dataToUpdate.due_date = format(dataToUpdate.dueDate, 'yyyy-MM-dd');
+        delete dataToUpdate.dueDate;
+    } else if (dataToUpdate.dueDate === null) {
+        dataToUpdate.due_date = null;
         delete dataToUpdate.dueDate;
     }
+
     if (dataToUpdate.projectId) {
         dataToUpdate.project_id = dataToUpdate.projectId;
         delete dataToUpdate.projectId;

@@ -76,20 +76,17 @@ export function CalendarPage() {
   
   const getTasksForDay = (day: Date) => {
     return tasks.filter(task => {
-      const taskStart = task.startDate ? startOfDay(task.startDate) : null;
-      const taskDue = task.dueDate ? startOfDay(task.dueDate) : null;
       const currentDay = startOfDay(day);
 
-      if (taskStart && taskDue) {
+      if (task.startDate && task.dueDate) {
         // For tasks with a duration, check if the current day is within the interval (inclusive)
-        if (isSameDay(taskStart, taskDue)) {
-          return isSameDay(currentDay, taskStart);
-        }
+        const taskStart = startOfDay(task.startDate);
+        const taskDue = startOfDay(task.dueDate);
         return isWithinInterval(currentDay, { start: taskStart, end: taskDue });
       }
-      if (taskDue) {
+      if (task.dueDate) {
         // For tasks with only a due date, show them on that day
-        return isSameDay(currentDay, taskDue);
+        return isSameDay(currentDay, startOfDay(task.dueDate));
       }
       return false;
     }).sort((a,b) => (a.startDate?.getTime() || 0) - (b.startDate?.getTime() || 0));
