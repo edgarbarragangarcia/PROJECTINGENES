@@ -114,8 +114,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         const formattedTasks = (tasksData || []).map(task => ({
             ...task,
             projectId: task.project_id,
-            startDate: task.start_date ? parseISO(task.start_date) : undefined,
-            dueDate: task.due_date ? parseISO(task.due_date) : undefined,
+            startDate: task.start_date ? new Date(task.start_date + 'T00:00:00') : undefined,
+            dueDate: task.due_date ? new Date(task.due_date + 'T00:00:00') : undefined,
             subtasks: task.subtasks || [],
         }));
 
