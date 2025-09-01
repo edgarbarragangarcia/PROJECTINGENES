@@ -41,10 +41,6 @@ const chartConfig = {
     label: "Backlog",
     color: "hsl(var(--chart-4))",
   },
-  Cancelled: {
-      label: "Cancelado",
-      color: "hsl(var(--chart-5))",
-  }
 } satisfies ChartConfig;
 
 const getPriorityBadgeVariant = (priority: Task['priority']) => {
@@ -98,12 +94,21 @@ export function DashboardPage() {
     })), [tasksByStatus]);
 
     const totalTasks = filteredTasks.length;
-    const completedTasks = (tasksByStatus['Done'] || 0) + (tasksByStatus['Backlog'] || 0);
+    const completedTasks = tasksByStatus['Done'] || 0;
+
+    const totalProjects = useMemo(() => {
+      if (selectedUserEmail === 'all') {
+        return projects.length;
+      }
+      const projectsWithUserTasks = new Set(filteredTasks.map(task => task.projectId));
+      return projectsWithUserTasks.size;
+    }, [projects, filteredTasks, selectedUserEmail]);
+
+    const activeTasks = totalTasks - completedTasks - (tasksByStatus['Backlog'] || 0);
     const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-    const totalProjects = projects.length;
 
     const upcomingTasks = useMemo(() => filteredTasks
-        .filter(task => task.dueDate && new Date(task.dueDate) >= new Date() && !['Done', 'Backlog'].includes(task.status))
+        .filter(task => task.dueDate && new Date(task.dueDate) >= new Date() && task.status !== 'Done' && task.status !== 'Backlog')
         .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
         .slice(0, 5), [filteredTasks]);
 
@@ -137,7 +142,9 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{totalProjects}</div>
-                    <p className="text-xs text-muted-foreground">Proyectos activos y completados</p>
+                    <p className="text-xs text-muted-foreground">
+                        {selectedUserEmail === 'all' ? 'Proyectos activos y completados' : 'Proyectos en los que participa'}
+                    </p>
                 </CardContent>
             </Card>
             <Card>
@@ -159,7 +166,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{completedTasks}</div>
-                     <p className="text-xs text-muted-foreground">Marcadas como 'Done' o 'Backlog'</p>
+                     <p className="text-xs text-muted-foreground">Marcadas como 'Done'</p>
                 </CardContent>
             </Card>
             <Card>
