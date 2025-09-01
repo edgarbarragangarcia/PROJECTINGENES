@@ -1,6 +1,7 @@
 
 'use client';
 
+import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
 import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
@@ -164,101 +165,101 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <PageHeader title="Calendario">
-         <div className='flex items-center gap-2'>
-             <Button variant="outline" size="sm" onClick={handleGoogleConnect}>
-                <GoogleCalendarIcon />
-                Sincronizar Calendarios
-             </Button>
-            <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft/></Button>
-            <h2 className='text-xl font-headline w-48 text-center capitalize'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight/></Button>
-         </div>
-      </PageHeader>
-      <div className="flex-1 overflow-auto p-4 md:px-8 lg:px-12">
-        <div className="grid grid-cols-7 border-t border-l max-w-7xl mx-auto">
-          {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
-              <div key={day} className="p-2 border-b border-r text-center font-semibold text-sm bg-muted/50">{day}</div>
-          ))}
-          {weeks.map((week, weekIndex) => week.map((day) => {
-                 const dayTasks = getTasksForDay(day);
-                 const dayNotes = getNotesByDate(day);
-                 const dayGgEvents = googleEventsByDay.get(format(day, 'yyyy-MM-dd')) || [];
-                 const allItems = [...dayTasks, ...dayNotes, ...dayGgEvents];
-                 const maxItemsToShow = 2;
+    <AppLayout>
+      <div className="flex flex-col h-full">
+        <PageHeader title="Calendario">
+          <div className='flex items-center gap-2'>
+              <Button variant="outline" size="sm" onClick={handleGoogleConnect}>
+                  <GoogleCalendarIcon />
+                  Sincronizar Calendarios
+              </Button>
+              <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft/></Button>
+              <h2 className='text-xl font-headline w-48 text-center capitalize'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
+              <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight/></Button>
+          </div>
+        </PageHeader>
+        <div className="flex-1 overflow-auto p-4 md:px-8 lg:px-12">
+          <div className="grid grid-cols-7 border-t border-l max-w-7xl mx-auto">
+            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
+                <div key={day} className="p-2 border-b border-r text-center font-semibold text-sm bg-muted/50">{day}</div>
+            ))}
+            {weeks.map((week, weekIndex) => week.map((day) => {
+                  const dayTasks = getTasksForDay(day);
+                  const dayNotes = getNotesByDate(day);
+                  const dayGgEvents = googleEventsByDay.get(format(day, 'yyyy-MM-dd')) || [];
+                  const allItems = [...dayTasks, ...dayNotes, ...dayGgEvents];
+                  const maxItemsToShow = 2;
 
-                 return (
-                  <div 
-                    key={day.toISOString()} 
-                    className={cn("relative border-b border-r p-1.5 h-40 flex flex-col group cursor-pointer hover:bg-muted/50",
-                      !isSameMonth(day, currentDate) && 'bg-muted/30 text-muted-foreground',
-                      isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
-                    )}
-                    onClick={() => setSelectedDate(day)}
-                  >
-                    <time dateTime={day.toISOString()} className={cn(
-                      "font-medium text-sm", 
-                      isSameDay(day, new Date()) && 'text-primary font-bold'
-                    )}>
-                      {format(day, 'd')}
-                    </time>
-                     <div className="mt-1 flex-1 space-y-0.5 overflow-hidden">
-                       {dayTasks.slice(0, maxItemsToShow).map(task => (
-                         <div 
-                          key={task.id}
-                          className={cn("text-xs p-1 rounded-sm text-white font-medium truncate cursor-pointer", statusColors[task.status])}
-                          title={task.title}
-                          onClick={(e) => handleTaskClick(e, task)}
-                         >
-                           {task.title}
-                         </div>
-                       ))}
-                       {dayNotes.slice(0, maxItemsToShow - dayTasks.length).map(note => (
-                         <div key={note.id} className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm line-clamp-1' title={note.note}>
-                            - {note.note}
+                  return (
+                    <div 
+                      key={day.toISOString()} 
+                      className={cn("relative border-b border-r p-1.5 h-40 flex flex-col group cursor-pointer hover:bg-muted/50",
+                        !isSameMonth(day, currentDate) && 'bg-muted/30 text-muted-foreground',
+                        isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
+                      )}
+                      onClick={() => setSelectedDate(day)}
+                    >
+                      <time dateTime={day.toISOString()} className={cn(
+                        "font-medium text-sm", 
+                        isSameDay(day, new Date()) && 'text-primary font-bold'
+                      )}>
+                        {format(day, 'd')}
+                      </time>
+                      <div className="mt-1 flex-1 space-y-0.5 overflow-hidden">
+                        {dayTasks.slice(0, maxItemsToShow).map(task => (
+                          <div 
+                            key={task.id}
+                            className={cn("text-xs p-1 rounded-sm text-white font-medium truncate cursor-pointer", statusColors[task.status])}
+                            title={task.title}
+                            onClick={(e) => handleTaskClick(e, task)}
+                          >
+                            {task.title}
                           </div>
-                       ))}
-                       {dayGgEvents.slice(0, maxItemsToShow - dayTasks.length - dayNotes.length).map((event) => (
-                        <div 
-                          key={event.id}
-                          className="text-xs p-1 rounded-sm bg-gray-200 dark:bg-gray-700 font-medium truncate"
-                          title={event.summary}
-                        >
-                          {event.summary}
-                        </div>
-                      ))}
-                      {allItems.length > maxItemsToShow && (
-                         <div className='text-xs text-muted-foreground font-medium pt-1'>
-                            y {allItems.length - maxItemsToShow} más...
+                        ))}
+                        {dayNotes.slice(0, maxItemsToShow - dayTasks.length).map(note => (
+                          <div key={note.id} className='text-xs p-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-sm line-clamp-1' title={note.note}>
+                              - {note.note}
+                            </div>
+                        ))}
+                        {dayGgEvents.slice(0, maxItemsToShow - dayTasks.length - dayNotes.length).map((event) => (
+                          <div 
+                            key={event.id}
+                            className="text-xs p-1 rounded-sm bg-gray-200 dark:bg-gray-700 font-medium truncate"
+                            title={event.summary}
+                          >
+                            {event.summary}
                           </div>
-                       )}
+                        ))}
+                        {allItems.length > maxItemsToShow && (
+                          <div className='text-xs text-muted-foreground font-medium pt-1'>
+                              y {allItems.length - maxItemsToShow} más...
+                            </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              }))}
+                  )
+                }))}
+          </div>
         </div>
+        {editingTask && (
+          <TaskFormDialog
+            open={!!editingTask}
+            onOpenChange={(isOpen) => !isOpen && setEditingTask(null)}
+            taskToEdit={editingTask}
+            projectId={editingTask.projectId}
+          />
+        )}
+        {selectedDate && (
+          <DailySummaryDialog
+            open={!!selectedDate}
+            onOpenChange={(isOpen) => !isOpen && setSelectedDate(null)}
+            date={selectedDate}
+            tasks={getTasksForDay(selectedDate)}
+            notes={getNotesByDate(selectedDate)}
+            onEditTask={(task) => setEditingTask(task)}
+          />
+        )}
       </div>
-       {editingTask && (
-        <TaskFormDialog
-          open={!!editingTask}
-          onOpenChange={(isOpen) => !isOpen && setEditingTask(null)}
-          taskToEdit={editingTask}
-          projectId={editingTask.projectId}
-        />
-      )}
-      {selectedDate && (
-        <DailySummaryDialog
-          open={!!selectedDate}
-          onOpenChange={(isOpen) => !isOpen && setSelectedDate(null)}
-          date={selectedDate}
-          tasks={getTasksForDay(selectedDate)}
-          notes={getNotesByDate(selectedDate)}
-          onEditTask={(task) => setEditingTask(task)}
-        />
-      )}
-    </div>
+    </AppLayout>
   );
 }
-
-    
