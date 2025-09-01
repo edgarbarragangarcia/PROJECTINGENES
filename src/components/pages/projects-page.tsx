@@ -30,7 +30,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
-export function ProjectsPage() {
+export default function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
   const { tasks, allUsers } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -487,3 +487,5 @@ export function ProjectsPage() {
     </>
   );
 }
+
+    

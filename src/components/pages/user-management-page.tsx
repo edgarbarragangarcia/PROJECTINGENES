@@ -24,7 +24,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
 import { useState } from 'react';
 
-export function UserManagementPage() {
+export default function UserManagementPage() {
   const { allUsers } = useTasks();
   const { toast } = useToast();
   const supabase = createClient();
@@ -101,3 +101,5 @@ export function UserManagementPage() {
     </div>
   );
 }
+
+    

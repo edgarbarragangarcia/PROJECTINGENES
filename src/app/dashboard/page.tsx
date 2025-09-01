@@ -56,7 +56,7 @@ const getPriorityBadgeVariant = (priority: Task['priority']) => {
     }
 };
 
-export function DashboardPage() {
+export default function DashboardPage() {
     const { tasks, allUsers } = useTasks();
     const { projects } = useProjects();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -379,3 +379,5 @@ export function DashboardPage() {
     </div>
   );
 }
+
+    
