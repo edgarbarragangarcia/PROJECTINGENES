@@ -6,7 +6,7 @@ import type { ProjectWithProgress, Task, Profile } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
-import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User, Users, FolderPlus } from 'lucide-react';
+import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User, Users, FolderPlus, FolderCheck } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
@@ -70,6 +70,11 @@ export function DashboardPage() {
         checkAdmin();
     }, [supabase.auth]);
 
+    const userProjects = useMemo(() => {
+        if (selectedUserEmail === 'all') return projects;
+        return projects.filter(p => p.creator_email === selectedUserEmail);
+    }, [projects, selectedUserEmail]);
+
     // Tasks assigned to the selected user (for KPIs)
     const assignedTasks = useMemo(() => {
         if (selectedUserEmail === 'all') {
@@ -83,12 +88,10 @@ export function DashboardPage() {
         if (selectedUserEmail === 'all') {
             return tasks;
         }
-        const createdProjectIds = projects
-            .filter(p => p.creator_email === selectedUserEmail)
-            .map(p => p.id);
+        const createdProjectIds = userProjects.map(p => p.id);
         
         return tasks.filter(task => createdProjectIds.includes(task.projectId));
-    }, [tasks, projects, selectedUserEmail]);
+    }, [tasks, userProjects, selectedUserEmail]);
     
     const selectedUserName = useMemo(() => {
         if (selectedUserEmail === 'all') return 'General';
@@ -125,10 +128,11 @@ export function DashboardPage() {
       return projectsWithUserTasks.size;
     }, [projects.length, assignedTasks, selectedUserEmail]);
     
-    const createdProjectsCount = useMemo(() => {
-        if (selectedUserEmail === 'all') return projects.length;
-        return projects.filter(p => p.creator_email === selectedUserEmail).length;
-    }, [projects, selectedUserEmail]);
+    const createdProjectsCount = userProjects.length;
+
+    const closedProjectsCount = useMemo(() => {
+        return userProjects.filter(p => p.status === 'Completado').length;
+    }, [userProjects]);
 
 
     const upcomingTasks = useMemo(() => assignedTasks
@@ -136,8 +140,8 @@ export function DashboardPage() {
         .sort((a, b) => {
             const aDueDate = new Date(a.dueDate!).getTime();
             const bDueDate = new Date(b.dueDate!).getTime();
-            const aIsPast = isPast(aDueDate);
-            const bIsPast = isPast(bDueDate);
+            const aIsPast = isPast(startOfDay(new Date(a.dueDate)));
+            const bIsPast = isPast(startOfDay(new Date(b.dueDate)));
 
             if (aIsPast && !bIsPast) return -1; // a (past) comes first
             if (!aIsPast && bIsPast) return 1;  // b (past) comes first
@@ -172,7 +176,7 @@ export function DashboardPage() {
       </PageHeader>
       <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
         {/* KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6 mb-6">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Proyectos en los que participa</CardTitle>
@@ -194,6 +198,18 @@ export function DashboardPage() {
                     <div className="text-2xl font-bold">{createdProjectsCount}</div>
                     <p className="text-xs text-muted-foreground">
                          {selectedUserEmail === 'all' ? 'Total en el sistema' : `Creados por ${selectedUserName}`}
+                    </p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Proyectos Cerrados</CardTitle>
+                    <FolderCheck className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{closedProjectsCount}</div>
+                    <p className="text-xs text-muted-foreground">
+                         {selectedUserEmail === 'all' ? 'Total completados' : `Completados por ${selectedUserName}`}
                     </p>
                 </CardContent>
             </Card>
