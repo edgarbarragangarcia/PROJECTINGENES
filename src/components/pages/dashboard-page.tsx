@@ -2,11 +2,11 @@
 'use client';
 
 import { PageHeader } from '../layout/page-header';
-import type { ProjectWithProgress, Task, Profile } from '@/lib/types';
+import type { ProjectWithProgress, Task, Profile, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
-import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User, Users, FolderPlus, FolderCheck } from 'lucide-react';
+import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User as UserIcon, Users, FolderPlus, FolderCheck } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
@@ -60,28 +60,33 @@ const getPriorityBadgeVariant = (priority: Task['priority']) => {
 export function DashboardPage() {
     const { tasks, allUsers } = useTasks();
     const { projects } = useProjects();
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [selectedUserEmail, setSelectedUserEmail] = useState('all');
     const supabase = createClient();
 
     useEffect(() => {
-        const checkAdmin = async () => {
+        const checkUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
+            setCurrentUser(user);
             if (user && adminEmails.includes(user.email || '')) {
                 setIsAdmin(true);
+            } else if (user) {
+                // If not an admin, default to their own view
+                setSelectedUserEmail(user.email || 'all');
             }
         };
-        checkAdmin();
+        checkUser();
     }, [supabase.auth]);
 
     const userProjects = useMemo(() => {
-        if (selectedUserEmail === 'all') return projects;
+        if (selectedUserEmail === 'all' || !selectedUserEmail) return projects;
         return projects.filter(p => p.creator_email === selectedUserEmail);
     }, [projects, selectedUserEmail]);
 
     // Tasks assigned to the selected user (for KPIs)
     const assignedTasks = useMemo(() => {
-        if (selectedUserEmail === 'all') {
+        if (selectedUserEmail === 'all' || !selectedUserEmail) {
             return tasks;
         }
         return tasks.filter(task => task.assignees?.includes(selectedUserEmail));
@@ -89,7 +94,7 @@ export function DashboardPage() {
     
     // Tasks from projects created by the selected user (for the chart)
     const tasksFromCreatedProjects = useMemo(() => {
-        if (selectedUserEmail === 'all') {
+        if (selectedUserEmail === 'all' || !selectedUserEmail) {
             return tasks;
         }
         const createdProjectIds = userProjects.map(p => p.id);
@@ -125,7 +130,7 @@ export function DashboardPage() {
     const overallProgress = totalAssignedTasks > 0 ? Math.round((completedAssignedTasks / totalAssignedTasks) * 100) : 0;
 
     const participatingProjectsCount = useMemo(() => {
-      if (selectedUserEmail === 'all') {
+      if (selectedUserEmail === 'all' || !selectedUserEmail) {
         return projects.length;
       }
       const projectsWithUserTasks = new Set(assignedTasks.map(task => task.projectId));
@@ -144,8 +149,8 @@ export function DashboardPage() {
         .sort((a, b) => {
             const aDueDate = new Date(a.dueDate!).getTime();
             const bDueDate = new Date(b.dueDate!).getTime();
-            const aIsPast = isPast(startOfDay(new Date(a.dueDate)));
-            const bIsPast = isPast(startOfDay(new Date(b.dueDate)));
+            const aIsPast = isPast(startOfDay(new Date(a.dueDate!)));
+            const bIsPast = isPast(startOfDay(new Date(b.dueDate!)));
 
             if (aIsPast && !bIsPast) return -1; // a (past) comes first
             if (!aIsPast && bIsPast) return 1;  // b (past) comes first
@@ -158,9 +163,16 @@ export function DashboardPage() {
         })
         .slice(0, 5), [assignedTasks]);
 
+    const headerTitle = useMemo(() => {
+        if (isAdmin) {
+            return `Dashboard ${selectedUserName}`;
+        }
+        return 'Mi Dashboard';
+    }, [isAdmin, selectedUserName]);
+
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title={`Dashboard ${selectedUserName}`}>
+      <PageHeader title={headerTitle}>
         {isAdmin && (
             <div className="flex items-center gap-2">
                 <Users className="size-5 text-muted-foreground" />
@@ -183,13 +195,13 @@ export function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6 mb-6">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Proyectos en los que participa</CardTitle>
+                    <CardTitle className="text-sm font-medium">Proyectos en los que participo</CardTitle>
                     <FolderKanban className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{participatingProjectsCount}</div>
                     <p className="text-xs text-muted-foreground">
-                        {selectedUserEmail === 'all' ? 'Proyectos activos y completados' : 'Proyectos con tareas asignadas'}
+                        {selectedUserEmail === 'all' && isAdmin ? 'Proyectos activos y completados' : 'Proyectos con tareas asignadas'}
                     </p>
                 </CardContent>
             </Card>
@@ -201,7 +213,7 @@ export function DashboardPage() {
                 <CardContent>
                     <div className="text-2xl font-bold">{createdProjectsCount}</div>
                     <p className="text-xs text-muted-foreground">
-                         {selectedUserEmail === 'all' ? 'Total en el sistema' : `Creados por ${selectedUserName}`}
+                         {selectedUserEmail === 'all' && isAdmin ? 'Total en el sistema' : 'Creados por mí'}
                     </p>
                 </CardContent>
             </Card>
@@ -213,7 +225,7 @@ export function DashboardPage() {
                 <CardContent>
                     <div className="text-2xl font-bold">{closedProjectsCount}</div>
                     <p className="text-xs text-muted-foreground">
-                         {selectedUserEmail === 'all' ? 'Total completados' : `Completados por ${selectedUserName}`}
+                         {selectedUserEmail === 'all' && isAdmin ? 'Total completados' : 'Completados por mí'}
                     </p>
                 </CardContent>
             </Card>
@@ -225,7 +237,7 @@ export function DashboardPage() {
                 <CardContent>
                     <div className="text-2xl font-bold">{totalAssignedTasks}</div>
                     <p className="text-xs text-muted-foreground">
-                        {selectedUserEmail === 'all' ? 'En todos los proyectos' : `Asignadas a ${selectedUserName}`}
+                        {selectedUserEmail === 'all' && isAdmin ? 'En todos los proyectos' : 'Asignadas a mí'}
                     </p>
                 </CardContent>
             </Card>
@@ -236,7 +248,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{completedAssignedTasks}</div>
-                     <p className="text-xs text-muted-foreground">De las tareas asignadas</p>
+                     <p className="text-xs text-muted-foreground">De mis tareas asignadas</p>
                 </CardContent>
             </Card>
             <Card>
@@ -246,7 +258,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{overallProgress}%</div>
-                    <p className="text-xs text-muted-foreground">De las tareas asignadas</p>
+                    <p className="text-xs text-muted-foreground">De mis tareas asignadas</p>
                 </CardContent>
             </Card>
         </div>
@@ -256,7 +268,12 @@ export function DashboardPage() {
             <Card className="md:col-span-3">
                 <CardHeader>
                     <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas por Estado (Proyectos Creados)</CardTitle>
-                    <CardDescription>Distribución de tareas en los proyectos creados por {selectedUserEmail === 'all' ? 'todos' : selectedUserName}.</CardDescription>
+                    <CardDescription>
+                      {isAdmin && selectedUserEmail === 'all'
+                        ? 'Distribución de tareas en los proyectos creados por todos.'
+                        : `Distribución de tareas en los proyectos creados por ${isAdmin ? selectedUserName : 'mí'}.`
+                      }
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                    {chartData.length > 0 ? (
@@ -298,7 +315,7 @@ export function DashboardPage() {
                         <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-[250px]">
                             <ListChecks className="size-8 text-muted-foreground mb-2"/>
                             <p className="font-semibold">Sin Tareas</p>
-                            <p className="text-sm text-muted-foreground">Los proyectos creados por este usuario no tienen tareas.</p>
+                            <p className="text-sm text-muted-foreground">No hay tareas en los proyectos que has creado.</p>
                         </div>
                    )}
                 </CardContent>
@@ -308,7 +325,12 @@ export function DashboardPage() {
             <Card className="md:col-span-2">
                 <CardHeader>
                     <CardTitle className='flex items-center gap-2'><Clock className='size-5'/> Próximas Tareas Asignadas</CardTitle>
-                    <CardDescription>Las próximas 5 tareas más urgentes asignadas a {selectedUserEmail === 'all' ? 'cualquier usuario' : selectedUserName}.</CardDescription>
+                    <CardDescription>
+                      {isAdmin && selectedUserEmail === 'all'
+                        ? 'Las próximas 5 tareas más urgentes asignadas a cualquier usuario.'
+                        : `Las próximas 5 tareas más urgentes asignadas a ${isAdmin ? selectedUserName : 'mí'}.`
+                      }
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
@@ -344,7 +366,7 @@ export function DashboardPage() {
                             <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-full">
                                 <CheckCircle className="size-8 text-green-500 mb-2"/>
                                 <p className="font-semibold">¡Todo en orden!</p>
-                                <p className="text-sm text-muted-foreground">No hay tareas próximas asignadas.</p>
+                                <p className="text-sm text-muted-foreground">No tienes tareas próximas asignadas.</p>
                             </div>
                         )}
                     </div>
