@@ -14,7 +14,7 @@ import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
 
 
-export const adminEmails = ['edgarbarragangarcia@gmail.com', 'eabarragang@ingenes.com', 'ntorres@ingenes.com'];
+export const adminEmails = ['edgarbarragangarcia@gmail.com', 'ntorres@ingenes.com'];
 
 const convertUTCDateToLocalDate = (date: Date) => {
   const newDate = new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000);

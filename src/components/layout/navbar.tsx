@@ -84,12 +84,13 @@ export function Navbar() {
       <div className="ml-auto flex items-center gap-4">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
+                <div className="flex flex-col items-center cursor-pointer">
+                    <Avatar className="h-8 w-8 border-2 border-gray-700">
                         <AvatarImage src={user?.user_metadata.avatar_url} alt={user?.email || 'Usuario'} />
                         <AvatarFallback>{getInitials(user?.email)}</AvatarFallback>
                     </Avatar>
-                </Button>
+                    <span className="text-xs font-medium text-foreground">{user?.user_metadata.full_name}</span>
+                </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
