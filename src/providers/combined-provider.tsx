@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -76,31 +75,59 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (projectsError) throw projectsError;
+            if (projectsError) {
+                console.error("Admin projects query error:", projectsError);
+                throw new Error(`Error fetching admin projects: ${projectsError.message || JSON.stringify(projectsError)}`);
+            }
             setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsData || [] }));
 
         } else {
             // Non-admin sees projects they created OR are assigned to via tasks
             let participatingProjectIds: string[] = [];
+            
             if (user.email) {
-                const { data: assignedTasks, error: tasksError } = await supabase
-                    .from('tasks')
-                    .select('project_id')
-                    .contains('assignees', [user.email]);
-                
-                if (tasksError) {
-                    console.error("Error fetching tasks for project visibility:", tasksError);
-                    throw tasksError;
+                try {
+                    // Alternative, safer approach: fetch all tasks and filter in-memory
+                    const { data: allTasks, error: tasksError } = await supabase
+                        .from('tasks')
+                        .select('project_id, assignees');
+
+                    if (tasksError) {
+                        console.error("Error fetching tasks for project visibility:", tasksError);
+                        // We can decide to throw or continue gracefully
+                        participatingProjectIds = [];
+                    } else {
+                        const userTasks = (allTasks || []).filter(task => {
+                            if (!task.assignees) return false;
+                            
+                            // Check if assignees is an array and includes the user's email
+                            if (Array.isArray(task.assignees)) {
+                                return task.assignees.includes(user.email!);
+                            }
+                            // Fallback for incorrectly stored string
+                            if (typeof task.assignees === 'string') {
+                                return task.assignees.includes(user.email!);
+                            }
+                            return false;
+                        });
+                        participatingProjectIds = [...new Set(userTasks.map(t => t.project_id).filter(Boolean))];
+                    }
+                } catch (error: any) {
+                     console.error("Error processing tasks for project visibility:", { message: error?.message, stack: error?.stack, error: error });
+                    participatingProjectIds = [];
                 }
-                participatingProjectIds = [...new Set(assignedTasks?.map(t => t.project_id) || [])];
             }
+
 
             const { data: createdProjectIdsData, error: createdIdsError } = await supabase
                 .from('projects')
                 .select('id')
                 .eq('user_id', user.id);
 
-            if(createdIdsError) throw createdIdsError;
+            if(createdIdsError) {
+                console.error("Error fetching created projects:", createdIdsError);
+                throw new Error(`Error fetching created projects: ${createdIdsError.message || JSON.stringify(createdIdsError)}`);
+            }
 
             const createdProjectIds = createdProjectIdsData?.map(p => p.id) || [];
             
@@ -117,13 +144,19 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
                 .in('id', allVisibleProjectIds)
                 .order('created_at', { ascending: false });
 
-            if (projectsError) throw projectsError;
+            if (projectsError) {
+                console.error("Error fetching user projects:", projectsError);
+                throw new Error(`Error fetching user projects: ${projectsError.message || JSON.stringify(projectsError)}`);
+            }
             
             setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsData || [] }));
         }
     } catch (error: any) {
         console.error('Error fetching projects:', error);
-        setProjectsState(prevState => ({ ...prevState, loading: false, error }));
+        const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+        const finalError = new Error(`Failed to fetch projects: ${errorMessage}`);
+        setProjectsState(prevState => ({ ...prevState, loading: false, error: finalError }));
+        throw finalError;
     }
   }, [supabase]);
 
@@ -143,7 +176,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
         const { data: tasksData, error: tasksError } = await query.order('created_at', { ascending: false });
 
-        if (tasksError) throw tasksError;
+        if (tasksError) {
+            console.error("Error fetching tasks:", tasksError);
+            throw new Error(`Error fetching tasks: ${tasksError.message || JSON.stringify(tasksError)}`);
+        }
 
         const formattedTasks = (tasksData || []).map(task => ({
             ...task,
@@ -156,7 +192,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         setTasksState(prevState => ({ ...prevState, loading: false, tasks: formattedTasks as Task[] }));
     } catch (error: any) {
         console.error('Error fetching tasks:', error);
-        setTasksState(prevState => ({ ...prevState, loading: false, error }));
+        const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+        const finalError = new Error(`Failed to fetch tasks: ${errorMessage}`);
+        setTasksState(prevState => ({ ...prevState, loading: false, error: finalError }));
+        throw finalError;
     }
   }, [supabase]);
 
@@ -169,12 +208,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching daily notes:", error);
+        throw new Error(`Error fetching daily notes: ${error.message || JSON.stringify(error)}`);
+      }
       
       setDailyNotesState(prevState => ({ ...prevState, loading: false, notes: data || [] }));
     } catch (error: any) {
       console.error('Error fetching daily notes:', error);
-      setDailyNotesState(prevState => ({ ...prevState, loading: false, error }));
+      const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+      const finalError = new Error(`Failed to fetch daily notes: ${errorMessage}`);
+      setDailyNotesState(prevState => ({ ...prevState, loading: false, error: finalError }));
+      throw finalError;
     }
   }, [supabase]);
 
@@ -184,23 +229,33 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       let query = supabase.from('user_stories').select('*');
 
       const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching user stories:", error);
+        throw new Error(`Error fetching user stories: ${error.message || JSON.stringify(error)}`);
+      }
       setUserStories(data || []);
     } catch (error: any) {
       console.error('Error fetching user stories:', error);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+      throw new Error(`Failed to fetch user stories: ${errorMessage}`);
     } finally {
       setUserStoriesLoading(false);
     }
   }, [supabase]);
 
   const fetchAllData = useCallback(async (user: User) => {
-    await Promise.all([
-      fetchProjects(user),
-      fetchTasks(user),
-      fetchDailyNotes(user),
-      fetchUserStories(user),
-      fetchUsers(),
-    ]);
+    try {
+      await Promise.all([
+        fetchProjects(user),
+        fetchTasks(user),
+        fetchDailyNotes(user),
+        fetchUserStories(user),
+        fetchUsers(),
+      ]);
+    } catch (error: any) {
+      console.error('Error in fetchAllData:', error);
+      // Don't rethrow here to prevent breaking the auth flow
+    }
   }, [fetchProjects, fetchTasks, fetchDailyNotes, fetchUserStories, fetchUsers]);
 
 
