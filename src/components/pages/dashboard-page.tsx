@@ -69,12 +69,25 @@ export function DashboardPage() {
         checkAdmin();
     }, [supabase.auth]);
 
-    const filteredTasks = useMemo(() => {
+    // Tasks assigned to the selected user (for KPIs)
+    const assignedTasks = useMemo(() => {
         if (selectedUserEmail === 'all') {
             return tasks;
         }
         return tasks.filter(task => task.assignees?.includes(selectedUserEmail));
     }, [tasks, selectedUserEmail]);
+    
+    // Tasks from projects created by the selected user (for the chart)
+    const tasksFromCreatedProjects = useMemo(() => {
+        if (selectedUserEmail === 'all') {
+            return tasks;
+        }
+        const createdProjectIds = projects
+            .filter(p => p.creator_email === selectedUserEmail)
+            .map(p => p.id);
+        
+        return tasks.filter(task => createdProjectIds.includes(task.projectId));
+    }, [tasks, projects, selectedUserEmail]);
     
     const selectedUserName = useMemo(() => {
         if (selectedUserEmail === 'all') return 'General';
@@ -82,27 +95,34 @@ export function DashboardPage() {
         return user?.full_name || user?.email || 'Desconocido';
     }, [selectedUserEmail, allUsers]);
 
-    const tasksByStatus = useMemo(() => filteredTasks.reduce((acc, task) => {
+    // Chart data is now based on tasks from created projects
+    const tasksByStatusForChart = useMemo(() => tasksFromCreatedProjects.reduce((acc, task) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
-    }, {} as Record<string, number>), [filteredTasks]);
+    }, {} as Record<string, number>), [tasksFromCreatedProjects]);
 
-    const chartData = useMemo(() => Object.entries(tasksByStatus).map(([status, count]) => ({
+    const chartData = useMemo(() => Object.entries(tasksByStatusForChart).map(([status, count]) => ({
         status,
         tasks: count,
         fill: `var(--color-${status.replace(/ /g, '')})`
-    })), [tasksByStatus]);
+    })), [tasksByStatusForChart]);
 
-    const totalTasks = filteredTasks.length;
-    const completedTasks = tasksByStatus['Done'] || 0;
+    // KPI data is based on assigned tasks
+    const totalAssignedTasks = assignedTasks.length;
+    const completedAssignedTasks = useMemo(() => assignedTasks.reduce((acc, task) => {
+        if (task.status === 'Done') return acc + 1;
+        return acc;
+    }, 0), [assignedTasks]);
+    
+    const overallProgress = totalAssignedTasks > 0 ? Math.round((completedAssignedTasks / totalAssignedTasks) * 100) : 0;
 
     const participatingProjectsCount = useMemo(() => {
       if (selectedUserEmail === 'all') {
         return projects.length;
       }
-      const projectsWithUserTasks = new Set(filteredTasks.map(task => task.projectId));
+      const projectsWithUserTasks = new Set(assignedTasks.map(task => task.projectId));
       return projectsWithUserTasks.size;
-    }, [projects.length, filteredTasks, selectedUserEmail]);
+    }, [projects.length, assignedTasks, selectedUserEmail]);
     
     const createdProjectsCount = useMemo(() => {
         if (selectedUserEmail === 'all') return projects.length;
@@ -110,12 +130,10 @@ export function DashboardPage() {
     }, [projects, selectedUserEmail]);
 
 
-    const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-    const upcomingTasks = useMemo(() => filteredTasks
+    const upcomingTasks = useMemo(() => assignedTasks
         .filter(task => task.dueDate && new Date(task.dueDate) >= new Date() && task.status !== 'Done' && task.status !== 'Backlog')
         .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
-        .slice(0, 5), [filteredTasks]);
+        .slice(0, 5), [assignedTasks]);
 
   return (
     <div className="flex flex-col h-full">
@@ -148,7 +166,7 @@ export function DashboardPage() {
                 <CardContent>
                     <div className="text-2xl font-bold">{participatingProjectsCount}</div>
                     <p className="text-xs text-muted-foreground">
-                        {selectedUserEmail === 'all' ? 'Proyectos activos y completados' : 'Proyectos en los que participa'}
+                        {selectedUserEmail === 'all' ? 'Proyectos activos y completados' : 'Proyectos con tareas asignadas'}
                     </p>
                 </CardContent>
             </Card>
@@ -166,11 +184,11 @@ export function DashboardPage() {
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total de Tareas</CardTitle>
+                    <CardTitle className="text-sm font-medium">Total de Tareas Asignadas</CardTitle>
                     <ListChecks className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{totalTasks}</div>
+                    <div className="text-2xl font-bold">{totalAssignedTasks}</div>
                     <p className="text-xs text-muted-foreground">
                         {selectedUserEmail === 'all' ? 'En todos los proyectos' : `Asignadas a ${selectedUserName}`}
                     </p>
@@ -182,18 +200,18 @@ export function DashboardPage() {
                     <CheckCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{completedTasks}</div>
-                     <p className="text-xs text-muted-foreground">Marcadas como 'Done'</p>
+                    <div className="text-2xl font-bold">{completedAssignedTasks}</div>
+                     <p className="text-xs text-muted-foreground">De las tareas asignadas</p>
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Progreso General</CardTitle>
+                    <CardTitle className="text-sm font-medium">Progreso Personal</CardTitle>
                     <Percent className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{overallProgress}%</div>
-                    <p className="text-xs text-muted-foreground">De todas las tareas filtradas</p>
+                    <p className="text-xs text-muted-foreground">De las tareas asignadas</p>
                 </CardContent>
             </Card>
         </div>
@@ -202,8 +220,8 @@ export function DashboardPage() {
             {/* Task Summary Chart */}
             <Card className="md:col-span-3">
                 <CardHeader>
-                    <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas por Estado</CardTitle>
-                    <CardDescription>Una vista rápida de cómo se distribuyen las tareas.</CardDescription>
+                    <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas por Estado (Proyectos Creados)</CardTitle>
+                    <CardDescription>Distribución de tareas en los proyectos creados por {selectedUserEmail === 'all' ? 'todos' : selectedUserName}.</CardDescription>
                 </CardHeader>
                 <CardContent>
                    {chartData.length > 0 ? (
@@ -245,7 +263,7 @@ export function DashboardPage() {
                         <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-[250px]">
                             <ListChecks className="size-8 text-muted-foreground mb-2"/>
                             <p className="font-semibold">Sin Tareas</p>
-                            <p className="text-sm text-muted-foreground">El usuario seleccionado no tiene tareas asignadas.</p>
+                            <p className="text-sm text-muted-foreground">Los proyectos creados por este usuario no tienen tareas.</p>
                         </div>
                    )}
                 </CardContent>
@@ -254,8 +272,8 @@ export function DashboardPage() {
             {/* Upcoming Tasks */}
             <Card className="md:col-span-2">
                 <CardHeader>
-                    <CardTitle className='flex items-center gap-2'><Clock className='size-5'/> Próximas Tareas</CardTitle>
-                    <CardDescription>Las próximas 5 tareas más urgentes.</CardDescription>
+                    <CardTitle className='flex items-center gap-2'><Clock className='size-5'/> Próximas Tareas Asignadas</CardTitle>
+                    <CardDescription>Las próximas 5 tareas más urgentes asignadas a {selectedUserEmail === 'all' ? 'cualquier usuario' : selectedUserName}.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
@@ -290,7 +308,7 @@ export function DashboardPage() {
                             <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-full">
                                 <CheckCircle className="size-8 text-green-500 mb-2"/>
                                 <p className="font-semibold">¡Todo en orden!</p>
-                                <p className="text-sm text-muted-foreground">No hay tareas próximas.</p>
+                                <p className="text-sm text-muted-foreground">No hay tareas próximas asignadas.</p>
                             </div>
                         )}
                     </div>
@@ -301,3 +319,5 @@ export function DashboardPage() {
     </div>
   );
 }
+
+    
