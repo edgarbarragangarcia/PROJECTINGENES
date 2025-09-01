@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
-import { adminEmails } from '@/providers/combined-provider';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useTasks } from '@/hooks/use-tasks';
@@ -33,7 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 export function ProjectsPage() {
   const { projects, loading, deleteProject } = useProjects();
-  const { tasks } = useTasks();
+  const { tasks, allUsers } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -63,12 +62,17 @@ export function ProjectsPage() {
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && adminEmails.includes(user.email || '')) {
-        setIsAdmin(true);
+      if (user) {
+        const currentUserProfile = allUsers.find(u => u.id === user.id);
+        if (currentUserProfile?.role === 'admin') {
+          setIsAdmin(true);
+        }
       }
     };
-    checkAdmin();
-  }, [supabase.auth]);
+    if (allUsers.length > 0) {
+      checkAdmin();
+    }
+  }, [supabase.auth, allUsers]);
 
   const handleEdit = (project: ProjectWithProgress) => {
     setProjectToEdit(project);

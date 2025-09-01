@@ -52,7 +52,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('profiles').select('id, email, full_name');
+      const { data, error } = await supabase.from('profiles').select('id, email, full_name, role');
       if (error) {
         console.error("Error fetching users directly:", error);
         throw error;
@@ -67,7 +67,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
-        const isAdmin = user.email && adminEmails.includes(user.email);
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        const isAdmin = profile?.role === 'admin';
         
         if (isAdmin) {
             const { data: projectsData, error: projectsError } = await supabase
@@ -84,40 +85,26 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         } else {
             let participatingProjectIds: string[] = [];
             
-            if (user.email) {
-                try {
-                    const { data: allTasks, error: tasksError } = await supabase
-                        .from('tasks')
-                        .select('project_id, assignees');
+            // This is a workaround because Supabase JS client has issues with `contains` on jsonb arrays with text.
+            // Fetch all tasks and filter client-side. This is not ideal for performance on large datasets.
+            const { data: allTasks, error: tasksError } = await supabase
+                .from('tasks')
+                .select('project_id, assignees');
 
-                    if (tasksError) {
-                        console.error("Error fetching tasks for project visibility:", {details: tasksError});
-                        participatingProjectIds = [];
-                    } else {
-                        const userTasks = (allTasks || []).filter(task => {
-                            if (!task.assignees) return false;
-                            
-                            if (Array.isArray(task.assignees)) {
-                                return task.assignees.includes(user.email!);
-                            }
-                            if (typeof task.assignees === 'string') {
-                                try {
-                                  const parsedAssignees = JSON.parse(task.assignees);
-                                  if (Array.isArray(parsedAssignees)) {
-                                    return parsedAssignees.includes(user.email!);
-                                  }
-                                } catch(e) {
-                                  return task.assignees.includes(user.email!);
-                                }
-                            }
-                            return false;
-                        });
-                        participatingProjectIds = [...new Set(userTasks.map(t => t.project_id).filter(Boolean))];
+            if (tasksError) {
+                console.error("Error fetching tasks for project visibility:", {details: tasksError});
+            } else if (user.email) {
+                const userTasks = (allTasks || []).filter(task => {
+                    if (!task.assignees || !user.email) return false;
+                    // Handle assignees being either a stringified JSON or an actual array
+                    try {
+                        const assigneesArray = typeof task.assignees === 'string' ? JSON.parse(task.assignees) : task.assignees;
+                        return Array.isArray(assigneesArray) && assigneesArray.includes(user.email);
+                    } catch (e) {
+                        return false;
                     }
-                } catch (error: any) {
-                     console.error("Error processing tasks for project visibility:", { message: error?.message, stack: error?.stack, error: error });
-                    participatingProjectIds = [];
-                }
+                });
+                participatingProjectIds = [...new Set(userTasks.map(t => t.project_id).filter(Boolean))];
             }
 
 
@@ -166,14 +153,14 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchTasks = useCallback(async (user: User) => {
     setTasksState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
-        const isAdmin = user.email && adminEmails.includes(user.email);
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        const isAdmin = profile?.role === 'admin';
+        
         let query = supabase.from('tasks').select('*, subtasks(*)');
 
         if (!isAdmin) {
             // A non-admin can see tasks in projects they created OR tasks they are assigned to.
-            // This is simplified here. A more robust solution might involve fetching projects first.
-            // For now, we assume if they can see the project, they should see all its tasks.
-            // The project fetching logic above handles visibility.
+            // The project fetching logic above handles visibility, so we can fetch all tasks from visible projects.
         }
 
         const { data: tasksData, error: tasksError } = await query.order('created_at', { ascending: false });
@@ -247,12 +234,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchAllData = useCallback(async (user: User) => {
     try {
+      await fetchUsers(); // Fetch users first to determine roles
       await Promise.all([
         fetchProjects(user),
         fetchTasks(user),
         fetchDailyNotes(user),
         fetchUserStories(user),
-        fetchUsers(),
       ]);
     } catch (error: any) {
       console.error('Error in fetchAllData:', error);

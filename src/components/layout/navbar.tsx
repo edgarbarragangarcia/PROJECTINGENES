@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Home, FolderKanban, CalendarClock, LogOut, Zap, BarChart3, ListChecks, GanttChartSquare } from 'lucide-react';
+import { Home, FolderKanban, CalendarClock, LogOut, Zap, BarChart3, ListChecks, GanttChartSquare, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useEffect, useState } from 'react';
-import { adminEmails } from '@/providers/combined-provider';
+import { useTasks } from '@/hooks/use-tasks';
 
 
 const menuItems = [
@@ -24,6 +24,7 @@ const menuItems = [
     { href: '/projects', label: 'Proyectos', icon: ListChecks, admin: false },
     { href: '/calendar', label: 'Calendario', icon: CalendarClock, admin: false },
     { href: '/gantt', label: 'Gantt', icon: GanttChartSquare, admin: true },
+    { href: '/user-management', label: 'Usuarios', icon: Users, admin: true },
 ];
 
 export function Navbar() {
@@ -31,15 +32,15 @@ export function Navbar() {
   const router = useRouter();
   const supabase = createClient();
   const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { allUsers } = useTasks();
+
+  const currentUserProfile = allUsers.find(u => u.id === user?.id);
+  const isAdmin = currentUserProfile?.role === 'admin';
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-      if (user && adminEmails.includes(user.email || '')) {
-        setIsAdmin(true);
-      }
     }
     fetchUser();
   }, [supabase.auth]);

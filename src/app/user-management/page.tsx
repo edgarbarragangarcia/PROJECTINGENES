@@ -2,17 +2,15 @@
 'use client';
 
 import { AppLayout } from "@/components/layout/app-layout";
-import { GeneralGanttChart } from "@/components/project/general-gantt-chart";
-import { useProjects } from "@/hooks/use-projects";
+import { UserManagementPage } from "@/components/pages/user-management-page";
 import { useTasks } from "@/hooks/use-tasks";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 
-export default function GeneralGanttRoute() {
-  const { tasks, allUsers } = useTasks();
-  const { projects } = useProjects();
+export default function UserManagementRoute() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { allUsers } = useTasks();
   const supabase = createClient();
 
   useEffect(() => {
@@ -56,7 +54,7 @@ export default function GeneralGanttRoute() {
 
   return (
     <AppLayout>
-      <GeneralGanttChart tasks={tasks} projects={projects} />
+      <UserManagementPage />
     </AppLayout>
   );
 }
