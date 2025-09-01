@@ -2,11 +2,11 @@
 'use client';
 
 import { PageHeader } from '../layout/page-header';
-import type { ProjectWithProgress, Task } from '@/lib/types';
+import type { ProjectWithProgress, Task, Profile } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
-import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock } from 'lucide-react';
+import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User, Users } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
@@ -16,6 +16,10 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '../ui/badge';
 import { PriorityIcon } from '../task/priority-icon';
+import { useEffect, useMemo, useState } from 'react';
+import { adminEmails } from '@/providers/combined-provider';
+import { createClient } from '@/lib/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const chartConfig = {
   tasks: {
@@ -53,33 +57,76 @@ const getPriorityBadgeVariant = (priority: Task['priority']) => {
 };
 
 export function DashboardPage() {
-    const { tasks } = useTasks();
+    const { tasks, allUsers } = useTasks();
     const { projects } = useProjects();
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [selectedUserEmail, setSelectedUserEmail] = useState('all');
+    const supabase = createClient();
 
-    const tasksByStatus = tasks.reduce((acc, task) => {
+    useEffect(() => {
+        const checkAdmin = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user && adminEmails.includes(user.email || '')) {
+                setIsAdmin(true);
+            }
+        };
+        checkAdmin();
+    }, [supabase.auth]);
+
+    const filteredTasks = useMemo(() => {
+        if (selectedUserEmail === 'all') {
+            return tasks;
+        }
+        return tasks.filter(task => task.assignees?.includes(selectedUserEmail));
+    }, [tasks, selectedUserEmail]);
+    
+    const selectedUserName = useMemo(() => {
+        if (selectedUserEmail === 'all') return 'General';
+        const user = allUsers.find(u => u.email === selectedUserEmail);
+        return user?.full_name || user?.email || 'Desconocido';
+    }, [selectedUserEmail, allUsers]);
+
+    const tasksByStatus = useMemo(() => filteredTasks.reduce((acc, task) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
-    }, {} as Record<string, number>);
+    }, {} as Record<string, number>), [filteredTasks]);
 
-    const chartData = Object.entries(tasksByStatus).map(([status, count]) => ({
+    const chartData = useMemo(() => Object.entries(tasksByStatus).map(([status, count]) => ({
         status,
         tasks: count,
         fill: `var(--color-${status.replace(/ /g, '')})`
-    }));
+    })), [tasksByStatus]);
 
-    const totalTasks = tasks.length;
+    const totalTasks = filteredTasks.length;
     const completedTasks = (tasksByStatus['Done'] || 0) + (tasksByStatus['Backlog'] || 0);
     const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     const totalProjects = projects.length;
 
-    const upcomingTasks = tasks
-        .filter(task => task.dueDate && new Date(task.dueDate) >= new Date() && !['Done', 'Cancelled', 'Backlog'].includes(task.status))
+    const upcomingTasks = useMemo(() => filteredTasks
+        .filter(task => task.dueDate && new Date(task.dueDate) >= new Date() && !['Done', 'Backlog'].includes(task.status))
         .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
-        .slice(0, 5);
+        .slice(0, 5), [filteredTasks]);
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Dashboard General" />
+      <PageHeader title={`Dashboard ${selectedUserName}`}>
+        {isAdmin && (
+            <div className="flex items-center gap-2">
+                <Users className="size-5 text-muted-foreground" />
+                <Select value={selectedUserEmail} onValueChange={setSelectedUserEmail}>
+                    <SelectTrigger className="w-[250px]">
+                        <SelectValue placeholder="Filtrar por usuario..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos los usuarios</SelectItem>
+                        {allUsers.map(user => (
+                            <SelectItem key={user.id} value={user.email || ''}>{user.full_name || user.email}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+        )}
+      </PageHeader>
       <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -100,7 +147,9 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{totalTasks}</div>
-                    <p className="text-xs text-muted-foreground">En todos los proyectos</p>
+                    <p className="text-xs text-muted-foreground">
+                        {selectedUserEmail === 'all' ? 'En todos los proyectos' : `Asignadas a ${selectedUserName}`}
+                    </p>
                 </CardContent>
             </Card>
             <Card>
@@ -120,7 +169,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{overallProgress}%</div>
-                    <p className="text-xs text-muted-foreground">De todas las tareas</p>
+                    <p className="text-xs text-muted-foreground">De todas las tareas filtradas</p>
                 </CardContent>
             </Card>
         </div>
@@ -130,43 +179,51 @@ export function DashboardPage() {
             <Card className="md:col-span-3">
                 <CardHeader>
                     <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas por Estado</CardTitle>
-                    <CardDescription>Una vista rápida de cómo se distribuyen tus tareas.</CardDescription>
+                    <CardDescription>Una vista rápida de cómo se distribuyen las tareas.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <ChartContainer config={chartConfig} className="w-full h-[250px]">
-                        <RechartsBarChart 
-                            data={chartData} 
-                            layout="vertical" 
-                            margin={{ left: 10, right: 40 }}
-                        >
-                            <CartesianGrid horizontal={false} />
-                            <XAxis type="number" hide />
-                            <YAxis 
-                                dataKey="status" 
-                                type="category" 
-                                tickLine={false}
-                                axisLine={false}
-                                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                                width={80}
-                            />
-                            <ChartTooltip
-                                cursor={{fill: 'hsl(var(--accent))'}}
-                                content={<ChartTooltipContent />}
-                            />
-                            <Bar dataKey="tasks" layout="vertical" radius={[0, 4, 4, 0]}>
-                                <LabelList 
-                                    dataKey="tasks" 
-                                    position="right" 
-                                    offset={10}
-                                    className="fill-foreground font-semibold"
-                                    fontSize={12}
+                   {chartData.length > 0 ? (
+                        <ChartContainer config={chartConfig} className="w-full h-[250px]">
+                            <RechartsBarChart 
+                                data={chartData} 
+                                layout="vertical" 
+                                margin={{ left: 10, right: 40 }}
+                            >
+                                <CartesianGrid horizontal={false} />
+                                <XAxis type="number" hide />
+                                <YAxis 
+                                    dataKey="status" 
+                                    type="category" 
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                                    width={80}
                                 />
-                                {chartData.map((entry) => (
-                                    <Bar key={entry.status} dataKey="tasks" fill={entry.fill} />
-                                ))}
-                            </Bar>
-                        </RechartsBarChart>
-                    </ChartContainer>
+                                <ChartTooltip
+                                    cursor={{fill: 'hsl(var(--accent))'}}
+                                    content={<ChartTooltipContent />}
+                                />
+                                <Bar dataKey="tasks" layout="vertical" radius={[0, 4, 4, 0]}>
+                                    <LabelList 
+                                        dataKey="tasks" 
+                                        position="right" 
+                                        offset={10}
+                                        className="fill-foreground font-semibold"
+                                        fontSize={12}
+                                    />
+                                    {chartData.map((entry) => (
+                                        <Bar key={entry.status} dataKey="tasks" fill={entry.fill} />
+                                    ))}
+                                </Bar>
+                            </RechartsBarChart>
+                        </ChartContainer>
+                   ) : (
+                        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-[250px]">
+                            <ListChecks className="size-8 text-muted-foreground mb-2"/>
+                            <p className="font-semibold">Sin Tareas</p>
+                            <p className="text-sm text-muted-foreground">El usuario seleccionado no tiene tareas asignadas.</p>
+                        </div>
+                   )}
                 </CardContent>
             </Card>
             
@@ -174,7 +231,7 @@ export function DashboardPage() {
             <Card className="md:col-span-2">
                 <CardHeader>
                     <CardTitle className='flex items-center gap-2'><Clock className='size-5'/> Próximas Tareas</CardTitle>
-                    <CardDescription>Tus próximas 5 tareas más urgentes.</CardDescription>
+                    <CardDescription>Las próximas 5 tareas más urgentes.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
@@ -209,7 +266,7 @@ export function DashboardPage() {
                             <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-full">
                                 <CheckCircle className="size-8 text-green-500 mb-2"/>
                                 <p className="font-semibold">¡Todo en orden!</p>
-                                <p className="text-sm text-muted-foreground">No tienes tareas próximas.</p>
+                                <p className="text-sm text-muted-foreground">No hay tareas próximas.</p>
                             </div>
                         )}
                     </div>
@@ -220,3 +277,5 @@ export function DashboardPage() {
     </div>
   );
 }
+
+    
