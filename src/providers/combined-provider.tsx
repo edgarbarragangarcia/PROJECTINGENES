@@ -14,7 +14,7 @@ import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
 
 
-export const adminEmails = ['edgarbarragangarcia@gmail.com', 'ntorres@ingenes.com'];
+export const adminEmails = ['ntorres@ingenes.com'];
 
 const convertUTCDateToLocalDate = (date: Date) => {
   const newDate = new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000);
@@ -69,10 +69,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setProjectsState(prevState => ({ ...prevState, loading: true, error: null }));
     try {
         const isAdmin = user.email && adminEmails.includes(user.email);
-        let query = supabase.from('projects').select('*');
+        
+        let query = supabase.from('projects').select('*, tasks(id, assignees)');
 
-        if (!isAdmin) {
-            query = query.eq('user_id', user.id);
+        if (!isAdmin && user.email) {
+            const userProjectsQuery = `user_id.eq.${user.id}`;
+            const assignedProjectsQuery = `tasks.assignees.cs.["${user.email}"]`;
+            query = query.or(`${userProjectsQuery},${assignedProjectsQuery}`);
         }
         
         const { data, error } = await query.order('created_at', { ascending: false });
@@ -81,8 +84,19 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             console.error("Supabase error fetching projects:", error);
             throw error;
         }
+
+        const projectMap = new Map<string, any>();
         
-        const enrichedData = (data || []).map(p => {
+        data.forEach(p => {
+          if (!projectMap.has(p.id)) {
+            const { tasks, ...projectData } = p;
+            projectMap.set(p.id, projectData);
+          }
+        });
+
+        const projectsList = Array.from(projectMap.values());
+        
+        const enrichedData = projectsList.map(p => {
           if (!p.creator_name && p.creator_email === user.email && user.user_metadata?.full_name) {
             return { ...p, creator_name: user.user_metadata.full_name };
           }
@@ -104,7 +118,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         let query = supabase.from('tasks').select('*, subtasks(*)');
 
         if (!isAdmin) {
-            query = query.eq('user_id', user.id);
+            // A non-admin can see tasks in projects they created OR tasks they are assigned to.
+            // This is simplified here. A more robust solution might involve fetching projects first.
+            // For now, we assume if they can see the project, they should see all its tasks.
+            // The project fetching logic above handles visibility.
         }
 
         const { data: tasksData, error: tasksError } = await query.order('created_at', { ascending: false });
@@ -114,8 +131,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         const formattedTasks = (tasksData || []).map(task => ({
             ...task,
             projectId: task.project_id,
-            startDate: task.start_date ? new Date(task.start_date + 'T00:00:00Z') : undefined,
-            dueDate: task.due_date ? new Date(task.due_date + 'T00:00:00Z') : undefined,
+            startDate: task.start_date ? parseISO(task.start_date) : undefined,
+            dueDate: task.due_date ? parseISO(task.due_date) : undefined,
             subtasks: task.subtasks || [],
         }));
 

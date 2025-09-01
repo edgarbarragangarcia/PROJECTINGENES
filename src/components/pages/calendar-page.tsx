@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import { PageHeader } from '../layout/page-header';
 import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -30,6 +31,7 @@ const statusColors: { [key in Status]: string } = {
   'Todo': 'bg-sky-500/80',
   'In Progress': 'bg-orange-500/80',
   'Done': 'bg-green-500/80',
+  'Stopper': 'bg-red-500/80'
 };
 
 const chunkArray = <T,>(array: T[], size: number): T[][] => {
@@ -76,20 +78,19 @@ export function CalendarPage() {
   
   const getTasksForDay = (day: Date) => {
     return tasks.filter(task => {
-      const currentDay = startOfDay(day);
+        const currentDay = startOfDay(day);
 
-      if (task.startDate && task.dueDate) {
-        // For tasks with a duration, check if the current day is within the interval (inclusive)
-        const taskStart = startOfDay(task.startDate);
-        const taskDue = startOfDay(task.dueDate);
-        return isWithinInterval(currentDay, { start: taskStart, end: taskDue });
-      }
-      if (task.dueDate) {
-        // For tasks with only a due date, show them on that day
-        return isSameDay(currentDay, startOfDay(task.dueDate));
-      }
-      return false;
-    }).sort((a,b) => (a.startDate?.getTime() || 0) - (b.startDate?.getTime() || 0));
+        const taskStartDate = task.startDate ? startOfDay(task.startDate) : null;
+        const taskDueDate = task.dueDate ? startOfDay(task.dueDate) : null;
+
+        if (taskStartDate && taskDueDate) {
+            return isWithinInterval(currentDay, { start: taskStartDate, end: taskDueDate });
+        }
+        if (taskDueDate) {
+            return isSameDay(currentDay, taskDueDate);
+        }
+        return false;
+    }).sort((a, b) => (a.startDate?.getTime() || 0) - (b.startDate?.getTime() || 0));
   };
   
   const googleEventsByDay = useMemo(() => {
