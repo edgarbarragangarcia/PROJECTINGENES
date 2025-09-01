@@ -16,6 +16,8 @@ import { useDailyNotes } from '@/hooks/use-daily-notes';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { DailySummaryDialog } from '../note/daily-summary-dialog';
+import { createClient } from '@/lib/supabase/client';
+import { adminEmails } from '@/providers/combined-provider';
 
 const GoogleCalendarIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="size-4 mr-2" viewBox="0 0 24 24">
@@ -51,10 +53,27 @@ export function CalendarPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [googleEvents, setGoogleEvents] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const supabase = createClient();
 
   useEffect(() => {
+    const checkUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            setCurrentUserEmail(user.email || null);
+            setIsAdmin(adminEmails.includes(user.email || ''));
+        }
+    };
+    checkUser();
     setCurrentDate(new Date());
-  }, []);
+  }, [supabase.auth]);
+
+  const filteredTasks = useMemo(() => {
+    if (isAdmin) return tasks;
+    if (!currentUserEmail) return [];
+    return tasks.filter(task => task.assignees?.includes(currentUserEmail));
+  }, [tasks, isAdmin, currentUserEmail]);
 
   const { monthStart, monthEnd, weeks } = useMemo(() => {
     if (!currentDate) {
@@ -77,7 +96,7 @@ export function CalendarPage() {
   const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
   
   const getTasksForDay = (day: Date) => {
-    return tasks.filter(task => {
+    return filteredTasks.filter(task => {
         const currentDay = startOfDay(day);
 
         const taskStartDate = task.startDate ? startOfDay(task.startDate) : null;
