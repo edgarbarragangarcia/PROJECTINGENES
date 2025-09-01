@@ -13,7 +13,7 @@ import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
 
 
-export const adminEmails = ['ntorres@ingenes.com'];
+export const adminEmails = ['ntorres@ingenes.com', 'edgarbarragangarcia@gmail.com'];
 
 const convertUTCDateToLocalDate = (date: Date) => {
   const newDate = new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000);
@@ -82,31 +82,33 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             setProjectsState(prevState => ({ ...prevState, loading: false, projects: projectsData || [] }));
 
         } else {
-            // Non-admin sees projects they created OR are assigned to via tasks
             let participatingProjectIds: string[] = [];
             
             if (user.email) {
                 try {
-                    // Alternative, safer approach: fetch all tasks and filter in-memory
                     const { data: allTasks, error: tasksError } = await supabase
                         .from('tasks')
                         .select('project_id, assignees');
 
                     if (tasksError) {
-                        console.error("Error fetching tasks for project visibility:", tasksError);
-                        // We can decide to throw or continue gracefully
+                        console.error("Error fetching tasks for project visibility:", {details: tasksError});
                         participatingProjectIds = [];
                     } else {
                         const userTasks = (allTasks || []).filter(task => {
                             if (!task.assignees) return false;
                             
-                            // Check if assignees is an array and includes the user's email
                             if (Array.isArray(task.assignees)) {
                                 return task.assignees.includes(user.email!);
                             }
-                            // Fallback for incorrectly stored string
                             if (typeof task.assignees === 'string') {
-                                return task.assignees.includes(user.email!);
+                                try {
+                                  const parsedAssignees = JSON.parse(task.assignees);
+                                  if (Array.isArray(parsedAssignees)) {
+                                    return parsedAssignees.includes(user.email!);
+                                  }
+                                } catch(e) {
+                                  return task.assignees.includes(user.email!);
+                                }
                             }
                             return false;
                         });
