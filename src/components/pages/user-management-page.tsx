@@ -2,7 +2,7 @@
 'use client';
 
 import { useTasks } from '@/hooks/use-tasks';
-import { PageHeader } from '../layout/page-header';
+import { PageHeader } from '@/components/layout/page-header';
 import {
   Table,
   TableBody,
@@ -101,4 +101,3 @@ export function UserManagementPage() {
     </div>
   );
 }
-

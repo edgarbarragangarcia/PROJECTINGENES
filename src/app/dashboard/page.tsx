@@ -1,24 +1,24 @@
 
 'use client';
 
-import { PageHeader } from '../layout/page-header';
+import { PageHeader } from '@/components/layout/page-header';
 import type { ProjectWithProgress, Task, Profile, User } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
 import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User as UserIcon, Users, FolderPlus, FolderCheck } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
-import { ChartConfig } from '../ui/chart';
+import { ChartConfig } from '@/components/ui/chart';
 import Link from 'next/link';
 import { format, isPast, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Badge } from '../ui/badge';
-import { PriorityIcon } from '../task/priority-icon';
+import { Badge } from '@/components/ui/badge';
+import { PriorityIcon } from '@/components/task/priority-icon';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 const chartConfig = {

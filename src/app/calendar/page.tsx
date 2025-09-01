@@ -1,20 +1,20 @@
 
 'use client';
 
-import { PageHeader } from '../layout/page-header';
+import { PageHeader } from '@/components/layout/page-header';
 import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Task, Status, DailyNote, Profile } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Button } from '../ui/button';
+import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { TaskFormDialog } from '../task/task-form-dialog';
+import { TaskFormDialog } from '@/components/task/task-form-dialog';
 import { useDailyNotes } from '@/hooks/use-daily-notes';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
-import { DailySummaryDialog } from '../note/daily-summary-dialog';
+import { DailySummaryDialog } from '@/components/note/daily-summary-dialog';
 import { createClient } from '@/lib/supabase/client';
 
 const GoogleCalendarIcon = () => (
@@ -42,7 +42,7 @@ const chunkArray = <T,>(array: T[], size: number): T[][] => {
   return chunks;
 };
 
-export function CalendarPage() {
+export default function CalendarPage() {
   const { tasks, allUsers } = useTasks();
   const { getNotesByDate } = useDailyNotes();
   const { toast } = useToast();
