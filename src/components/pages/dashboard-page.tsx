@@ -6,7 +6,7 @@ import type { ProjectWithProgress, Task, Profile } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
-import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User, Users } from 'lucide-react';
+import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User, Users, FolderPlus } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
@@ -96,15 +96,20 @@ export function DashboardPage() {
     const totalTasks = filteredTasks.length;
     const completedTasks = tasksByStatus['Done'] || 0;
 
-    const totalProjects = useMemo(() => {
+    const participatingProjectsCount = useMemo(() => {
       if (selectedUserEmail === 'all') {
         return projects.length;
       }
       const projectsWithUserTasks = new Set(filteredTasks.map(task => task.projectId));
       return projectsWithUserTasks.size;
-    }, [projects, filteredTasks, selectedUserEmail]);
+    }, [projects.length, filteredTasks, selectedUserEmail]);
+    
+    const createdProjectsCount = useMemo(() => {
+        if (selectedUserEmail === 'all') return projects.length;
+        return projects.filter(p => p.creator_email === selectedUserEmail).length;
+    }, [projects, selectedUserEmail]);
 
-    const activeTasks = totalTasks - completedTasks - (tasksByStatus['Backlog'] || 0);
+
     const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     const upcomingTasks = useMemo(() => filteredTasks
@@ -134,16 +139,28 @@ export function DashboardPage() {
       </PageHeader>
       <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
         {/* KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total de Proyectos</CardTitle>
+                    <CardTitle className="text-sm font-medium">Proyectos en los que participa</CardTitle>
                     <FolderKanban className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{totalProjects}</div>
+                    <div className="text-2xl font-bold">{participatingProjectsCount}</div>
                     <p className="text-xs text-muted-foreground">
                         {selectedUserEmail === 'all' ? 'Proyectos activos y completados' : 'Proyectos en los que participa'}
+                    </p>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Proyectos Creados</CardTitle>
+                    <FolderPlus className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{createdProjectsCount}</div>
+                    <p className="text-xs text-muted-foreground">
+                         {selectedUserEmail === 'all' ? 'Total en el sistema' : `Creados por ${selectedUserName}`}
                     </p>
                 </CardContent>
             </Card>
@@ -284,5 +301,3 @@ export function DashboardPage() {
     </div>
   );
 }
-
-    
