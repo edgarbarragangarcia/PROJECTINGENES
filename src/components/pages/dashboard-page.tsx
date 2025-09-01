@@ -42,6 +42,10 @@ const chartConfig = {
     label: "Backlog",
     color: "hsl(var(--chart-4))",
   },
+  Stopper: {
+    label: "Stopper",
+    color: "hsl(var(--chart-5))",
+  },
 } satisfies ChartConfig;
 
 const getPriorityBadgeVariant = (priority: Task['priority']) => {
@@ -136,7 +140,7 @@ export function DashboardPage() {
 
 
     const upcomingTasks = useMemo(() => assignedTasks
-        .filter(task => task.dueDate && task.status !== 'Done' && task.status !== 'Cancelled')
+        .filter(task => task.dueDate && task.status !== 'Done' && task.status !== 'Stopper')
         .sort((a, b) => {
             const aDueDate = new Date(a.dueDate!).getTime();
             const bDueDate = new Date(b.dueDate!).getTime();

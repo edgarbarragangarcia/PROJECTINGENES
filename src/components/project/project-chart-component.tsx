@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis, Cell } from 'recharts';
@@ -27,8 +28,8 @@ const chartConfig = {
     label: "Backlog",
     color: "hsl(var(--chart-1))",
   },
-  Cancelled: {
-      label: "Cancelado",
+  Stopper: {
+      label: "Stopper",
       color: "hsl(var(--chart-5))",
   }
 } satisfies ChartConfig;

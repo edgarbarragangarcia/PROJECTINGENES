@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useTasks } from '@/hooks/use-tasks';
@@ -12,7 +13,7 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
   const { getTasksByStatus } = useTasks();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 items-start">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-4 items-start">
         {statuses.map((status) => (
             <KanbanColumn
             key={status}

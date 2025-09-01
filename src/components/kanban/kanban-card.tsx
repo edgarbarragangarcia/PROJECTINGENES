@@ -82,7 +82,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
         return 'bg-orange-50 border-orange-200 hover:bg-orange-100 dark:bg-orange-950 dark:border-orange-800 dark:hover:bg-orange-900';
       case 'Done':
         return 'bg-green-50 border-green-200 hover:bg-green-100 dark:bg-green-950 dark:border-green-800 dark:hover:bg-green-900';
-      case 'Cancelled':
+      case 'Stopper':
         return 'bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950 dark:border-red-800 dark:hover:bg-red-900';
       case 'Todo':
         return taskColors[stringToHash(task.id) % taskColors.length];

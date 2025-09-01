@@ -1,3 +1,4 @@
+
 'use client'
 
 import type { Status, Task } from '@/lib/types';
@@ -17,7 +18,7 @@ const statusColors: { [key in Status]: { bg: string, border: string } } = {
   'Todo': { bg: 'bg-sky-400/70', border: 'border-sky-600' },
   'In Progress': { bg: 'bg-orange-400/70', border: 'border-orange-600' },
   'Done': { bg: 'bg-green-400/70', border: 'border-green-600' },
-  'Cancelled': { bg: 'bg-red-400/70', border: 'border-red-600' },
+  'Stopper': { bg: 'bg-red-400/70', border: 'border-red-600' },
 };
 
 const ROW_HEIGHT = 40; // px
