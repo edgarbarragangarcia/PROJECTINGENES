@@ -114,8 +114,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         const formattedTasks = (tasksData || []).map(task => ({
             ...task,
             projectId: task.project_id,
-            startDate: task.start_date ? new Date(task.start_date + 'T00:00:00') : undefined,
-            dueDate: task.due_date ? new Date(task.due_date + 'T00:00:00') : undefined,
+            startDate: task.start_date ? new Date(task.start_date + 'T00:00:00Z') : undefined,
+            dueDate: task.due_date ? new Date(task.due_date + 'T00:00:00Z') : undefined,
             subtasks: task.subtasks || [],
         }));
 
@@ -397,9 +397,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         project_id: projectId,
         image_url: imageUrl,
         assignees: assignees || null,
+        start_date: startDate ? formatISO(startOfDay(startDate)) : null,
+        due_date: dueDate ? formatISO(startOfDay(dueDate)) : null,
       };
-      if (startDate) dataToInsert.start_date = format(startDate, 'yyyy-MM-dd');
-      if (dueDate) dataToInsert.due_date = format(dueDate, 'yyyy-MM-dd');
 
 
       const { data: taskResult, error: taskError } = await supabase
@@ -477,18 +477,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }
 
 
-    if (dataToUpdate.startDate) {
-        dataToUpdate.start_date = format(dataToUpdate.startDate, 'yyyy-MM-dd');
+    if (taskData.startDate) {
+        dataToUpdate.start_date = formatISO(startOfDay(taskData.startDate));
         delete dataToUpdate.startDate;
-    } else if (dataToUpdate.startDate === null) {
+    } else if (taskData.startDate === null) {
         dataToUpdate.start_date = null;
         delete dataToUpdate.startDate;
     }
 
-    if (dataToUpdate.dueDate) {
-        dataToUpdate.due_date = format(dataToUpdate.dueDate, 'yyyy-MM-dd');
+    if (taskData.dueDate) {
+        dataToUpdate.due_date = formatISO(startOfDay(taskData.dueDate));
         delete dataToUpdate.dueDate;
-    } else if (dataToUpdate.dueDate === null) {
+    } else if (taskData.dueDate === null) {
         dataToUpdate.due_date = null;
         delete dataToUpdate.dueDate;
     }

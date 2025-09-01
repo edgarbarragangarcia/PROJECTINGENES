@@ -250,7 +250,7 @@ export function ProjectFormDialog({ open, onOpenChange, projectToEdit }: Project
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto pr-2">
+        <div className="flex-1 overflow-y-auto pr-2 -mr-4 pl-1">
             <Form {...projectForm}>
             <form onSubmit={projectForm.handleSubmit(onProjectSubmit)} id="project-form" className="space-y-4">
                 <FormField
