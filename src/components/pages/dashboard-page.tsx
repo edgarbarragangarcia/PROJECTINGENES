@@ -12,7 +12,7 @@ import { Bar, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
 import { ChartConfig } from '../ui/chart';
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { format, isPast, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '../ui/badge';
 import { PriorityIcon } from '../task/priority-icon';
@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { adminEmails } from '@/providers/combined-provider';
 import { createClient } from '@/lib/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { cn } from '@/lib/utils';
 
 const chartConfig = {
   tasks: {
@@ -131,8 +132,22 @@ export function DashboardPage() {
 
 
     const upcomingTasks = useMemo(() => assignedTasks
-        .filter(task => task.dueDate && new Date(task.dueDate) >= new Date() && task.status !== 'Done' && task.status !== 'Backlog')
-        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+        .filter(task => task.dueDate && task.status !== 'Done' && task.status !== 'Cancelled')
+        .sort((a, b) => {
+            const aDueDate = new Date(a.dueDate!).getTime();
+            const bDueDate = new Date(b.dueDate!).getTime();
+            const aIsPast = isPast(aDueDate);
+            const bIsPast = isPast(bDueDate);
+
+            if (aIsPast && !bIsPast) return -1; // a (past) comes first
+            if (!aIsPast && bIsPast) return 1;  // b (past) comes first
+            
+            // If both are past, sort by oldest
+            if (aIsPast && bIsPast) return aDueDate - bDueDate;
+            
+            // If both are future, sort by soonest
+            return aDueDate - bDueDate;
+        })
         .slice(0, 5), [assignedTasks]);
 
   return (
@@ -280,8 +295,9 @@ export function DashboardPage() {
                         {upcomingTasks.length > 0 ? (
                             upcomingTasks.map(task => {
                                 const project = projects.find(p => p.id === task.projectId);
+                                const isOverdue = task.dueDate && isPast(startOfDay(new Date(task.dueDate)));
                                 return (
-                                    <div key={task.id} className="flex items-center justify-between gap-2">
+                                    <div key={task.id} className={cn("flex items-center justify-between gap-2 p-2 rounded-lg", isOverdue && 'bg-red-50 dark:bg-red-950/30 shadow-inner shadow-red-500/10')}>
                                         <div className='flex-1 truncate'>
                                             <p className="font-medium text-sm truncate" title={task.title}>
                                                 <Link href={`/projects/${task.projectId}`} className="hover:underline">
@@ -296,7 +312,7 @@ export function DashboardPage() {
                                                 {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
                                             </Badge>
                                             {task.dueDate && (
-                                                <span className="text-xs text-muted-foreground">
+                                                <span className={cn("text-xs", isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground')}>
                                                     {format(new Date(task.dueDate), "d 'de' MMM", { locale: es })}
                                                 </span>
                                             )}
@@ -319,5 +335,7 @@ export function DashboardPage() {
     </div>
   );
 }
+
+    
 
     

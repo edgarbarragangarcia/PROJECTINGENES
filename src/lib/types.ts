@@ -4,7 +4,7 @@ import { User as SupabaseUser } from "@supabase/supabase-js";
 export const priorities = ['Low', 'Medium', 'High'] as const;
 export type Priority = (typeof priorities)[number];
 
-export const statuses = ['Backlog', 'Todo', 'In Progress', 'Done'] as const;
+export const statuses = ['Backlog', 'Todo', 'In Progress', 'Done', 'Cancelled'] as const;
 export type Status = (typeof statuses)[number];
 
 export interface Subtask {
@@ -85,3 +85,6 @@ export type User = SupabaseUser;
 
 
 
+
+
+    
