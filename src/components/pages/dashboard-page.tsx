@@ -184,7 +184,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{participatingProjectsCount}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground h-8">
                         {selectedUserEmail === 'all' ? 'Proyectos activos y completados' : 'Proyectos con tareas asignadas'}
                     </p>
                 </CardContent>
@@ -196,7 +196,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{createdProjectsCount}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground h-8">
                          {selectedUserEmail === 'all' ? 'Total en el sistema' : `Creados por ${selectedUserName}`}
                     </p>
                 </CardContent>
@@ -208,7 +208,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{closedProjectsCount}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground h-8">
                          {selectedUserEmail === 'all' ? 'Total completados' : `Completados por ${selectedUserName}`}
                     </p>
                 </CardContent>
@@ -220,7 +220,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{totalAssignedTasks}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground h-8">
                         {selectedUserEmail === 'all' ? 'En todos los proyectos' : `Asignadas a ${selectedUserName}`}
                     </p>
                 </CardContent>
@@ -232,7 +232,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{completedAssignedTasks}</div>
-                     <p className="text-xs text-muted-foreground">De las tareas asignadas</p>
+                     <p className="text-xs text-muted-foreground h-8">De las tareas asignadas</p>
                 </CardContent>
             </Card>
             <Card>
@@ -242,7 +242,7 @@ export function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{overallProgress}%</div>
-                    <p className="text-xs text-muted-foreground">De las tareas asignadas</p>
+                    <p className="text-xs text-muted-foreground h-8">De las tareas asignadas</p>
                 </CardContent>
             </Card>
         </div>
@@ -351,7 +351,5 @@ export function DashboardPage() {
     </div>
   );
 }
-
-    
 
     
