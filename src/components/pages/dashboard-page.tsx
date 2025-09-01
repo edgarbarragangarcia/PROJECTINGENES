@@ -182,9 +182,9 @@ export function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Proyectos en los que participa</CardTitle>
                     <FolderKanban className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col justify-between h-full">
                     <div className="text-2xl font-bold">{participatingProjectsCount}</div>
-                    <p className="text-xs text-muted-foreground h-8">
+                    <p className="text-xs text-muted-foreground">
                         {selectedUserEmail === 'all' ? 'Proyectos activos y completados' : 'Proyectos con tareas asignadas'}
                     </p>
                 </CardContent>
@@ -194,9 +194,9 @@ export function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Proyectos Creados</CardTitle>
                     <FolderPlus className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col justify-between h-full">
                     <div className="text-2xl font-bold">{createdProjectsCount}</div>
-                    <p className="text-xs text-muted-foreground h-8">
+                    <p className="text-xs text-muted-foreground">
                          {selectedUserEmail === 'all' ? 'Total en el sistema' : `Creados por ${selectedUserName}`}
                     </p>
                 </CardContent>
@@ -206,9 +206,9 @@ export function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Proyectos Cerrados</CardTitle>
                     <FolderCheck className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col justify-between h-full">
                     <div className="text-2xl font-bold">{closedProjectsCount}</div>
-                    <p className="text-xs text-muted-foreground h-8">
+                    <p className="text-xs text-muted-foreground">
                          {selectedUserEmail === 'all' ? 'Total completados' : `Completados por ${selectedUserName}`}
                     </p>
                 </CardContent>
@@ -218,9 +218,9 @@ export function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Total de Tareas Asignadas</CardTitle>
                     <ListChecks className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col justify-between h-full">
                     <div className="text-2xl font-bold">{totalAssignedTasks}</div>
-                    <p className="text-xs text-muted-foreground h-8">
+                    <p className="text-xs text-muted-foreground">
                         {selectedUserEmail === 'all' ? 'En todos los proyectos' : `Asignadas a ${selectedUserName}`}
                     </p>
                 </CardContent>
@@ -230,9 +230,9 @@ export function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Tareas Completadas</CardTitle>
                     <CheckCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col justify-between h-full">
                     <div className="text-2xl font-bold">{completedAssignedTasks}</div>
-                     <p className="text-xs text-muted-foreground h-8">De las tareas asignadas</p>
+                     <p className="text-xs text-muted-foreground">De las tareas asignadas</p>
                 </CardContent>
             </Card>
             <Card>
@@ -240,9 +240,9 @@ export function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Progreso Personal</CardTitle>
                     <Percent className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col justify-between h-full">
                     <div className="text-2xl font-bold">{overallProgress}%</div>
-                    <p className="text-xs text-muted-foreground h-8">De las tareas asignadas</p>
+                    <p className="text-xs text-muted-foreground">De las tareas asignadas</p>
                 </CardContent>
             </Card>
         </div>
@@ -351,5 +351,3 @@ export function DashboardPage() {
     </div>
   );
 }
-
-    
