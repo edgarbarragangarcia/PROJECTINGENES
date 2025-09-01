@@ -2,7 +2,7 @@
 'use client';
 
 import { AppLayout } from "@/components/layout/app-layout";
-import { UserManagementPage } from "@/components/pages/user-management-page";
+import UserManagementPage from "@/components/pages/user-management-page";
 import { useTasks } from "@/hooks/use-tasks";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
@@ -58,3 +58,4 @@ export default function UserManagementRoute() {
     </AppLayout>
   );
 }
+
