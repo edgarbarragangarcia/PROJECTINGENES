@@ -70,33 +70,46 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     try {
         const isAdmin = user.email && adminEmails.includes(user.email);
         
-        let query = supabase.from('projects').select('*, tasks(id, assignees)');
+        let allVisibleProjects: Project[] = [];
 
-        if (!isAdmin && user.email) {
-            const userProjectsQuery = `user_id.eq.${user.id}`;
-            const assignedProjectsQuery = `tasks.assignees.cs.["${user.email}"]`;
-            query = query.or(`${userProjectsQuery},${assignedProjectsQuery}`);
+        if (isAdmin) {
+             const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+             if (error) throw error;
+             allVisibleProjects = data || [];
+        } else {
+            // 1. Fetch projects created by the user
+            const { data: createdProjects, error: createdError } = await supabase
+                .from('projects')
+                .select('*')
+                .eq('user_id', user.id);
+            if (createdError) throw createdError;
+
+            // 2. Fetch tasks assigned to the user to find related project IDs
+            const { data: assignedTasks, error: tasksError } = await supabase
+                .from('tasks')
+                .select('project_id')
+                .contains('assignees', [user.email]);
+            if (tasksError) throw tasksError;
+            
+            const participatingProjectIds = [...new Set(assignedTasks?.map(t => t.project_id) || [])];
+
+            const createdProjectIds = createdProjects?.map(p => p.id) || [];
+            const allProjectIds = [...new Set([...createdProjectIds, ...participatingProjectIds])];
+
+            if (allProjectIds.length > 0) {
+                 const { data: projectsData, error: projectsError } = await supabase
+                    .from('projects')
+                    .select('*')
+                    .in('id', allProjectIds)
+                    .order('created_at', { ascending: false });
+                 if (projectsError) throw projectsError;
+                 allVisibleProjects = projectsData || [];
+            } else {
+                allVisibleProjects = createdProjects || [];
+            }
         }
         
-        const { data, error } = await query.order('created_at', { ascending: false });
-        
-        if (error) {
-            console.error("Supabase error fetching projects:", error);
-            throw error;
-        }
-
-        const projectMap = new Map<string, any>();
-        
-        data.forEach(p => {
-          if (!projectMap.has(p.id)) {
-            const { tasks, ...projectData } = p;
-            projectMap.set(p.id, projectData);
-          }
-        });
-
-        const projectsList = Array.from(projectMap.values());
-        
-        const enrichedData = projectsList.map(p => {
+        const enrichedData = allVisibleProjects.map(p => {
           if (!p.creator_name && p.creator_email === user.email && user.user_metadata?.full_name) {
             return { ...p, creator_name: user.user_metadata.full_name };
           }
