@@ -34,7 +34,7 @@ export interface Task {
   assignees?: any[]; // Array of user emails
   subtasks?: Subtask[];
   image_url?: string;
-  creator_email?: string; // Campo añadido para el email del creador del proyecto
+  creator_email?: string;
 }
 
 export const projectStatuses = ['En Progreso', 'Completado', 'En Pausa'] as const;
