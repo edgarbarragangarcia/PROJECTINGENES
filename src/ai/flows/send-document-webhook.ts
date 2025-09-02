@@ -1,9 +1,10 @@
 'use server';
 /**
- * @fileOverview A flow to send document data to a webhook.
+ * @fileOverview A flow to send document data to a webhook and get a response.
  *
  * - sendDocumentWebhook - A function that sends a POST request with data to a specified webhook.
  * - WebhookInput - The input type for the sendDocumentWebhook function.
+ * - WebhookOutput - The output type for the sendDocumentWebhook function.
  */
 
 import { ai } from '@/ai/genkit';
@@ -14,15 +15,21 @@ const WebhookInputSchema = z.object({
 });
 export type WebhookInput = z.infer<typeof WebhookInputSchema>;
 
-export async function sendDocumentWebhook(input: WebhookInput): Promise<void> {
-  await sendDocumentWebhookFlow(input);
+const WebhookOutputSchema = z.object({
+  output: z.string().optional().describe('The response from the webhook.'),
+});
+export type WebhookOutput = z.infer<typeof WebhookOutputSchema>;
+
+
+export async function sendDocumentWebhook(input: WebhookInput): Promise<WebhookOutput> {
+  return await sendDocumentWebhookFlow(input);
 }
 
 const sendDocumentWebhookFlow = ai.defineFlow(
   {
     name: 'sendDocumentWebhookFlow',
     inputSchema: WebhookInputSchema,
-    outputSchema: z.void(),
+    outputSchema: WebhookOutputSchema,
   },
   async (input) => {
     const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook-test/projectBot';
@@ -41,13 +48,23 @@ const sendDocumentWebhookFlow = ai.defineFlow(
       if (!response.ok) {
         const errorBody = await response.text();
         console.error(`Webhook failed with status ${response.status}:`, errorBody);
-        // We don't throw an error to the user, just log it.
-      } else {
-        console.log('Successfully sent message to webhook.');
+        return { output: undefined };
       }
+      
+      const responseData = await response.json();
+      
+      // The webhook returns an array, e.g., [{ "output": "..." }]
+      if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
+        console.log('Successfully received message from webhook.');
+        return { output: responseData[0].output };
+      }
+      
+      console.log('Webhook responded, but with an unexpected format.');
+      return { output: undefined };
+
     } catch (error: any) {
       console.error('Error sending to webhook:', error.message);
-      // We don't throw an error to the user, just log it.
+      return { output: undefined };
     }
   }
 );
