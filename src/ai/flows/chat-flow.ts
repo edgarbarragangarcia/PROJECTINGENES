@@ -43,6 +43,7 @@ const chatFlow = ai.defineFlow(
     const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 segundos de timeout
 
     try {
+      console.log('Enviando al webhook:', input.message);
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
@@ -58,29 +59,30 @@ const chatFlow = ai.defineFlow(
 
       if (!response.ok) {
         const errorBody = await response.text();
-        console.error(`Webhook failed with status ${response.status}:`, errorBody);
+        console.error(`Webhook falló con estado ${response.status}:`, errorBody);
         return { message: 'Lo siento, no pude procesar esa respuesta.' };
       }
       
       const responseData = await response.json();
-      console.log('Webhook Response Data:', JSON.stringify(responseData, null, 2));
+      console.log('Respuesta del Webhook (raw):', JSON.stringify(responseData, null, 2));
       
-      // The webhook returns an array, e.g., [{ "output": "..." }]
+      // La respuesta esperada es un array, ej: [{ "output": "..." }]
       if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
-        console.log('Successfully received message from webhook:', responseData[0].output);
-        return { message: responseData[0].output };
+        const webhookMessage = responseData[0].output;
+        console.log('Mensaje extraído del webhook:', webhookMessage);
+        return { message: webhookMessage };
       }
       
-      console.log('Webhook responded, but with an unexpected format or no output.');
+      console.log('El webhook respondió, pero con un formato inesperado o sin el campo "output".');
       return { message: 'Lo siento, no pude procesar esa respuesta.' };
 
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        console.error('Webhook request timed out after 50 seconds.');
+        console.error('La solicitud al webhook expiró después de 50 segundos.');
         return { message: 'Lo siento, la solicitud al servicio externo ha tardado demasiado en responder. Por favor, inténtalo de nuevo.' };
       }
-      console.error('Error sending to webhook:', error.message);
+      console.error('Error al enviar al webhook:', error.message);
       return { message: 'Lo siento, ha ocurrido un error al contactar el servicio.' };
     }
   }
