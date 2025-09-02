@@ -39,7 +39,7 @@ const chatFlow = ai.defineFlow(
     outputSchema: ChatOutputSchema,
   },
   async (input) => {
-    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook-test/projectBot';
+    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook/projectBot';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 segundos de timeout
 
