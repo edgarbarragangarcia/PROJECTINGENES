@@ -1,4 +1,5 @@
 
+
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
 export const priorities = ['Low', 'Medium', 'High'] as const;
@@ -30,9 +31,10 @@ export interface Task {
   projectId: string;
   project_id: string; // from Supabase
   user_id: string;
-  assignees?: string[]; // Array of user emails
+  assignees?: any[]; // Array of user emails
   subtasks?: Subtask[];
   image_url?: string;
+  creator_email?: string; // Campo añadido para el email del creador del proyecto
 }
 
 export const projectStatuses = ['En Progreso', 'Completado', 'En Pausa'] as const;
@@ -78,10 +80,7 @@ export interface Profile {
   id: string;
   email: string | null;
   full_name: string | null;
-  role?: 'admin' | 'user';
+  role: 'admin' | 'user' | null;
 }
 
-
 export type User = SupabaseUser;
-
-

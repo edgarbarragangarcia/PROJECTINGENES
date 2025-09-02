@@ -6,6 +6,7 @@ import { AppProvider } from '@/providers/app-provider';
 export const metadata: Metadata = {
   title: 'PROJECTIA',
   description: 'Gestiona tus proyectos con PROJECTIA.',
+  icons: null,
 };
 
 export default function RootLayout({
