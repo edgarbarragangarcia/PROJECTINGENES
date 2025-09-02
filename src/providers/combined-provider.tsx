@@ -93,7 +93,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           const { data: tasks, error: tasksError } = await supabase
               .from('tasks')
               .select('status')
-              .eq('projectId', project.id);
+              .eq('project_id', project.id);
           
           if (tasksError) {
               console.error(`Error fetching tasks for project ${project.id}:`, tasksError);
