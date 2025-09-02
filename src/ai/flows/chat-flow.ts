@@ -41,38 +41,46 @@ const chatFlow = ai.defineFlow(
   async input => {
     const {message, history = []} = input;
 
-    // Step 1: Call the webhook and wait for its response.
+    // Step 1: Call the webhook and wait for its response. This is the priority.
     const webhookResponse = await sendDocumentWebhook({ content: message });
 
-    // Step 2: Check if the webhook provided a valid response.
+    // Step 2: Check if the webhook provided a valid response. If so, use it and STOP.
     if (webhookResponse && webhookResponse.output) {
-      // If yes, use the webhook's response and finish the flow.
+      console.log('Using response from webhook:', webhookResponse.output);
       return { message: webhookResponse.output };
     }
 
     // Step 3: If webhook did not respond, proceed to the GenAI model as a fallback.
+    console.log('Webhook did not provide a valid response. Falling back to GenAI model.');
     const prompt = `You are a helpful project management assistant named PROJECTIA.
     Your goal is to provide concise and helpful advice to users about their projects.
     Keep your answers friendly and to the point.`;
 
-    const {output} = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
-      prompt: message,
-      system: prompt,
-      history: history.map(h => ({
-        role: h.role,
-        content: [{text: h.content}],
-      })),
-    });
+    try {
+        const {output} = await ai.generate({
+            model: 'googleai/gemini-2.5-flash',
+            prompt: message,
+            system: prompt,
+            history: history.map(h => ({
+                role: h.role,
+                content: [{text: h.content}],
+            })),
+        });
 
-    const modelMessage = output?.text;
+        const modelMessage = output?.text;
 
-    // Step 4: Check if the GenAI model provided a response.
-    if (modelMessage) {
-        return { message: modelMessage };
+        // Step 4: Check if the GenAI model provided a response.
+        if (modelMessage) {
+            console.log('Using response from GenAI model.');
+            return { message: modelMessage };
+        }
+    } catch (e: any) {
+        console.error("Error calling GenAI Model:", e.message);
     }
+    
 
     // Step 5: If both the webhook and the model fail, return a generic error.
+    console.log('Both webhook and GenAI failed. Returning error message.');
     return {message: 'Lo siento, no pude procesar esa respuesta.'};
   }
 );
