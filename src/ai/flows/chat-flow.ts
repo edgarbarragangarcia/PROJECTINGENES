@@ -7,7 +7,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { sendDocumentWebhook } from './send-document-webhook';
 
 const ChatInputSchema = z.object({
   message: z.string().describe('The user message to the AI assistant.'),
@@ -38,20 +37,41 @@ const chatFlow = ai.defineFlow(
     inputSchema: ChatInputSchema,
     outputSchema: ChatOutputSchema,
   },
-  async input => {
-    const {message} = input;
+  async (input) => {
+    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook-test/projectBot';
 
-    // Step 1: Call the webhook and wait for its response. This is the only source of truth.
-    const webhookResponse = await sendDocumentWebhook({ content: message });
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: input.message,
+        }),
+      });
 
-    // Step 2: Check if the webhook provided a valid response. If so, use it and STOP.
-    if (webhookResponse && webhookResponse.output) {
-      console.log('Using response from webhook:', webhookResponse.output);
-      return { message: webhookResponse.output };
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`Webhook failed with status ${response.status}:`, errorBody);
+        return { message: 'Lo siento, no pude procesar esa respuesta.' };
+      }
+      
+      const responseData = await response.json();
+      console.log('Webhook Response Data:', JSON.stringify(responseData, null, 2));
+      
+      // The webhook returns an array, e.g., [{ "output": "..." }]
+      if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
+        console.log('Successfully received message from webhook:', responseData[0].output);
+        return { message: responseData[0].output };
+      }
+      
+      console.log('Webhook responded, but with an unexpected format or no output.');
+      return { message: 'Lo siento, no pude procesar esa respuesta.' };
+
+    } catch (error: any) {
+      console.error('Error sending to webhook:', error.message);
+      return { message: 'Lo siento, ha ocurrido un error al contactar el servicio.' };
     }
-
-    // Step 3: If the webhook fails or does not provide a valid response, return an error message.
-    console.log('Webhook did not provide a valid response. Returning error message.');
-    return {message: 'Lo siento, no pude procesar esa respuesta.'};
   }
 );
