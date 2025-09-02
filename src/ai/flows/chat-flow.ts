@@ -39,6 +39,8 @@ const chatFlow = ai.defineFlow(
   },
   async (input) => {
     const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook-test/projectBot';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 segundos de timeout
 
     try {
       const response = await fetch(webhookUrl, {
@@ -49,7 +51,10 @@ const chatFlow = ai.defineFlow(
         body: JSON.stringify({
           message: input.message,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorBody = await response.text();
@@ -70,6 +75,11 @@ const chatFlow = ai.defineFlow(
       return { message: 'Lo siento, no pude procesar esa respuesta.' };
 
     } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.error('Webhook request timed out after 50 seconds.');
+        return { message: 'Lo siento, la solicitud al servicio externo ha tardado demasiado en responder. Por favor, inténtalo de nuevo.' };
+      }
       console.error('Error sending to webhook:', error.message);
       return { message: 'Lo siento, ha ocurrido un error al contactar el servicio.' };
     }
