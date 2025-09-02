@@ -275,6 +275,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     delete (restOfTaskData as any).onUploadProgress;
     delete (restOfTaskData as any).dueDate;
     delete (restOfTaskData as any).startDate;
+    delete (restOfTaskData as any).projectId;
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -338,6 +339,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     delete (restOfData as any).onUploadProgress;
     delete (restOfData as any).dueDate;
     delete (restOfData as any).startDate;
+    delete (restOfData as any).projectId;
 
     const { data: updatedTask, error } = await supabase
       .from('tasks')
