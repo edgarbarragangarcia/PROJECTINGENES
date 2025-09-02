@@ -66,39 +66,56 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     let projectQuery;
 
     if (adminEmails.includes(user.email || '')) {
-        projectQuery = supabase.from('projects').select('*');
+        // Admins get all projects, and we calculate progress client-side for them.
+        const { data: adminProjects, error: adminError } = await supabase.from('projects').select('*');
+
+        if (adminError) {
+          console.error("Error fetching admin projects:", adminError);
+          setProjectsError(adminError);
+          setProjects([]);
+          setProjectsLoading(false);
+          return;
+        }
+
+        const projectsWithProgress = await Promise.all((adminProjects || []).map(async (project) => {
+            const { data: tasks, error: tasksError } = await supabase
+                .from('tasks')
+                .select('status', { count: 'exact' })
+                .eq('project_id', project.id);
+            
+            const { data: completedTasks, error: completedTasksError } = await supabase
+                .from('tasks')
+                .select('status', { count: 'exact' })
+                .eq('project_id', project.id)
+                .eq('status', 'Done');
+
+            if (tasksError || completedTasksError) {
+                console.error(`Error fetching tasks for project ${project.id}:`, tasksError || completedTasksError);
+                return { ...project, progress: 0 };
+            }
+
+            const totalTasks = tasks?.length || 0;
+            const doneTasks = completedTasks?.length || 0;
+            const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+            
+            return { ...project, progress };
+        }));
+         setProjects(projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+
     } else {
+        // Non-admins use the RPC function which calculates progress in the DB
         projectQuery = supabase.rpc('get_projects_for_user', {
             p_user_id: user.id,
             p_user_email: user.email || ''
         });
-    }
-    
-    const { data, error } = await projectQuery;
-    
-    if (error) {
-      console.error("Error fetching projects:", error);
-      setProjectsError(error);
-      setProjects([]);
-    } else if (data) {
-      const projectsWithProgress = await Promise.all(data.map(async (project) => {
-          const { data: tasks, error: tasksError } = await supabase
-              .from('tasks')
-              .select('status')
-              .eq('project_id', project.id);
-          
-          if (tasksError) {
-              console.error(`Error fetching tasks for project ${project.id}:`, tasksError);
-              return { ...project, progress: 0 };
-          }
-
-          const totalTasks = tasks.length;
-          const completedTasks = tasks.filter(t => t.status === 'Done').length;
-          const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-          
-          return { ...project, progress };
-      }));
-      setProjects(projectsWithProgress.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        const { data, error } = await projectQuery;
+        if (error) {
+            console.error("Error fetching projects for user:", error);
+            setProjectsError(error);
+            setProjects([]);
+        } else if (data) {
+            setProjects((data as ProjectWithProgress[]).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        }
     }
     setProjectsLoading(false);
   }, [supabase]);
@@ -222,32 +239,24 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchTasks = useCallback(async (user: User) => {
     setTasksLoading(true);
-    let query = supabase.from('tasks').select('*, subtasks(*)');
+    let query;
     
-    if (!adminEmails.includes(user.email || '')) {
-       // For non-admins, fetch tasks where they are an assignee OR they are the creator of the project.
-       const { data: createdProjects, error: projectError } = await supabase
-            .from('projects')
-            .select('id')
-            .eq('user_id', user.id);
+    if (adminEmails.includes(user.email || '')) {
+       query = supabase.from('tasks').select('*, subtasks(*)');
+    } else {
+        const { data: projectData, error: projectError } = await supabase.rpc('get_projects_for_user', {
+             p_user_id: user.id,
+             p_user_email: user.email || ''
+        });
 
         if (projectError) {
-            console.error("Error fetching user's created projects:", projectError);
+            console.error("Error fetching user's projects for tasks:", projectError);
             setTasksLoading(false);
             return;
         }
         
-        const createdProjectIds = createdProjects.map(p => p.id);
-        
-        const filterParts = [
-            `assignees.cs.["${user.email}"]` // Task is assigned to the user
-        ];
-
-        if (createdProjectIds.length > 0) {
-            filterParts.push(`project_id.in.(${createdProjectIds.join(',')})`); // Task is in a project created by the user
-        }
-
-       query = query.or(filterParts.join(','));
+        const projectIds = projectData.map(p => p.id);
+        query = supabase.from('tasks').select('*, subtasks(*)').in('project_id', projectIds);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -288,16 +297,19 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     delete (restOfTaskData as any).imageFile;
     delete (restOfTaskData as any).onUploadProgress;
     
-
-    const { data: newTask, error } = await supabase
-      .from('tasks')
-      .insert([{
+    const dataToInsert = {
         ...restOfTaskData,
         image_url: imageUrl,
         user_id: user.id,
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
-      }])
+      };
+
+    delete (dataToInsert as any).projectId;
+
+    const { data: newTask, error } = await supabase
+      .from('tasks')
+      .insert([dataToInsert])
       .select('*, subtasks(*)')
       .single();
 
@@ -348,6 +360,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { subtasks, ...restOfData } = data;
     delete (restOfData as any).imageFile;
     delete (restOfData as any).onUploadProgress;
+    delete (restOfData as any).projectId;
     
     const updateData = {
       ...restOfData,
