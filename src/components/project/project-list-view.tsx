@@ -58,11 +58,11 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
   };
 
   const getTaskCountForProject = (projectId: string) => {
-    return tasks.filter(task => task.projectId === projectId).length;
+    return tasks.filter(task => task.project_id === projectId).length;
   }
   
   const getTasksForProject = (projectId: string) => {
-    return tasks.filter(task => task.projectId === projectId);
+    return tasks.filter(task => task.project_id === projectId);
   }
 
   return (
@@ -169,8 +169,8 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
                             <TableCell>{task.title}</TableCell>
                             <TableCell><Badge variant='outline'>{task.status}</Badge></TableCell>
                             <TableCell>{task.priority}</TableCell>
-                            <TableCell>{task.dueDate ? format(task.dueDate, 'dd MMM yyyy', {locale: es}) : 'N/A'}</TableCell>
-                            <TableCell>{task.assignee || 'N/A'}</TableCell>
+                            <TableCell>{task.dueDate ? format(new Date(task.dueDate), 'dd MMM yyyy', {locale: es}) : 'N/A'}</TableCell>
+                            <TableCell>{task.assignees?.join(', ') || 'N/A'}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

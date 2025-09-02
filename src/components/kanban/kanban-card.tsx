@@ -173,7 +173,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
                 {task.dueDate && (
                   <div className="flex items-center gap-1">
                     <CalendarIcon className="size-3.5" />
-                    <span>{format(task.dueDate, 'MMM d', { locale: es })}</span>
+                    <span>{format(new Date(task.dueDate), 'MMM d', { locale: es })}</span>
                   </div>
                 )}
                 {task.subtasks && task.subtasks.length > 0 && (
@@ -213,7 +213,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
           </div>
         </CardContent>
       </Card>
-      {isFormOpen && <TaskFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} taskToEdit={task} projectId={task.projectId}/>}
+      {isFormOpen && <TaskFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} taskToEdit={task} projectId={task.project_id}/>}
     </>
   );
 }

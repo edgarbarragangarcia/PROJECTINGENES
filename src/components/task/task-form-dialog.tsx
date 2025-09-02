@@ -56,6 +56,7 @@ const translatedPriorities = {
 } as const;
 
 const subtaskSchema = z.object({
+  id: z.string().optional(),
   title: z.string(),
   is_completed: z.boolean(),
 });
@@ -67,7 +68,7 @@ const taskFormSchema = z.object({
   priority: z.enum(priorities),
   startDate: z.date().optional(),
   dueDate: z.date().optional(),
-  projectId: z.string().uuid("Debes seleccionar un proyecto válido."),
+  project_id: z.string().uuid("Debes seleccionar un proyecto válido."),
   assignees: z.array(z.string()).optional(),
   subtasks: z.array(subtaskSchema).optional(),
   image_url: z.string().optional(),
@@ -101,7 +102,7 @@ export function TaskFormDialog({
   const { projects } = useProjects();
   const { toast } = useToast();
   const [subtaskInput, setSubtaskInput] = useState('');
-  const [currentSubtasks, setCurrentSubtasks] = useState<{title: string, is_completed: boolean}[]>([]);
+  const [currentSubtasks, setCurrentSubtasks] = useState<{id?: string, title: string, is_completed: boolean}[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -111,36 +112,23 @@ export function TaskFormDialog({
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
-    defaultValues: taskToEdit
-      ? { 
-          title: taskToEdit.title,
-          description: taskToEdit.description || '',
-          status: taskToEdit.status,
-          priority: taskToEdit.priority,
-          startDate: taskToEdit.startDate,
-          dueDate: taskToEdit.dueDate,
-          projectId: taskToEdit.projectId,
-          assignees: taskToEdit.assignees || [],
-          subtasks: taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || [],
-          image_url: taskToEdit.image_url || '',
-        }
-      : {
-          title: '',
-          description: '',
-          status: 'Todo',
-          priority: 'Medium',
-          startDate: undefined,
-          dueDate: undefined,
-          projectId: projectId || '',
-          assignees: [],
-          subtasks: [],
-          image_url: '',
-        },
+    defaultValues: {
+      title: '',
+      description: '',
+      status: 'Todo',
+      priority: 'Medium',
+      startDate: undefined,
+      dueDate: undefined,
+      project_id: projectId || '',
+      assignees: [],
+      subtasks: [],
+      image_url: '',
+    },
   });
   
   useEffect(() => {
     if (taskToEdit) {
-      setCurrentSubtasks(taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || []);
+      setCurrentSubtasks(taskToEdit.subtasks || []);
       setImagePreview(taskToEdit.image_url || null);
       form.reset({
         title: taskToEdit.title,
@@ -149,9 +137,9 @@ export function TaskFormDialog({
         priority: taskToEdit.priority,
         startDate: taskToEdit.startDate ? new Date(taskToEdit.startDate) : undefined,
         dueDate: taskToEdit.dueDate ? new Date(taskToEdit.dueDate) : undefined,
-        projectId: taskToEdit.projectId,
+        project_id: taskToEdit.project_id,
         assignees: taskToEdit.assignees || [],
-        subtasks: taskToEdit.subtasks?.map(st => ({ title: st.title, is_completed: st.is_completed })) || [],
+        subtasks: taskToEdit.subtasks || [],
         image_url: taskToEdit.image_url || '',
       });
     } else {
@@ -162,7 +150,7 @@ export function TaskFormDialog({
           priority: 'Medium',
           startDate: undefined,
           dueDate: undefined,
-          projectId: projectId || '',
+          project_id: projectId || '',
           assignees: [],
           subtasks: [],
           image_url: '',
@@ -180,14 +168,14 @@ export function TaskFormDialog({
   const descriptionSpeech = useSpeechRecognition(handleTranscript('description'));
 
   useEffect(() => {
-    if (projectId && !form.getValues('projectId')) {
-      form.setValue('projectId', projectId);
+    if (projectId && !form.getValues('project_id')) {
+      form.setValue('project_id', projectId);
     }
   }, [projectId, form]);
 
   const onSubmit = async (data: TaskFormValues) => {
     try {
-      if (!data.projectId) {
+      if (!data.project_id) {
         toast({
           variant: 'destructive',
           title: 'Error de Validación',
@@ -199,10 +187,6 @@ export function TaskFormDialog({
       const submissionData: any = {
         ...data,
         subtasks: currentSubtasks,
-        project_id: data.projectId,
-        description: data.description || '',
-        startDate: data.startDate,
-        dueDate: data.dueDate,
         assignees: data.assignees || [],
       };
       
@@ -235,7 +219,7 @@ export function TaskFormDialog({
         priority: 'Medium',
         startDate: undefined,
         dueDate: undefined,
-        projectId: projectId || '',
+        project_id: projectId || '',
         assignees: [],
         subtasks: [],
         image_url: '',
@@ -308,7 +292,7 @@ export function TaskFormDialog({
              {!isProjectContext && (
                <FormField
                 control={form.control}
-                name="projectId"
+                name="project_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Proyecto</FormLabel>
@@ -425,7 +409,7 @@ export function TaskFormDialog({
               <Label>Subtareas</Label>
               <div className="space-y-2">
                 {currentSubtasks.map((subtask, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                  <div key={subtask.id || index} className="flex items-center gap-2">
                     <Checkbox 
                       id={`subtask-${index}`} 
                       checked={subtask.is_completed}
@@ -482,7 +466,8 @@ export function TaskFormDialog({
                                       variant="secondary"
                                       key={user.id}
                                       className="mr-1"
-                                      onClick={() => {
+                                      onClick={(e) => {
+                                        e.preventDefault();
                                         const newValue = field.value?.filter(v => v !== user.email) || [];
                                         field.onChange(newValue);
                                       }}

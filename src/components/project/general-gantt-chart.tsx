@@ -53,7 +53,7 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
 
     const items = sortedProjects.flatMap(project => {
         const projectTasks = tasks
-            .filter(t => t.projectId === project.id && t.dueDate)
+            .filter(t => t.project_id === project.id && t.dueDate)
             .map(t => ({
                 ...t,
                 type: 'task' as const,
@@ -138,7 +138,7 @@ export function GeneralGanttChart({ tasks, projects }: GeneralGanttChartProps) {
     chartItems.forEach(item => {
       if (item.type === 'project') {
         visibleItems.push(item);
-      } else if (item.projectId && expandedProjects.includes(item.projectId)) {
+      } else if (item.project_id && expandedProjects.includes(item.project_id)) {
         visibleItems.push(item);
       }
     });

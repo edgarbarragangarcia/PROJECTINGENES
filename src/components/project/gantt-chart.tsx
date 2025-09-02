@@ -111,7 +111,7 @@ export function GanttChart({ tasks, dayWidth = 40 }: GanttChartProps) {
           {chartData.map((task) => (
             <div key={task.id} className="flex items-center border-b" style={{ height: `${ROW_HEIGHT}px` }}>
               <div className="w-[200px] px-2 text-sm truncate" title={task.title}>{task.title}</div>
-              <div className="w-[100px] px-2 text-sm text-muted-foreground truncate" title={task.assignee}>{task.assignee || 'N/A'}</div>
+              <div className="w-[100px] px-2 text-sm text-muted-foreground truncate" title={task.assignees?.join(', ')}>{task.assignees?.join(', ') || 'N/A'}</div>
               <div className="w-[75px] px-2 text-sm text-muted-foreground">{task.startDate ? format(new Date(task.startDate!), 'dd/MM') : 'N/A'}</div>
               <div className="w-[75px] px-2 text-sm text-muted-foreground">{task.dueDate ? format(new Date(task.dueDate!), 'dd/MM') : 'N/A'}</div>
             </div>

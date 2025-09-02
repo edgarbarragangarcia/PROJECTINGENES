@@ -117,7 +117,7 @@ export function TaskTable({ tasks }: TaskTableProps) {
                   ) : 'N/A'}
                 </TableCell>
                 <TableCell>
-                  {task.dueDate ? format(task.dueDate, 'dd MMM, yyyy', { locale: es }) : 'N/A'}
+                  {task.dueDate ? format(new Date(task.dueDate), 'dd MMM, yyyy', { locale: es }) : 'N/A'}
                 </TableCell>
                 <TableCell className="text-right">
                    <DropdownMenu>
@@ -166,7 +166,7 @@ export function TaskTable({ tasks }: TaskTableProps) {
           open={!!editingTask}
           onOpenChange={(isOpen) => !isOpen && setEditingTask(null)}
           taskToEdit={editingTask}
-          projectId={editingTask.projectId}
+          projectId={editingTask.project_id}
         />
       )}
     </>

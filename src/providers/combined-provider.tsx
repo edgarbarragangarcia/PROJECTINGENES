@@ -68,7 +68,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (!adminEmails.includes(user.email || '')) {
       const { data: userTasks, error: tasksError } = await supabase
         .from('tasks')
-        .select('projectId')
+        .select('project_id')
         .contains('assignees', [user.email]);
 
       if (tasksError) {
@@ -78,7 +78,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      const projectIdsFromTasks = userTasks.map(t => t.projectId);
+      const projectIdsFromTasks = userTasks.map(t => t.project_id);
       const uniqueProjectIds = [...new Set(projectIdsFromTasks)];
       
       query = query.or(`user_id.eq.${user.id},id.in.(${uniqueProjectIds.join(',')})`);
@@ -233,7 +233,29 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     let query = supabase.from('tasks').select('*, subtasks(*)');
     
     if (!adminEmails.includes(user.email || '')) {
-       query = query.contains('assignees', [user.email]);
+       // For non-admins, fetch tasks where they are an assignee OR they are the creator of the project.
+       const { data: createdProjects, error: projectError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('user_id', user.id);
+
+        if (projectError) {
+            console.error("Error fetching user's created projects:", projectError);
+            setTasksLoading(false);
+            return;
+        }
+        
+        const createdProjectIds = createdProjects.map(p => p.id);
+        
+        const filterParts = [
+            `assignees.cs.["${user.email}"]` // Task is assigned to the user
+        ];
+
+        if (createdProjectIds.length > 0) {
+            filterParts.push(`project_id.in.(${createdProjectIds.join(',')})`); // Task is in a project created by the user
+        }
+
+       query = query.or(filterParts.join(','));
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -273,9 +295,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { subtasks, ...restOfTaskData } = taskData;
     delete (restOfTaskData as any).imageFile;
     delete (restOfTaskData as any).onUploadProgress;
-    delete (restOfTaskData as any).dueDate;
-    delete (restOfTaskData as any).startDate;
-    delete (restOfTaskData as any).projectId;
+    
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -283,7 +303,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         ...restOfTaskData,
         image_url: imageUrl,
         user_id: user.id,
-        project_id: taskData.projectId,
+        project_id: taskData.project_id,
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
       }])
@@ -337,18 +357,17 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { subtasks, ...restOfData } = data;
     delete (restOfData as any).imageFile;
     delete (restOfData as any).onUploadProgress;
-    delete (restOfData as any).dueDate;
-    delete (restOfData as any).startDate;
-    delete (restOfData as any).projectId;
+    
+    const updateData = {
+      ...restOfData,
+      image_url: imageUrl,
+      start_date: data.start_date ? formatISO(new Date(data.start_date)) : undefined,
+      due_date: data.due_date ? formatISO(new Date(data.due_date)) : undefined,
+    }
 
     const { data: updatedTask, error } = await supabase
       .from('tasks')
-      .update({
-        ...restOfData,
-        image_url: imageUrl,
-        start_date: data.startDate ? formatISO(data.startDate) : undefined,
-        due_date: data.dueDate ? formatISO(data.dueDate) : undefined,
-      })
+      .update(updateData)
       .eq('id', id)
       .select('*, subtasks(*)')
       .single();
@@ -406,12 +425,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   const getTasksByStatus = useCallback((status: string, projectId?: string) => {
     return tasksState.tasks.filter(task => 
-      task.status === status && (projectId ? task.projectId === projectId : true)
+      task.status === status && (projectId ? task.project_id === projectId : true)
     );
   }, [tasksState.tasks]);
   
   const getTasksByProject = useCallback((projectId: string) => {
-      return tasksState.tasks.filter(task => task.projectId === projectId);
+      return tasksState.tasks.filter(task => task.project_id === projectId);
   }, [tasksState.tasks]);
 
   // --- Daily Notes Logic ---

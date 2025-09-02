@@ -149,7 +149,7 @@ export default function ProjectsPage() {
         doc.setFont('helvetica', 'normal');
 
 
-        const projectTasks = tasks.filter(task => task.projectId === project.id);
+        const projectTasks = tasks.filter(task => task.project_id === project.id);
 
         if (projectTasks.length > 0) {
             if (yPos > 180) {
@@ -162,7 +162,7 @@ export default function ProjectsPage() {
                     t.title || 'N/A',
                     t.description || 'N/A',
                     subtasksText,
-                    t.assignee || 'N/A',
+                    t.assignees?.join(', ') || 'N/A',
                     t.status || 'N/A',
                     t.priority || 'N/A',
                     t.startDate ? format(new Date(t.startDate), 'dd/MM/yy') : 'N/A',
@@ -479,7 +479,7 @@ export default function ProjectsPage() {
           <div key={`chart-container-${project.id}`} id={`chart-for-project-${project.id}`} className="w-[600px] p-4 bg-background">
             <ProjectChartComponent 
               project={project} 
-              tasks={tasks.filter(t => t.projectId === project.id)} 
+              tasks={tasks.filter(t => t.project_id === project.id)} 
             />
           </div>
         ))}
