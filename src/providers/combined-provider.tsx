@@ -14,8 +14,6 @@ import type { Session } from '@supabase/supabase-js';
 import { UserStoriesContext, initialUserStoriesState, type UserStoriesContextType } from '@/hooks/use-user-stories';
 
 
-export const adminEmails = ['ntorres@ingenes.com', 'edgarbarragangarcia@gmail.com'];
-
 const convertUTCDateToLocalDate = (date: Date) => {
   const newDate = new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000);
   const offset = date.getTimezoneOffset() / 60;
@@ -31,7 +29,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [userStoriesState, setUserStoriesState] = useState(initialUserStoriesState);
   const supabase = createClient();
   const [session, setSession] = useState<Session | null>(null);
-  const [allUsers, setAllUsers] = useState<Profile[]>([]);
 
   // --- Projects ---
   const setProjects = (projects: ProjectWithProgress[]) => setProjectsState(prevState => ({ ...prevState, projects }));
@@ -55,7 +52,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       console.error('Error fetching all users:', error);
     } else {
-      setAllUsers(data || []);
       setTasksState(prevState => ({ ...prevState, allUsers: data || [] }));
     }
   }, [supabase]);
@@ -63,47 +59,42 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsLoading(true);
 
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const isAdmin = profile?.role === 'admin';
+
     let projectQuery;
 
-    if (adminEmails.includes(user.email || '')) {
-        // Admins get all projects, and we calculate progress client-side for them.
-        const { data: adminProjects, error: adminError } = await supabase.from('projects').select('*');
+    if (isAdmin) {
+      const { data: adminProjects, error: adminError } = await supabase.from('projects').select('*');
 
-        if (adminError) {
-          console.error("Error fetching admin projects:", adminError);
-          setProjectsError(adminError);
-          setProjects([]);
+      if (adminError) {
+        console.error("Error fetching admin projects:", adminError);
+        setProjectsError(adminError);
+        setProjects([]);
+        setProjectsLoading(false);
+        return;
+      }
+      
+      const { data: allTasks, error: allTasksError } = await supabase.from('tasks').select('id, project_id, status');
+      if (allTasksError) {
+          console.error("Error fetching all tasks for progress calculation:", allTasksError);
+          // Set progress to 0 if tasks can't be fetched
+          const projectsWithZeroProgress = (adminProjects || []).map(p => ({ ...p, progress: 0 }));
+          setProjects(projectsWithZeroProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
           setProjectsLoading(false);
           return;
-        }
+      }
 
-        const projectsWithProgress = await Promise.all((adminProjects || []).map(async (project) => {
-            const { data: tasks, error: tasksError } = await supabase
-                .from('tasks')
-                .select('status', { count: 'exact' })
-                .eq('project_id', project.id);
-            
-            const { data: completedTasks, error: completedTasksError } = await supabase
-                .from('tasks')
-                .select('status', { count: 'exact' })
-                .eq('project_id', project.id)
-                .eq('status', 'Done');
-
-            if (tasksError || completedTasksError) {
-                console.error(`Error fetching tasks for project ${project.id}:`, tasksError || completedTasksError);
-                return { ...project, progress: 0 };
-            }
-
-            const totalTasks = tasks?.length || 0;
-            const doneTasks = completedTasks?.length || 0;
-            const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-            
-            return { ...project, progress };
-        }));
-         setProjects(projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      const projectsWithProgress = (adminProjects || []).map(project => {
+        const relevantTasks = allTasks.filter(t => t.project_id === project.id);
+        const totalTasks = relevantTasks.length;
+        const doneTasks = relevantTasks.filter(t => t.status === 'Done').length;
+        const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+        return { ...project, progress };
+      });
+      setProjects(projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
 
     } else {
-        // Non-admins use the RPC function which calculates progress in the DB
         projectQuery = supabase.rpc('get_projects_for_user', {
             p_user_id: user.id,
             p_user_email: user.email || ''
@@ -241,7 +232,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setTasksLoading(true);
     let query;
     
-    if (adminEmails.includes(user.email || '')) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const isAdmin = profile?.role === 'admin';
+    
+    if (isAdmin) {
        query = supabase.from('tasks').select('*, subtasks(*)');
     } else {
         const { data: projectData, error: projectError } = await supabase.rpc('get_projects_for_user', {
@@ -262,7 +256,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      console.error(error);
+      console.error("Error fetching user's tasks:", error);
     } else {
         const tasksWithDates = data.map(task => ({
           ...task,
@@ -301,11 +295,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         ...restOfTaskData,
         image_url: imageUrl,
         user_id: user.id,
+        project_id: taskData.project_id,
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
       };
-
-    delete (dataToInsert as any).projectId;
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -360,11 +353,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { subtasks, ...restOfData } = data;
     delete (restOfData as any).imageFile;
     delete (restOfData as any).onUploadProgress;
-    delete (restOfData as any).projectId;
     
     const updateData = {
       ...restOfData,
       image_url: imageUrl,
+      project_id: data.project_id,
       start_date: data.startDate ? formatISO(data.startDate) : undefined,
       due_date: data.dueDate ? formatISO(data.dueDate) : undefined,
     }
@@ -497,12 +490,19 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   // --- User Stories Logic ---
   const fetchUserStories = useCallback(async (user: User) => {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      const isAdmin = profile?.role === 'admin';
+      
       let query = supabase.from('user_stories').select('*');
-      if (!adminEmails.includes(user.email || '')) {
-        // Non-admins can only see stories of projects they are part of
-        const { data: projectData, error: projectError } = await supabase.from('projects').select('id').eq('user_id', user.id);
+      
+      if (!isAdmin) {
+        const { data: projectData, error: projectError } = await supabase.rpc('get_projects_for_user', {
+             p_user_id: user.id,
+             p_user_email: user.email || ''
+        });
+
         if (projectError) {
-          console.error("Error fetching user's projects:", projectError);
+          console.error("Error fetching user's projects for stories:", projectError);
           return;
         }
         const projectIds = projectData.map(p => p.id);
@@ -566,7 +566,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         setProjects([]);
         setTasks([]);
         setDailyNotes([]);
-        setAllUsers([]);
+        setTasksState(prev => ({ ...prev, allUsers: [] }));
       }
     });
 
@@ -588,7 +588,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
   const tasksContextValue: TasksContextType = useMemo(() => ({
     ...tasksState,
-    allUsers,
     addTask,
     updateTask,
     deleteTask,
@@ -598,7 +597,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     fetchTasks,
     setTasks,
     setTasksLoading,
-  }), [tasksState, allUsers, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, fetchTasks]);
+  }), [tasksState, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, fetchTasks]);
 
   const dailyNotesContextValue: DailyNotesContextType = useMemo(() => ({
     ...dailyNotesState,
