@@ -6,6 +6,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { createClient } from '@/lib/supabase/server';
 import {z} from 'genkit';
 
 const ChatInputSchema = z.object({
@@ -38,12 +39,16 @@ const chatFlow = ai.defineFlow(
     outputSchema: ChatOutputSchema,
   },
   async (input) => {
-    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook/projectBot';
+    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook-test/projectBot';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 segundos de timeout
 
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userEmail = user?.email || 'unknown';
+
     try {
-      console.log('Enviando al webhook:', input.message);
+      console.log(`Enviando al webhook desde ${userEmail}:`, input.message);
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
@@ -51,6 +56,7 @@ const chatFlow = ai.defineFlow(
         },
         body: JSON.stringify({
           message: input.message,
+          user: userEmail,
         }),
         signal: controller.signal,
       });
