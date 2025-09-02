@@ -208,7 +208,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { data: tasksToDelete, error: tasksError } = await supabase
         .from('tasks')
         .select('id')
-        .eq('projectId', id);
+        .eq('project_id', id);
 
     if (tasksError) throw tasksError;
 
@@ -273,6 +273,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { subtasks, ...restOfTaskData } = taskData;
     delete (restOfTaskData as any).imageFile;
     delete (restOfTaskData as any).onUploadProgress;
+    delete (restOfTaskData as any).dueDate;
+    delete (restOfTaskData as any).startDate;
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -334,6 +336,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { subtasks, ...restOfData } = data;
     delete (restOfData as any).imageFile;
     delete (restOfData as any).onUploadProgress;
+    delete (restOfData as any).dueDate;
+    delete (restOfData as any).startDate;
 
     const { data: updatedTask, error } = await supabase
       .from('tasks')
