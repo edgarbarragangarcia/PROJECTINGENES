@@ -39,9 +39,9 @@ const chatFlow = ai.defineFlow(
     outputSchema: ChatOutputSchema,
   },
   async input => {
-    const {message, history = []} = input;
+    const {message} = input;
 
-    // Step 1: Call the webhook and wait for its response. This is the priority.
+    // Step 1: Call the webhook and wait for its response. This is the only source of truth.
     const webhookResponse = await sendDocumentWebhook({ content: message });
 
     // Step 2: Check if the webhook provided a valid response. If so, use it and STOP.
@@ -50,37 +50,8 @@ const chatFlow = ai.defineFlow(
       return { message: webhookResponse.output };
     }
 
-    // Step 3: If webhook did not respond, proceed to the GenAI model as a fallback.
-    console.log('Webhook did not provide a valid response. Falling back to GenAI model.');
-    const prompt = `You are a helpful project management assistant named PROJECTIA.
-    Your goal is to provide concise and helpful advice to users about their projects.
-    Keep your answers friendly and to the point.`;
-
-    try {
-        const {output} = await ai.generate({
-            model: 'googleai/gemini-2.5-flash',
-            prompt: message,
-            system: prompt,
-            history: history.map(h => ({
-                role: h.role,
-                content: [{text: h.content}],
-            })),
-        });
-
-        const modelMessage = output?.text;
-
-        // Step 4: Check if the GenAI model provided a response.
-        if (modelMessage) {
-            console.log('Using response from GenAI model.');
-            return { message: modelMessage };
-        }
-    } catch (e: any) {
-        console.error("Error calling GenAI Model:", e.message);
-    }
-    
-
-    // Step 5: If both the webhook and the model fail, return a generic error.
-    console.log('Both webhook and GenAI failed. Returning error message.');
+    // Step 3: If the webhook fails or does not provide a valid response, return an error message.
+    console.log('Webhook did not provide a valid response. Returning error message.');
     return {message: 'Lo siento, no pude procesar esa respuesta.'};
   }
 );
