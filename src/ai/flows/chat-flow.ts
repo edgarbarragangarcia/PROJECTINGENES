@@ -45,7 +45,7 @@ const chatFlow = ai.defineFlow(
     const webhookResponse = await sendDocumentWebhook({ content: message });
 
     // If the webhook provides a direct answer, use it and finish the flow.
-    if (webhookResponse && webhookResponse.output) {
+    if (webhookResponse?.output) {
       return { message: webhookResponse.output };
     }
 
@@ -64,6 +64,12 @@ const chatFlow = ai.defineFlow(
       })),
     });
 
-    return {message: output?.text || 'Lo siento, no pude procesar esa respuesta.'};
+    const modelMessage = output?.text;
+
+    if (modelMessage) {
+        return { message: modelMessage };
+    }
+
+    return {message: 'Lo siento, no pude procesar esa respuesta.'};
   }
 );
