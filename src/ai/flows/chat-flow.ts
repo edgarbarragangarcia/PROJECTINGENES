@@ -41,15 +41,16 @@ const chatFlow = ai.defineFlow(
   async input => {
     const {message, history = []} = input;
 
-    // First, send the user's message to the webhook and wait for a potential response.
+    // Step 1: Call the webhook and wait for its response.
     const webhookResponse = await sendDocumentWebhook({ content: message });
 
-    // If the webhook provides a direct answer, use it and finish the flow.
-    if (webhookResponse?.output) {
+    // Step 2: Check if the webhook provided a valid response.
+    if (webhookResponse && webhookResponse.output) {
+      // If yes, use the webhook's response and finish the flow.
       return { message: webhookResponse.output };
     }
 
-    // If the webhook did not provide an answer, proceed to the GenAI model.
+    // Step 3: If webhook did not respond, proceed to the GenAI model as a fallback.
     const prompt = `You are a helpful project management assistant named PROJECTIA.
     Your goal is to provide concise and helpful advice to users about their projects.
     Keep your answers friendly and to the point.`;
@@ -66,10 +67,12 @@ const chatFlow = ai.defineFlow(
 
     const modelMessage = output?.text;
 
+    // Step 4: Check if the GenAI model provided a response.
     if (modelMessage) {
         return { message: modelMessage };
     }
 
+    // Step 5: If both the webhook and the model fail, return a generic error.
     return {message: 'Lo siento, no pude procesar esa respuesta.'};
   }
 );

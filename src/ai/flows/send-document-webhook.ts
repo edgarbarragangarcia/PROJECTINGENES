@@ -52,14 +52,15 @@ const sendDocumentWebhookFlow = ai.defineFlow(
       }
       
       const responseData = await response.json();
+      console.log('Webhook Response Data:', JSON.stringify(responseData, null, 2));
       
       // The webhook returns an array, e.g., [{ "output": "..." }]
       if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
-        console.log('Successfully received message from webhook.');
+        console.log('Successfully received message from webhook:', responseData[0].output);
         return { output: responseData[0].output };
       }
       
-      console.log('Webhook responded, but with an unexpected format.');
+      console.log('Webhook responded, but with an unexpected format or no output.');
       return { output: undefined };
 
     } catch (error: any) {
