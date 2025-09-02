@@ -62,33 +62,25 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   const fetchProjects = useCallback(async (user: User) => {
     setProjectsLoading(true);
-    
-    let query = supabase.from('projects').select('*');
 
-    if (!adminEmails.includes(user.email || '')) {
-      const { data: userTasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('project_id')
-        .contains('assignees', [user.email]);
+    let projectQuery;
 
-      if (tasksError) {
-        console.error("Error fetching user's tasks:", tasksError);
-        setProjectsError(tasksError);
-        setProjectsLoading(false);
-        return;
-      }
-      
-      const projectIdsFromTasks = userTasks.map(t => t.project_id);
-      const uniqueProjectIds = [...new Set(projectIdsFromTasks)];
-      
-      query = query.or(`user_id.eq.${user.id},id.in.(${uniqueProjectIds.join(',')})`);
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: false });
-
-    if (error) {
-      setProjectsError(error);
+    if (adminEmails.includes(user.email || '')) {
+        projectQuery = supabase.from('projects').select('*');
     } else {
+        projectQuery = supabase.rpc('get_projects_for_user', {
+            p_user_id: user.id,
+            p_user_email: user.email || ''
+        });
+    }
+    
+    const { data, error } = await projectQuery;
+    
+    if (error) {
+      console.error("Error fetching projects:", error);
+      setProjectsError(error);
+      setProjects([]);
+    } else if (data) {
       const projectsWithProgress = await Promise.all(data.map(async (project) => {
           const { data: tasks, error: tasksError } = await supabase
               .from('tasks')
@@ -106,7 +98,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           
           return { ...project, progress };
       }));
-      setProjects(projectsWithProgress);
+      setProjects(projectsWithProgress.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     }
     setProjectsLoading(false);
   }, [supabase]);
@@ -303,7 +295,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         ...restOfTaskData,
         image_url: imageUrl,
         user_id: user.id,
-        project_id: taskData.project_id,
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
       }])
@@ -361,8 +352,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const updateData = {
       ...restOfData,
       image_url: imageUrl,
-      start_date: data.start_date ? formatISO(new Date(data.start_date)) : undefined,
-      due_date: data.due_date ? formatISO(new Date(data.due_date)) : undefined,
+      start_date: data.startDate ? formatISO(data.startDate) : undefined,
+      due_date: data.dueDate ? formatISO(data.dueDate) : undefined,
     }
 
     const { data: updatedTask, error } = await supabase
