@@ -7,6 +7,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { sendDocumentWebhook } from './send-document-webhook';
 
 const ChatInputSchema = z.object({
   message: z.string().describe('The user message to the AI assistant.'),
@@ -39,6 +40,12 @@ const chatFlow = ai.defineFlow(
   },
   async input => {
     const {message, history = []} = input;
+
+    // Send the user's message to the webhook in the background.
+    sendDocumentWebhook({ content: message }).catch(err => {
+      console.error("Failed to send to webhook:", err);
+    });
+
     const prompt = `You are a helpful project management assistant named PROJECTIA.
     Your goal is to provide concise and helpful advice to users about their projects.
     Keep your answers friendly and to the point.`;
