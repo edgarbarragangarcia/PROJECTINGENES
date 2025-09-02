@@ -31,7 +31,7 @@ export interface Task {
   projectId: string;
   project_id: string; // from Supabase
   user_id: string;
-  assignees?: any[]; // Array of user emails
+  assignees?: string[]; // Array of user emails
   subtasks?: Subtask[];
   image_url?: string;
 }

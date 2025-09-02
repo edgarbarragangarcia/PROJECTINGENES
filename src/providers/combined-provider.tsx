@@ -69,7 +69,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       const { data: userTasks, error: tasksError } = await supabase
         .from('tasks')
         .select('projectId')
-        .eq('assignee', user.email);
+        .contains('assignees', [user.email]);
 
       if (tasksError) {
         console.error("Error fetching user's tasks:", tasksError);
@@ -233,7 +233,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     let query = supabase.from('tasks').select('*, subtasks(*)');
     
     if (!adminEmails.includes(user.email || '')) {
-       query = query.or(`assignees.cs.["${user.email}"]`);
+       query = query.contains('assignees', [user.email]);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
