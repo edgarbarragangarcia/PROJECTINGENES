@@ -126,7 +126,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             .upload(filePath, file, {
                 cacheControl: '3600',
                 upsert: false,
-                contentType: file.type,
             });
 
         if (uploadError) {
@@ -274,33 +273,26 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         const file = taskData.imageFile;
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${taskData.project_id}/${Date.now()}.${fileExt}`;
-        const filePath = `${fileName}`;
-
-        const { error: uploadError } = await supabase.storage.from('task_images').upload(filePath, file);
+        
+        const { error: uploadError } = await supabase.storage
+            .from('task_images')
+            .upload(fileName, file);
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage.from('task_images').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage.from('task_images').getPublicUrl(fileName);
         imageUrl = publicUrl;
     }
     
-    const { subtasks, ...restOfTaskData } = taskData;
-    delete (restOfTaskData as any).imageFile;
-    delete (restOfTaskData as any).onUploadProgress;
+    const { subtasks, imageFile, onUploadProgress, ...restOfTaskData } = taskData;
     
     const dataToInsert = {
         ...restOfTaskData,
         image_url: imageUrl,
         user_id: user.id,
-        project_id: taskData.project_id,
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
       };
-      
-      delete (dataToInsert as any).startDate;
-      delete (dataToInsert as any).dueDate;
-      delete (dataToInsert as any).projectId;
-
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -342,31 +334,25 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
        const file = data.imageFile;
        const fileExt = file.name.split('.').pop();
        const fileName = `${user.id}/${data.project_id}/${Date.now()}.${fileExt}`;
-       const filePath = `${fileName}`;
        
-       const { error: uploadError } = await supabase.storage.from('task_images').upload(filePath, file, { upsert: true });
+       const { error: uploadError } = await supabase.storage
+        .from('task_images')
+        .upload(fileName, file, { upsert: true });
 
        if (uploadError) throw uploadError;
 
-       const { data: { publicUrl } } = supabase.storage.from('task_images').getPublicUrl(filePath);
+       const { data: { publicUrl } } = supabase.storage.from('task_images').getPublicUrl(fileName);
        imageUrl = publicUrl;
     }
     
-    const { subtasks, ...restOfData } = data;
-    delete (restOfData as any).imageFile;
-    delete (restOfData as any).onUploadProgress;
+    const { subtasks, imageFile, onUploadProgress, ...restOfData } = data;
     
     const updateData = {
       ...restOfData,
       image_url: imageUrl,
-      project_id: data.project_id,
       start_date: data.startDate ? formatISO(data.startDate) : undefined,
       due_date: data.dueDate ? formatISO(data.dueDate) : undefined,
     }
-    
-    delete (updateData as any).startDate;
-    delete (updateData as any).dueDate;
-    delete (updateData as any).projectId;
 
     const { data: updatedTask, error } = await supabase
       .from('tasks')
