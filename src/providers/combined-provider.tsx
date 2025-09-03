@@ -294,9 +294,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
         assignees: JSON.stringify(taskData.assignees || []),
       };
-      
-    delete (dataToInsert as any).projectId;
-
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -362,7 +359,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         updateData.assignees = JSON.stringify(data.assignees);
     }
     
-    delete updateData.projectId;
+    // Do not attempt to update the project_id
     delete updateData.project_id;
 
 
