@@ -22,6 +22,26 @@ const convertUTCDateToLocalDate = (date: Date) => {
   return newDate;
 }
 
+const safeParseJson = (jsonString: any, defaultValue: any) => {
+  if (typeof jsonString === 'string') {
+    try {
+      return JSON.parse(jsonString);
+    } catch (e) {
+      return defaultValue;
+    }
+  }
+  return jsonString || defaultValue;
+};
+
+const processTask = (task: any): Task => {
+  return {
+    ...task,
+    startDate: task.start_date ? parseISO(task.start_date) : undefined,
+    dueDate: task.due_date ? parseISO(task.due_date) : undefined,
+    assignees: safeParseJson(task.assignees, []),
+  };
+};
+
 export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   const [projectsState, setProjectsState] = useState(initialProjectsState);
   const [tasksState, setTasksState] = useState(initialTasksState);
@@ -250,12 +270,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       console.error("Error fetching user's tasks:", error);
     } else {
-        const tasksWithDates = data.map(task => ({
-          ...task,
-          startDate: task.start_date ? parseISO(task.start_date) : undefined,
-          dueDate: task.due_date ? parseISO(task.due_date) : undefined,
-        }))
-      setTasks(tasksWithDates);
+      setTasks(data.map(processTask));
     }
     setTasksLoading(false);
   }, [supabase]);
@@ -291,13 +306,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         assignees: taskData.assignees || [],
       };
       
-    // The 'assignees' field is jsonb, so it should be stringified
-    if (dataToInsert.assignees) {
-        dataToInsert.assignees = JSON.stringify(dataToInsert.assignees);
-    }
     delete dataToInsert.projectId; // Remove this to prevent db error
     
-
     const { data: newTask, error } = await supabase
       .from('tasks')
       .insert([dataToInsert])
@@ -316,15 +326,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
        if (subtaskError) throw subtaskError;
     }
     
-    const finalTask = {
-        ...newTask,
-        startDate: newTask.start_date ? parseISO(newTask.start_date) : undefined,
-        dueDate: newTask.due_date ? parseISO(newTask.due_date) : undefined,
-    }
-
     setTasksState(prev => ({
       ...prev,
-      tasks: [finalTask, ...prev.tasks],
+      tasks: [processTask(newTask), ...prev.tasks],
     }));
   }, [supabase]);
 
@@ -354,7 +358,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     const { subtasks, imageFile, onUploadProgress, ...restOfData } = data;
     
-    const updateData: { [key: string]: any } = { ...restOfData, image_url: imageUrl };
+    const updateData: { [key: string]: any } = { ...restOfData };
+    if (imageUrl !== undefined) {
+      updateData.image_url = imageUrl;
+    }
 
     if (updateData.startDate) {
       updateData.start_date = formatISO(updateData.startDate);
@@ -362,16 +369,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (updateData.dueDate) {
       updateData.due_date = formatISO(updateData.dueDate);
     }
-    if (updateData.assignees) {
-        updateData.assignees = JSON.stringify(updateData.assignees);
-    }
     
     delete updateData.startDate;
     delete updateData.dueDate;
-    delete updateData.projectId;
-    delete updateData.project_id;
-
-
+    
     const { data: updatedTask, error } = await supabase
       .from('tasks')
       .update(updateData)
@@ -406,15 +407,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const {data: finalTaskWithSubtasks, error: fetchError} = await supabase.from('tasks').select('*, subtasks(*)').eq('id', id).single();
     if(fetchError) throw fetchError;
 
-    const finalTask = {
-        ...finalTaskWithSubtasks,
-        startDate: finalTaskWithSubtasks.start_date ? parseISO(finalTaskWithSubtasks.start_date) : undefined,
-        dueDate: finalTaskWithSubtasks.due_date ? parseISO(finalTaskWithSubtasks.due_date) : undefined,
-    }
-
     setTasksState(prev => ({
       ...prev,
-      tasks: prev.tasks.map(t => (t.id === id ? finalTask : t)),
+      tasks: prev.tasks.map(t => (t.id === id ? processTask(finalTaskWithSubtasks) : t)),
     }));
   }, [supabase, tasksState.tasks]);
 
