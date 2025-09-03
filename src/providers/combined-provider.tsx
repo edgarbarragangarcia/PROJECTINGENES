@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -96,13 +94,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       const { data: allTasks, error: allTasksError } = await supabase.from('tasks').select('id, project_id, status');
       if (allTasksError) {
           console.error("Error fetching all tasks for progress calculation:", allTasksError);
-          const projectsWithZeroProgress = (adminProjects || []).map((p: Project) => ({ ...p, progress: 0 }));
+          const projectsWithZeroProgress: ProjectWithProgress[] = (adminProjects || []).map((p: Project) => ({ ...p, progress: 0 }));
           setProjects(projectsWithZeroProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
           setProjectsLoading(false);
           return;
       }
 
-      const projectsWithProgress = (adminProjects || []).map((p: Project) => {
+      const projectsWithProgress: ProjectWithProgress[] = (adminProjects || []).map((p: Project) => {
         const relevantTasks = allTasks.filter(t => t.project_id === p.id);
         const totalTasks = relevantTasks.length;
         const doneTasks = relevantTasks.filter(t => t.status === 'Done').length;
@@ -127,7 +125,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setProjectsLoading(false);
   }, [supabase]);
 
-  const addProject = useCallback(async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id' | 'progress'> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
+  const addProject = useCallback(async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id'> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       throw new Error("Debes iniciar sesión para crear un proyecto.");
@@ -168,9 +166,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (error) throw error;
+    
+    const newProjectWithProgress: ProjectWithProgress = { ...data, progress: 0 };
     setProjectsState(prev => ({
         ...prev,
-        projects: [{ ...data, progress: 0 }, ...prev.projects],
+        projects: [newProjectWithProgress, ...prev.projects],
     }));
   }, [supabase]);
 
@@ -211,7 +211,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     setProjectsState(prev => ({
       ...prev,
-      projects: prev.projects.map((p: Project) => p.id === id ? { ...p, ...updatedProject, progress: p.progress } : p),
+      projects: prev.projects.map((p: ProjectWithProgress) => 
+        p.id === id ? { ...p, ...updatedProject, progress: p.progress } : p
+      ),
     }));
   }, [supabase]);
 
@@ -402,7 +404,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       if (!user) throw new Error("Usuario no autenticado");
       await supabase.from('subtasks').insert(toInsert.map(st => ({ title: st.title, is_completed: st.is_completed, task_id: id, user_id: user.id })));
     }
-
 
     const {data: finalTaskWithSubtasks, error: fetchError} = await supabase.from('tasks').select('*, subtasks(*)').eq('id', id).single();
     if(fetchError) throw fetchError;
