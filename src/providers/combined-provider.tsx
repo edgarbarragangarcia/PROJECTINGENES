@@ -76,7 +76,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       const { data: allTasks, error: allTasksError } = await supabase.from('tasks').select('id, project_id, status');
       if (allTasksError) {
           console.error("Error fetching all tasks for progress calculation:", allTasksError);
-          // Set progress to 0 if tasks can't be fetched
           const projectsWithZeroProgress = (adminProjects || []).map((p: Project) => ({ ...p, progress: 0 }));
           setProjects(projectsWithZeroProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
           setProjectsLoading(false);
@@ -134,10 +133,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         imageUrl = publicUrl;
     }
 
+    const { imageFile, onUploadProgress, ...restOfProjectData } = projectData;
+
     const { data, error } = await supabase
       .from('projects')
       .insert([{ 
-        ...projectData, 
+        ...restOfProjectData, 
         user_id: user.id, 
         image_url: imageUrl,
         creator_email: user.email,
@@ -176,10 +177,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         imageUrl = publicUrl;
     }
 
-    const updateData = { ...data, image_url: imageUrl };
-    delete updateData.imageFile;
-    delete (updateData as any).onUploadProgress;
-
+    const { imageFile, onUploadProgress, ...restOfData } = data;
+    const updateData = { ...restOfData, image_url: imageUrl };
 
     const { data: updatedProject, error } = await supabase
       .from('projects')
@@ -291,6 +290,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
         assignees: taskData.assignees || [],
       };
+      
+    // The 'assignees' field is jsonb, so it should be stringified
+    if (dataToInsert.assignees) {
+        dataToInsert.assignees = JSON.stringify(dataToInsert.assignees);
+    }
+    delete dataToInsert.projectId; // Remove this to prevent db error
+    
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -331,7 +337,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
        const file = data.imageFile;
        const fileExt = file.name.split('.').pop();
-       const fileName = `${user.id}/${data.project_id}/${Date.now()}.${fileExt}`;
+       const originalTask = tasksState.tasks.find(t => t.id === id);
+       if (!originalTask) throw new Error("Tarea original no encontrada para actualizar");
+
+       const fileName = `${user.id}/${originalTask.project_id}/${Date.now()}.${fileExt}`;
        
        const { error: uploadError } = await supabase.storage
         .from('task_attachments')
@@ -345,22 +354,21 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     const { subtasks, imageFile, onUploadProgress, ...restOfData } = data;
     
-    // Create a clean object for the update payload
-    const updateData: { [key: string]: any } = { ...restOfData };
-    
-    // Explicitly map date fields to snake_case for Supabase
-    if (data.startDate) {
-      updateData.start_date = formatISO(data.startDate);
+    const updateData: { [key: string]: any } = { ...restOfData, image_url: imageUrl };
+
+    if (updateData.startDate) {
+      updateData.start_date = formatISO(updateData.startDate);
     }
-    if (data.dueDate) {
-      updateData.due_date = formatISO(data.dueDate);
+    if (updateData.dueDate) {
+      updateData.due_date = formatISO(updateData.dueDate);
+    }
+    if (updateData.assignees) {
+        updateData.assignees = JSON.stringify(updateData.assignees);
     }
     
-    // Remove the camelCase date properties
     delete updateData.startDate;
     delete updateData.dueDate;
-
-    // Do not attempt to update the project_id
+    delete updateData.projectId;
     delete updateData.project_id;
 
 
@@ -373,7 +381,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       
     if (error) throw error;
     
-    // --- Subtask Sync ---
     const existingSubtasks = subtasks || [];
     const originalSubtasks = tasksState.tasks.find(t => t.id === id)?.subtasks || [];
     
@@ -394,7 +401,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       if (!user) throw new Error("Usuario no autenticado");
       await supabase.from('subtasks').insert(toInsert.map(st => ({ title: st.title, is_completed: st.is_completed, task_id: id, user_id: user.id })));
     }
-    // --- End Subtask Sync ---
 
 
     const {data: finalTaskWithSubtasks, error: fetchError} = await supabase.from('tasks').select('*, subtasks(*)').eq('id', id).single();
@@ -568,6 +574,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         setProjects([]);
         setTasks([]);
         setDailyNotes([]);
+        setUserStories([]);
         setTasksState(prev => ({ ...prev, allUsers: [] }));
       }
     });
