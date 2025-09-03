@@ -62,8 +62,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     const isAdmin = profile?.role === 'admin';
 
-    let projectQuery;
-
     if (isAdmin) {
       const { data: adminProjects, error: adminError } = await supabase.from('projects').select('*');
 
@@ -79,27 +77,26 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       if (allTasksError) {
           console.error("Error fetching all tasks for progress calculation:", allTasksError);
           // Set progress to 0 if tasks can't be fetched
-          const projectsWithZeroProgress = (adminProjects || []).map(p => ({ ...p, progress: 0 }));
+          const projectsWithZeroProgress = (adminProjects || []).map((p: Project) => ({ ...p, progress: 0 }));
           setProjects(projectsWithZeroProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
           setProjectsLoading(false);
           return;
       }
 
-      const projectsWithProgress = (adminProjects || []).map(project => {
-        const relevantTasks = allTasks.filter(t => t.project_id === project.id);
+      const projectsWithProgress = (adminProjects || []).map((p: Project) => {
+        const relevantTasks = allTasks.filter(t => t.project_id === p.id);
         const totalTasks = relevantTasks.length;
         const doneTasks = relevantTasks.filter(t => t.status === 'Done').length;
         const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-        return { ...project, progress };
+        return { ...p, progress };
       });
       setProjects(projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
 
     } else {
-        projectQuery = supabase.rpc('get_projects_for_user', {
+        const { data, error } = await supabase.rpc('get_projects_for_user', {
             p_user_id: user.id,
             p_user_email: user.email || ''
         });
-        const { data, error } = await projectQuery;
         if (error) {
             console.error("Error fetching projects for user:", error);
             setProjectsError(error);
@@ -249,7 +246,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
         
-        const projectIds = projectData.map(p => p.id);
+        const projectIds = projectData.map((p: Project) => p.id);
         query = supabase.from('tasks').select('*, subtasks(*)').in('project_id', projectIds);
     }
 
@@ -299,6 +296,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
       };
+      
+      delete (dataToInsert as any).startDate;
+      delete (dataToInsert as any).dueDate;
+      delete (dataToInsert as any).projectId;
+
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -361,6 +363,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       start_date: data.startDate ? formatISO(data.startDate) : undefined,
       due_date: data.dueDate ? formatISO(data.dueDate) : undefined,
     }
+    
+    delete (updateData as any).startDate;
+    delete (updateData as any).dueDate;
+    delete (updateData as any).projectId;
 
     const { data: updatedTask, error } = await supabase
       .from('tasks')
@@ -505,7 +511,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           console.error("Error fetching user's projects for stories:", projectError);
           return;
         }
-        const projectIds = projectData.map(p => p.id);
+        const projectIds = projectData.map((p: Project) => p.id);
         query = query.in('project_id', projectIds);
       }
       const { data, error } = await query.order('created_at', { ascending: false });
