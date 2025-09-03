@@ -245,7 +245,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
         
-        const projectIds = projectData.map((p: Project) => p.id);
+        const projectIds = projectData.map((p: any) => p.id);
         query = supabase.from('tasks').select('*, subtasks(*)').in('project_id', projectIds);
     }
 
@@ -275,12 +275,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         const fileName = `${user.id}/${taskData.project_id}/${Date.now()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
-            .from('task_images')
+            .from('task_attachments')
             .upload(fileName, file);
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage.from('task_images').getPublicUrl(fileName);
+        const { data: { publicUrl } } = supabase.storage.from('task_attachments').getPublicUrl(fileName);
         imageUrl = publicUrl;
     }
     
@@ -293,6 +293,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
       };
+      
+    delete (dataToInsert as any).projectId;
+
 
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -336,23 +339,27 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
        const fileName = `${user.id}/${data.project_id}/${Date.now()}.${fileExt}`;
        
        const { error: uploadError } = await supabase.storage
-        .from('task_images')
+        .from('task_attachments')
         .upload(fileName, file, { upsert: true });
 
        if (uploadError) throw uploadError;
 
-       const { data: { publicUrl } } = supabase.storage.from('task_images').getPublicUrl(fileName);
+       const { data: { publicUrl } } = supabase.storage.from('task_attachments').getPublicUrl(fileName);
        imageUrl = publicUrl;
     }
     
     const { subtasks, imageFile, onUploadProgress, ...restOfData } = data;
     
-    const updateData = {
+    const updateData: any = {
       ...restOfData,
       image_url: imageUrl,
       start_date: data.startDate ? formatISO(data.startDate) : undefined,
       due_date: data.dueDate ? formatISO(data.dueDate) : undefined,
     }
+    
+    delete updateData.projectId;
+    delete updateData.project_id;
+
 
     const { data: updatedTask, error } = await supabase
       .from('tasks')
@@ -497,7 +504,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
           console.error("Error fetching user's projects for stories:", projectError);
           return;
         }
-        const projectIds = projectData.map((p: Project) => p.id);
+        const projectIds = projectData.map((p: any) => p.id);
         query = query.in('project_id', projectIds);
       }
       const { data, error } = await query.order('created_at', { ascending: false });
