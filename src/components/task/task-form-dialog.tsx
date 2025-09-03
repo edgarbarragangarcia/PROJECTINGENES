@@ -68,7 +68,7 @@ const taskFormSchema = z.object({
   priority: z.enum(priorities),
   startDate: z.date().optional(),
   dueDate: z.date().optional(),
-  project_id: z.string().uuid("Debes seleccionar un proyecto válido."),
+  project_id: z.string({ required_error: 'Debes seleccionar un proyecto.'}).uuid("Debes seleccionar un proyecto válido."),
   assignees: z.array(z.string()).optional(),
   subtasks: z.array(subtaskSchema).optional(),
   image_url: z.string().optional(),
