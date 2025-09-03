@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -21,6 +22,9 @@ const convertUTCDateToLocalDate = (date: Date) => {
 }
 
 const safeParseJson = (jsonString: any, defaultValue: any) => {
+  if (Array.isArray(jsonString)) {
+    return jsonString;
+  }
   if (typeof jsonString === 'string') {
     try {
       return JSON.parse(jsonString);
@@ -299,16 +303,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     const { subtasks, imageFile, onUploadProgress, ...restOfTaskData } = taskData;
     
-    const dataToInsert: any = {
-        ...restOfTaskData,
-        image_url: imageUrl,
-        user_id: user.id,
-        start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
-        due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
-        assignees: taskData.assignees || [],
-      };
-      
-    delete dataToInsert.projectId; // Remove this to prevent db error
+    const dataToInsert = {
+      title: restOfTaskData.title,
+      description: restOfTaskData.description,
+      status: restOfTaskData.status,
+      priority: restOfTaskData.priority,
+      project_id: restOfTaskData.project_id,
+      image_url: imageUrl,
+      user_id: user.id,
+      start_date: restOfTaskData.startDate ? formatISO(restOfTaskData.startDate) : undefined,
+      due_date: restOfTaskData.dueDate ? formatISO(restOfTaskData.dueDate) : undefined,
+      assignees: restOfTaskData.assignees ? JSON.stringify(restOfTaskData.assignees) : JSON.stringify([]),
+    };
     
     const { data: newTask, error } = await supabase
       .from('tasks')
@@ -335,13 +341,16 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase]);
 
   const updateTask = useCallback(async (id: string, data: Partial<Task> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
-    let imageUrl = data.image_url;
-
-    if (data.imageFile) {
+    
+    const { subtasks, imageFile, onUploadProgress, ...restOfData } = data;
+    
+    const updateData: { [key: string]: any } = { ...restOfData };
+    
+    if (imageFile) {
        const { data: { user } } = await supabase.auth.getUser();
        if (!user) throw new Error("Usuario no autenticado");
 
-       const file = data.imageFile;
+       const file = imageFile;
        const fileExt = file.name.split('.').pop();
        const originalTask = tasksState.tasks.find(t => t.id === id);
        if (!originalTask) throw new Error("Tarea original no encontrada para actualizar");
@@ -355,25 +364,21 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
        if (uploadError) throw uploadError;
 
        const { data: { publicUrl } } = supabase.storage.from('task_attachments').getPublicUrl(fileName);
-       imageUrl = publicUrl;
+       updateData.image_url = publicUrl;
+    } else if (data.image_url === null) {
+      updateData.image_url = null;
     }
     
-    const { subtasks, imageFile, onUploadProgress, ...restOfData } = data;
+    if (updateData.assignees) {
+        updateData.assignees = JSON.stringify(updateData.assignees);
+    }
     
-    const updateData: { [key: string]: any } = { ...restOfData };
-    if (imageUrl !== undefined) {
-      updateData.image_url = imageUrl;
-    }
-
-    if (updateData.startDate) {
-      updateData.start_date = formatISO(updateData.startDate);
-    }
-    if (updateData.dueDate) {
-      updateData.due_date = formatISO(updateData.dueDate);
-    }
+    updateData.start_date = updateData.startDate ? formatISO(updateData.startDate) : undefined;
+    updateData.due_date = updateData.dueDate ? formatISO(updateData.dueDate) : undefined;
     
     delete updateData.startDate;
     delete updateData.dueDate;
+    delete updateData.project_id; // Do not allow changing project
     
     const { data: updatedTask, error } = await supabase
       .from('tasks')
