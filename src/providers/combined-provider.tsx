@@ -118,11 +118,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (projectData.imageFile) {
         const file = projectData.imageFile;
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-        const filePath = `project-images/${fileName}`;
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-            .from('projectia')
+            .from('project_images')
             .upload(filePath, file, {
                 cacheControl: '3600',
                 upsert: false,
@@ -130,11 +130,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
             });
 
         if (uploadError) {
-            console.error("Error al subir la imagen:", uploadError);
+            console.error("Error al subir la imagen del proyecto:", uploadError);
             throw new Error("No se pudo subir la imagen del proyecto.");
         }
 
-        const { data: { publicUrl } } = supabase.storage.from('projectia').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage.from('project_images').getPublicUrl(filePath);
         imageUrl = publicUrl;
     }
 
@@ -167,16 +167,16 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
        const file = data.imageFile;
        const fileExt = file.name.split('.').pop();
-       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-       const filePath = `project-images/${fileName}`;
+       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+       const filePath = `${fileName}`;
        
        const { error: uploadError } = await supabase.storage
-          .from('projectia')
+          .from('project_images')
           .upload(filePath, file, { upsert: true });
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage.from('projectia').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage.from('project_images').getPublicUrl(filePath);
         imageUrl = publicUrl;
     }
 
@@ -196,7 +196,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     setProjectsState(prev => ({
       ...prev,
-      projects: prev.projects.map(p => p.id === id ? { ...p, ...updatedProject, progress: p.progress } : p),
+      projects: prev.projects.map((p: Project) => p.id === id ? { ...p, ...updatedProject, progress: p.progress } : p),
     }));
   }, [supabase]);
 
@@ -273,14 +273,14 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (taskData.imageFile) {
         const file = taskData.imageFile;
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}-task-${Date.now()}.${fileExt}`;
-        const filePath = `task-images/${fileName}`;
+        const fileName = `${user.id}/${taskData.project_id}/${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
 
-        const { error: uploadError } = await supabase.storage.from('projectia').upload(filePath, file);
+        const { error: uploadError } = await supabase.storage.from('task_images').upload(filePath, file);
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage.from('projectia').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage.from('task_images').getPublicUrl(filePath);
         imageUrl = publicUrl;
     }
     
@@ -299,7 +299,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       
       delete (dataToInsert as any).startDate;
       delete (dataToInsert as any).dueDate;
-      delete (dataToInsert as any).projectId;
 
 
     const { data: newTask, error } = await supabase
@@ -341,14 +340,14 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
        const file = data.imageFile;
        const fileExt = file.name.split('.').pop();
-       const fileName = `${user.id}-task-${Date.now()}.${fileExt}`;
-       const filePath = `task-images/${fileName}`;
+       const fileName = `${user.id}/${data.project_id}/${Date.now()}.${fileExt}`;
+       const filePath = `${fileName}`;
        
-       const { error: uploadError } = await supabase.storage.from('projectia').upload(filePath, file, { upsert: true });
+       const { error: uploadError } = await supabase.storage.from('task_images').upload(filePath, file, { upsert: true });
 
        if (uploadError) throw uploadError;
 
-       const { data: { publicUrl } } = supabase.storage.from('projectia').getPublicUrl(filePath);
+       const { data: { publicUrl } } = supabase.storage.from('task_images').getPublicUrl(filePath);
        imageUrl = publicUrl;
     }
     
@@ -366,7 +365,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     delete (updateData as any).startDate;
     delete (updateData as any).dueDate;
-    delete (updateData as any).projectId;
 
     const { data: updatedTask, error } = await supabase
       .from('tasks')
