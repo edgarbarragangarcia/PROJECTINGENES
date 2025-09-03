@@ -286,12 +286,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     const { subtasks, imageFile, onUploadProgress, ...restOfTaskData } = taskData;
     
-    const dataToInsert = {
+    const dataToInsert: any = {
         ...restOfTaskData,
         image_url: imageUrl,
         user_id: user.id,
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
+        assignees: JSON.stringify(taskData.assignees || []),
       };
       
     delete (dataToInsert as any).projectId;
@@ -355,6 +356,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       image_url: imageUrl,
       start_date: data.startDate ? formatISO(data.startDate) : undefined,
       due_date: data.dueDate ? formatISO(data.dueDate) : undefined,
+    }
+    
+    if (data.assignees) {
+        updateData.assignees = JSON.stringify(data.assignees);
     }
     
     delete updateData.projectId;
