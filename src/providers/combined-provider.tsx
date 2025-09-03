@@ -123,10 +123,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
         const { error: uploadError } = await supabase.storage
             .from('project_images')
-            .upload(filePath, file, {
-                cacheControl: '3600',
-                upsert: false,
-            });
+            .upload(filePath, file);
 
         if (uploadError) {
             console.error("Error al subir la imagen del proyecto:", uploadError);
@@ -292,7 +289,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         user_id: user.id,
         start_date: taskData.startDate ? formatISO(taskData.startDate) : undefined,
         due_date: taskData.dueDate ? formatISO(taskData.dueDate) : undefined,
-        assignees: JSON.stringify(taskData.assignees || []),
+        assignees: taskData.assignees || [],
       };
 
     const { data: newTask, error } = await supabase
@@ -348,17 +345,21 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     const { subtasks, imageFile, onUploadProgress, ...restOfData } = data;
     
-    const updateData: any = {
-      ...restOfData,
-      image_url: imageUrl,
-      start_date: data.startDate ? formatISO(data.startDate) : undefined,
-      due_date: data.dueDate ? formatISO(data.dueDate) : undefined,
+    // Create a clean object for the update payload
+    const updateData: { [key: string]: any } = { ...restOfData };
+    
+    // Explicitly map date fields to snake_case for Supabase
+    if (data.startDate) {
+      updateData.start_date = formatISO(data.startDate);
+    }
+    if (data.dueDate) {
+      updateData.due_date = formatISO(data.dueDate);
     }
     
-    if (data.assignees) {
-        updateData.assignees = JSON.stringify(data.assignees);
-    }
-    
+    // Remove the camelCase date properties
+    delete updateData.startDate;
+    delete updateData.dueDate;
+
     // Do not attempt to update the project_id
     delete updateData.project_id;
 
