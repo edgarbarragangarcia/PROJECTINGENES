@@ -48,13 +48,24 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/login';
+    router.refresh();
   };
   
   const getInitials = (email: string) => {
     if (!email) return 'U';
+    const userProfile = allUsers.find(u => u.email === email);
+    if (userProfile?.full_name) {
+      return userProfile.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    }
     return email.substring(0, 2).toUpperCase();
   }
+  
+  const getUserFullName = () => {
+      if(!user) return '';
+      const userProfile = allUsers.find(u => u.id === user.id);
+      return userProfile?.full_name || user.email;
+  }
+
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex items-center h-16 px-4 md:px-6 border-b shrink-0 bg-gradient-to-r from-violet-200/80 via-pink-200/80 to-blue-200/80 backdrop-blur-sm">
@@ -71,11 +82,11 @@ export function Navbar() {
             variant="ghost"
             asChild
             className={cn(
-                "text-muted-foreground pl-6",
+                "text-muted-foreground",
                 pathname === item.href && "text-foreground bg-white/50"
             )}
           >
-            <Link href={item.href} className='px-4'>
+            <Link href={item.href} className='px-3'>
               <item.icon className="mr-2 size-4 text-purple-600" />
               {item.label}
             </Link>
@@ -85,18 +96,21 @@ export function Navbar() {
       <div className="ml-auto flex items-center gap-4">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <div className="flex flex-col items-center cursor-pointer">
-                    <Avatar className="h-8 w-8 border-2 border-gray-700">
+                 <button className="flex items-center gap-2 text-sm font-medium text-left">
+                    <Avatar className="h-8 w-8 border-2 border-primary/50">
                         <AvatarImage src={user?.user_metadata.avatar_url} alt={user?.email || 'Usuario'} />
                         <AvatarFallback>{getInitials(user?.email)}</AvatarFallback>
                     </Avatar>
-                    <span className="text-xs font-medium text-foreground">{user?.user_metadata.full_name}</span>
-                </div>
+                    <div className='hidden md:flex flex-col'>
+                      <span className='font-bold leading-tight'>{getUserFullName()}</span>
+                      <span className='text-xs text-muted-foreground leading-tight'>{currentUserProfile?.role === 'admin' ? 'Administrador' : 'Usuario'}</span>
+                    </div>
+                </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">Mi Cuenta</p>
+                    <p className="text-sm font-medium leading-none">{getUserFullName()}</p>
                     <p className="text-xs leading-none text-muted-foreground">
                         {user?.email || 'No has iniciado sesión'}
                     </p>
