@@ -92,7 +92,7 @@ export default function DashboardPage() {
         if (selectedUserEmail === 'all' || !selectedUserEmail) {
             return tasks;
         }
-        return tasks.filter(task => task.assignees?.includes(selectedUserEmail));
+        return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
     }, [tasks, selectedUserEmail]);
     
     const tasksFromCreatedProjects = useMemo(() => {
@@ -370,5 +370,3 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
-
-    
