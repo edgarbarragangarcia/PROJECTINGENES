@@ -54,7 +54,21 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const { pathname } = request.nextUrl;
+
+  // Si no hay sesión y el usuario no está en la página de login, redirigir a login
+  if (!session && pathname !== '/login') {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Si hay sesión y el usuario intenta acceder a login, redirigir al dashboard
+  if (session && pathname === '/login') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
 
   return response;
 }
@@ -66,8 +80,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - auth/callback (supabase auth callback)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth/callback).*)',
   ],
 };
