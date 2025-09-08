@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { ProjectsContext, initialProjectsState, type ProjectsContextType } from '@/hooks/use-projects';
@@ -79,56 +80,41 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [supabase]);
   
-  const fetchProjects = useCallback(async (user: User) => {
-    setProjectsLoading(true);
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isAdmin = profile?.role === 'admin';
-
-    if (isAdmin) {
-      const { data: adminProjects, error: adminError } = await supabase.from('projects').select('*');
-
-      if (adminError) {
-        console.error("Error fetching admin projects:", adminError);
-        setProjectsError(adminError);
-        setProjects([]);
-        setProjectsLoading(false);
-        return;
-      }
-      
-      const { data: allTasks, error: allTasksError } = await supabase.from('tasks').select('id, project_id, status');
-      if (allTasksError) {
-          console.error("Error fetching all tasks for progress calculation:", allTasksError);
-          const projectsWithZeroProgress: ProjectWithProgress[] = (adminProjects || []).map((p: Project) => ({ ...p, progress: 0 }));
-          setProjects(projectsWithZeroProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-          setProjectsLoading(false);
-          return;
-      }
-
-      const projectsWithProgress: ProjectWithProgress[] = (adminProjects || []).map((p: Project) => {
-        const relevantTasks = allTasks.filter(t => t.project_id === p.id);
+  const calculateProjectsProgress = useCallback((projects: Project[], tasks: Task[]): ProjectWithProgress[] => {
+    return projects.map(p => {
+        const relevantTasks = tasks.filter(t => t.project_id === p.id);
         const totalTasks = relevantTasks.length;
         const doneTasks = relevantTasks.filter(t => t.status === 'Done').length;
         const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
         return { ...p, progress };
-      });
-      setProjects(projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    });
+  }, []);
+  
+  const fetchProjects = useCallback(async (user: User, tasks: Task[]) => {
+    setProjectsLoading(true);
 
-    } else {
-        const { data, error } = await supabase.rpc('get_projects_for_user', {
-            p_user_id: user.id,
-            p_user_email: user.email || ''
-        });
-        if (error) {
-            console.error("Error fetching projects for user:", error);
-            setProjectsError(error);
-            setProjects([]);
-        } else if (data) {
-            setProjects((data as ProjectWithProgress[]).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-        }
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const isAdmin = profile?.role === 'admin';
+    
+    let projectsQuery = supabase.from('projects').select('*');
+    if (!isAdmin) {
+        projectsQuery = projectsQuery.eq('user_id', user.id);
     }
+
+    const { data: projectsData, error } = await projectsQuery;
+
+    if (error) {
+        console.error("Error fetching projects:", error);
+        setProjectsError(error);
+        setProjects([]);
+    } else {
+        const projectsWithProgress = calculateProjectsProgress(projectsData || [], tasks);
+        setProjects(projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    }
+
     setProjectsLoading(false);
-  }, [supabase]);
+  }, [supabase, calculateProjectsProgress]);
+
 
   const addProject = useCallback(async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id'> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -268,10 +254,14 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) {
       console.error("Error fetching user's tasks:", error);
+      return [];
     } else {
-      setTasks(data.map(processTask));
+      const processedTasks = data.map(processTask);
+      setTasks(processedTasks);
+      return processedTasks;
     }
     setTasksLoading(false);
+    return [];
   }, [supabase]);
 
   const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
@@ -549,16 +539,16 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setUserStoriesState(prev => ({ ...prev, userStories: prev.userStories.filter(us => us.id !== id) }));
   }, [supabase]);
 
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+   useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       const user = session?.user;
       if (user) {
-        fetchAllUsers();
-        fetchProjects(user);
-        fetchTasks(user);
-        fetchDailyNotes(user);
-        fetchUserStories(user);
+        await fetchAllUsers();
+        const tasks = await fetchTasks(user);
+        await fetchProjects(user, tasks);
+        await fetchDailyNotes(user);
+        await fetchUserStories(user);
       } else {
         setProjects([]);
         setTasks([]);
@@ -573,16 +563,27 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [supabase, fetchProjects, fetchTasks, fetchAllUsers, fetchDailyNotes, fetchUserStories]);
 
+  useEffect(() => {
+    if (projectsState.projects.length > 0 && tasksState.tasks.length > 0) {
+        const projectsWithProgress = calculateProjectsProgress(projectsState.projects, tasksState.tasks);
+        const sortedProjects = projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        if (JSON.stringify(sortedProjects) !== JSON.stringify(projectsState.projects)) {
+           setProjects(sortedProjects);
+        }
+    }
+}, [tasksState.tasks, projectsState.projects, calculateProjectsProgress]);
+
+
   const projectsContextValue: ProjectsContextType = useMemo(() => ({
     ...projectsState,
     addProject,
     updateProject,
     deleteProject,
-    fetchProjects,
+    fetchProjects: (user: User) => fetchProjects(user, tasksState.tasks),
     setProjects,
     setProjectsLoading,
     setProjectsError,
-  }), [projectsState, addProject, updateProject, deleteProject, fetchProjects]);
+  }), [projectsState, addProject, updateProject, deleteProject, fetchProjects, tasksState.tasks]);
 
   const tasksContextValue: TasksContextType = useMemo(() => ({
     ...tasksState,
@@ -630,5 +631,3 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     </ProjectsContext.Provider>
   );
 };
-
-    
