@@ -9,7 +9,7 @@ import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
 import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User as UserIcon, Users, FolderPlus, FolderCheck } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
+import { Bar, CartesianGrid, XAxis, YAxis, LabelList, Cell } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
 import { ChartConfig } from '@/components/ui/chart';
 import Link from 'next/link';
