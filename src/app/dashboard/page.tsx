@@ -90,16 +90,18 @@ export default function DashboardPage() {
         return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
     }, [tasks, selectedUserEmail]);
     
-    const userProjects = useMemo(() => {
-        if (selectedUserEmail === 'all' || !selectedUserEmail) return projects;
-        
-        // For non-admin users, we only want to show projects they created
-        if (!isAdmin && currentUser?.email === selectedUserEmail) {
-            return projects.filter(p => p.user_id === currentUser.id);
+    // For KPIs, filter projects created by the selected user (or current non-admin user)
+    const createdProjectsByUser = useMemo(() => {
+        if (selectedUserEmail === 'all') {
+             // Admin view of all projects
+             return isAdmin ? projects : projects.filter(p => p.user_id === currentUser?.id);
         }
         
-        // For admins looking at a specific user
-        return projects.filter(p => p.user_id === allUsers.find(u => u.email === selectedUserEmail)?.id);
+        // Find the user object for the selected email
+        const selectedUser = allUsers.find(u => u.email === selectedUserEmail);
+        if (!selectedUser) return [];
+
+        return projects.filter(p => p.user_id === selectedUser.id);
 
     }, [projects, selectedUserEmail, isAdmin, currentUser, allUsers]);
     
@@ -109,8 +111,7 @@ export default function DashboardPage() {
         return user?.full_name || user?.email || 'Desconocido';
     }, [selectedUserEmail, allUsers]);
 
-    // --- Chart Logic ---
-    // The chart will now show a summary of the tasks ASSIGNED to the selected user.
+    // --- Chart Logic: Always based on assigned tasks ---
     const tasksByStatusForChart = useMemo(() => assignedTasks.reduce((acc, task) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
@@ -132,18 +133,18 @@ export default function DashboardPage() {
     const overallProgress = totalAssignedTasks > 0 ? Math.round((completedAssignedTasks / totalAssignedTasks) * 100) : 0;
 
     const participatingProjectsCount = useMemo(() => {
-      if (selectedUserEmail === 'all' || !selectedUserEmail) {
+      if (selectedUserEmail === 'all' && isAdmin) {
         return projects.length;
       }
       const projectsWithUserTasks = new Set(assignedTasks.map(task => task.projectId));
       return projectsWithUserTasks.size;
-    }, [projects.length, assignedTasks, selectedUserEmail]);
+    }, [projects.length, assignedTasks, selectedUserEmail, isAdmin]);
     
-    const createdProjectsCount = userProjects.length;
+    const createdProjectsCount = createdProjectsByUser.length;
 
     const closedProjectsCount = useMemo(() => {
-        return userProjects.filter(p => p.status === 'Completado').length;
-    }, [userProjects]);
+        return createdProjectsByUser.filter(p => p.status === 'Completado').length;
+    }, [createdProjectsByUser]);
 
 
     const upcomingTasks = useMemo(() => assignedTasks
@@ -201,7 +202,7 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="text-2xl font-bold">{participatingProjectsCount}</div>
                         <p className="text-xs text-muted-foreground">
-                            {selectedUserEmail === 'all' && isAdmin ? 'Proyectos activos y completados' : 'Proyectos con tareas asignadas'}
+                            {selectedUserEmail === 'all' && isAdmin ? 'Total de proyectos' : 'Proyectos con tareas asignadas'}
                         </p>
                     </CardContent>
                 </Card>
@@ -213,7 +214,7 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="text-2xl font-bold">{createdProjectsCount}</div>
                         <p className="text-xs text-muted-foreground">
-                            {selectedUserEmail === 'all' && isAdmin ? 'Total en el sistema' : 'Creados por mí'}
+                            Proyectos creados por {isAdmin && selectedUserEmail !== 'all' ? selectedUserName : 'mí'}
                         </p>
                     </CardContent>
                 </Card>
@@ -225,7 +226,7 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="text-2xl font-bold">{closedProjectsCount}</div>
                         <p className="text-xs text-muted-foreground">
-                            {selectedUserEmail === 'all' && isAdmin ? 'Total completados' : 'Completados por mí'}
+                           De los proyectos creados
                         </p>
                     </CardContent>
                 </Card>
@@ -237,7 +238,7 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="text-2xl font-bold">{totalAssignedTasks}</div>
                         <p className="text-xs text-muted-foreground">
-                            {selectedUserEmail === 'all' && isAdmin ? 'En todos los proyectos' : 'Asignadas a mí'}
+                            {selectedUserEmail === 'all' && isAdmin ? 'En todos los proyectos' : 'Asignadas directamente'}
                         </p>
                     </CardContent>
                 </Card>
