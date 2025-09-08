@@ -92,8 +92,16 @@ export default function DashboardPage() {
     
     const userProjects = useMemo(() => {
         if (selectedUserEmail === 'all' || !selectedUserEmail) return projects;
-        return projects.filter(p => p.creator_email === selectedUserEmail);
-    }, [projects, selectedUserEmail]);
+        
+        // For non-admin users, we only want to show projects they created
+        if (!isAdmin && currentUser?.email === selectedUserEmail) {
+            return projects.filter(p => p.user_id === currentUser.id);
+        }
+        
+        // For admins looking at a specific user
+        return projects.filter(p => p.user_id === allUsers.find(u => u.email === selectedUserEmail)?.id);
+
+    }, [projects, selectedUserEmail, isAdmin, currentUser, allUsers]);
     
     const selectedUserName = useMemo(() => {
         if (selectedUserEmail === 'all') return 'General';
@@ -258,7 +266,7 @@ export default function DashboardPage() {
             <div className="grid gap-6 md:grid-cols-5">
                 <Card className="md:col-span-3">
                     <CardHeader>
-                        <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas Asignadas por Estado</CardTitle>
+                        <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas Asignadas</CardTitle>
                         <CardDescription>
                         {isAdmin && selectedUserEmail === 'all'
                             ? 'Distribución de todas las tareas en el sistema.'

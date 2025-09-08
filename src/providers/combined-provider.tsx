@@ -258,17 +258,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
        query = supabase.from('tasks').select('*, subtasks(*)');
     } else {
        const userEmail = user.email || '';
-       const projectsCreatedByUserQuery = supabase.from('projects').select('id').eq('user_id', user.id);
-       const { data: projectsCreated, error: projectsError } = await projectsCreatedByUserQuery;
-       if (projectsError) {
-         console.error("Error fetching projects created by user:", projectsError);
-         setTasksLoading(false);
-         return;
-       }
-       const projectIdsCreatedByUser = projectsCreated.map(p => p.id);
-       query = supabase.from('tasks')
-         .select('*, subtasks(*)')
-         .or(`assignees.cs.["${userEmail}"],project_id.in.(${projectIdsCreatedByUser.join(',')})`);
+       query = supabase
+        .from('tasks')
+        .select('*, subtasks(*)')
+        .or(`user_id.eq.${user.id},assignees.cs.["${userEmail}"]`);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -374,7 +367,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     delete updateData.startDate;
     delete updateData.dueDate;
-    delete updateData.project_id;
     
     const { data: updatedTask, error } = await supabase
       .from('tasks')
@@ -638,3 +630,5 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     </ProjectsContext.Provider>
   );
 };
+
+    
