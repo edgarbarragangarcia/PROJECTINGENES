@@ -32,7 +32,7 @@ export interface TasksContextType extends TasksState {
   getTasksByStatus: (status: Status, projectId?: string) => Task[];
   getTasksByProject: (projectId: string) => Task[];
   setDraggedTask: (id: string | null) => void;
-  fetchTasks: (user: User) => Promise<void>;
+  fetchTasks: (user: User) => Promise<Task[]>;
   setTasks: (tasks: Task[]) => void;
   setTasksLoading: (loading: boolean) => void;
 }
