@@ -60,7 +60,12 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Si no hay sesión y el usuario no está en la página de login, redirigir a login
+  // Si hay sesión y el usuario está en la página raíz, redirigir al dashboard
+  if (session && pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // Si no hay sesión y el usuario intenta acceder a una ruta protegida (que no sea login), redirigir a login
   if (!session && pathname !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url));
   }

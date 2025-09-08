@@ -6,15 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.push('/dashboard');
-  }, [router]);
-  
+  // The redirection logic is now handled by the middleware.
+  // This page will likely not be seen by users, but serves as a fallback.
   return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <p>Redirigiendo...</p>
+        <p>Cargando...</p>
       </div>
     );
 }
