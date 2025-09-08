@@ -83,11 +83,6 @@ export default function DashboardPage() {
        }
     }, [supabase.auth, allUsers]);
 
-    const userProjects = useMemo(() => {
-        if (selectedUserEmail === 'all' || !selectedUserEmail) return projects;
-        return projects.filter(p => p.creator_email === selectedUserEmail);
-    }, [projects, selectedUserEmail]);
-
     const assignedTasks = useMemo(() => {
         if (selectedUserEmail === 'all' || !selectedUserEmail) {
             return tasks;
@@ -95,10 +90,10 @@ export default function DashboardPage() {
         return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
     }, [tasks, selectedUserEmail]);
     
-    const tasksFromCreatedProjects = useMemo(() => {
-        const createdProjectIds = new Set(userProjects.map(p => p.id));
-        return tasks.filter(task => createdProjectIds.has(task.projectId));
-    }, [tasks, userProjects]);
+    const userProjects = useMemo(() => {
+        if (selectedUserEmail === 'all' || !selectedUserEmail) return projects;
+        return projects.filter(p => p.creator_email === selectedUserEmail);
+    }, [projects, selectedUserEmail]);
     
     const selectedUserName = useMemo(() => {
         if (selectedUserEmail === 'all') return 'General';
@@ -106,10 +101,12 @@ export default function DashboardPage() {
         return user?.full_name || user?.email || 'Desconocido';
     }, [selectedUserEmail, allUsers]);
 
-    const tasksByStatusForChart = useMemo(() => tasksFromCreatedProjects.reduce((acc, task) => {
+    // --- Chart Logic ---
+    // The chart will now show a summary of the tasks ASSIGNED to the selected user.
+    const tasksByStatusForChart = useMemo(() => assignedTasks.reduce((acc, task) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
-    }, {} as Record<string, number>), [tasksFromCreatedProjects]);
+    }, {} as Record<string, number>), [assignedTasks]);
 
     const chartData = useMemo(() => Object.entries(tasksByStatusForChart).map(([status, count]) => ({
         status,
@@ -117,6 +114,7 @@ export default function DashboardPage() {
         fill: `var(--color-${status.replace(/ /g, '')})`
     })), [tasksByStatusForChart]);
 
+    // --- KPIs ---
     const totalAssignedTasks = assignedTasks.length;
     const completedAssignedTasks = useMemo(() => assignedTasks.reduce((acc, task) => {
         if (task.status === 'Done') return acc + 1;
@@ -260,11 +258,11 @@ export default function DashboardPage() {
             <div className="grid gap-6 md:grid-cols-5">
                 <Card className="md:col-span-3">
                     <CardHeader>
-                        <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas por Estado (Proyectos Creados)</CardTitle>
+                        <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas Asignadas por Estado</CardTitle>
                         <CardDescription>
                         {isAdmin && selectedUserEmail === 'all'
-                            ? 'Distribución de tareas en los proyectos creados por todos.'
-                            : `Distribución de tareas en los proyectos creados por ${isAdmin ? selectedUserName : 'mí'}.`
+                            ? 'Distribución de todas las tareas en el sistema.'
+                            : `Distribución de las tareas asignadas a ${isAdmin ? selectedUserName : 'mí'}.`
                         }
                         </CardDescription>
                     </CardHeader>
@@ -299,7 +297,7 @@ export default function DashboardPage() {
                                             fontSize={12}
                                         />
                                         {chartData.map((entry) => (
-                                            <Bar key={entry.status} dataKey="tasks" fill={entry.fill} />
+                                            <Cell key={`cell-${entry.status}`} fill={entry.fill} />
                                         ))}
                                     </Bar>
                                 </RechartsBarChart>
@@ -307,8 +305,8 @@ export default function DashboardPage() {
                     ) : (
                             <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-[250px]">
                                 <ListChecks className="size-8 text-muted-foreground mb-2"/>
-                                <p className="font-semibold">Sin Tareas</p>
-                                <p className="text-sm text-muted-foreground">No hay tareas en los proyectos que has creado.</p>
+                                <p className="font-semibold">Sin Tareas Asignadas</p>
+                                <p className="text-sm text-muted-foreground">No se encontraron tareas para mostrar en el gráfico.</p>
                             </div>
                     )}
                     </CardContent>
@@ -370,3 +368,5 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
+
+    

@@ -1,25 +1,24 @@
 
 'use client';
 
-import { AppLayout } from '@/components/layout/app-layout';
-import { PageHeader } from '@/components/layout/page-header';
+import { PageHeader } from '../layout/page-header';
 import type { ProjectWithProgress, Task, Profile, User } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
 import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User as UserIcon, Users, FolderPlus, FolderCheck } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
+import { Bar, CartesianGrid, XAxis, YAxis, LabelList, Cell } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
-import { ChartConfig } from '@/components/ui/chart';
+import { ChartConfig } from '../ui/chart';
 import Link from 'next/link';
 import { format, isPast, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Badge } from '@/components/ui/badge';
-import { PriorityIcon } from '@/components/task/priority-icon';
+import { Badge } from '../ui/badge';
+import { PriorityIcon } from '../task/priority-icon';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
 
 const chartConfig = {
@@ -83,26 +82,17 @@ export default function DashboardPage() {
        }
     }, [supabase.auth, allUsers]);
 
-    const userProjects = useMemo(() => {
-        if (selectedUserEmail === 'all' || !selectedUserEmail) return projects;
-        return projects.filter(p => p.creator_email === selectedUserEmail);
-    }, [projects, selectedUserEmail]);
-
     const assignedTasks = useMemo(() => {
         if (selectedUserEmail === 'all' || !selectedUserEmail) {
             return tasks;
         }
-        return tasks.filter(task => task.assignees?.includes(selectedUserEmail));
+        return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
     }, [tasks, selectedUserEmail]);
     
-    const tasksFromCreatedProjects = useMemo(() => {
-        if (selectedUserEmail === 'all' || !selectedUserEmail) {
-            return tasks;
-        }
-        const createdProjectIds = userProjects.map(p => p.id);
-        
-        return tasks.filter(task => createdProjectIds.includes(task.project_id));
-    }, [tasks, userProjects, selectedUserEmail]);
+    const userProjects = useMemo(() => {
+        if (selectedUserEmail === 'all' || !selectedUserEmail) return projects;
+        return projects.filter(p => p.creator_email === selectedUserEmail);
+    }, [projects, selectedUserEmail]);
     
     const selectedUserName = useMemo(() => {
         if (selectedUserEmail === 'all') return 'General';
@@ -110,17 +100,20 @@ export default function DashboardPage() {
         return user?.full_name || user?.email || 'Desconocido';
     }, [selectedUserEmail, allUsers]);
 
-    const tasksByStatusForChart = useMemo(() => tasksFromCreatedProjects.reduce((acc, task) => {
+    // --- Chart Logic ---
+    // The chart will now show a summary of the tasks ASSIGNED to the selected user.
+    const tasksByStatusForChart = useMemo(() => assignedTasks.reduce((acc, task) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
-    }, {} as Record<string, number>), [tasksFromCreatedProjects]);
+    }, {} as Record<string, number>), [assignedTasks]);
 
     const chartData = useMemo(() => Object.entries(tasksByStatusForChart).map(([status, count]) => ({
         status,
         tasks: count,
-        fill: `var(--color-${status.replace(/ /g, '')})`
+        fill: chartConfig[status as keyof typeof chartConfig]?.color || 'hsl(var(--foreground))',
     })), [tasksByStatusForChart]);
 
+    // --- KPIs ---
     const totalAssignedTasks = assignedTasks.length;
     const completedAssignedTasks = useMemo(() => assignedTasks.reduce((acc, task) => {
         if (task.status === 'Done') return acc + 1;
@@ -133,7 +126,7 @@ export default function DashboardPage() {
       if (selectedUserEmail === 'all' || !selectedUserEmail) {
         return projects.length;
       }
-      const projectsWithUserTasks = new Set(assignedTasks.map(task => task.project_id));
+      const projectsWithUserTasks = new Set(assignedTasks.map(task => task.projectId));
       return projectsWithUserTasks.size;
     }, [projects.length, assignedTasks, selectedUserEmail]);
     
@@ -264,11 +257,11 @@ export default function DashboardPage() {
             <div className="grid gap-6 md:grid-cols-5">
                 <Card className="md:col-span-3">
                     <CardHeader>
-                        <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas por Estado (Proyectos Creados)</CardTitle>
+                        <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas Asignadas por Estado</CardTitle>
                         <CardDescription>
                         {isAdmin && selectedUserEmail === 'all'
-                            ? 'Distribución de tareas en los proyectos creados por todos.'
-                            : `Distribución de tareas en los proyectos creados por ${isAdmin ? selectedUserName : 'mí'}.`
+                            ? 'Distribución de todas las tareas en el sistema.'
+                            : `Distribución de las tareas asignadas a ${isAdmin ? selectedUserName : 'mí'}.`
                         }
                         </CardDescription>
                     </CardHeader>
@@ -303,7 +296,7 @@ export default function DashboardPage() {
                                             fontSize={12}
                                         />
                                         {chartData.map((entry) => (
-                                            <Bar key={entry.status} dataKey="tasks" fill={entry.fill} />
+                                            <Cell key={`cell-${entry.status}`} fill={entry.fill} />
                                         ))}
                                     </Bar>
                                 </RechartsBarChart>
@@ -311,8 +304,8 @@ export default function DashboardPage() {
                     ) : (
                             <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-[250px]">
                                 <ListChecks className="size-8 text-muted-foreground mb-2"/>
-                                <p className="font-semibold">Sin Tareas</p>
-                                <p className="text-sm text-muted-foreground">No hay tareas en los proyectos que has creado.</p>
+                                <p className="font-semibold">Sin Tareas Asignadas</p>
+                                <p className="text-sm text-muted-foreground">No se encontraron tareas para mostrar en el gráfico.</p>
                             </div>
                     )}
                     </CardContent>
@@ -332,13 +325,13 @@ export default function DashboardPage() {
                         <div className="space-y-4">
                             {upcomingTasks.length > 0 ? (
                                 upcomingTasks.map(task => {
-                                    const project = projects.find(p => p.id === task.project_id);
+                                    const project = projects.find(p => p.id === task.projectId);
                                     const isOverdue = task.dueDate && isPast(startOfDay(new Date(task.dueDate)));
                                     return (
                                         <div key={task.id} className={cn("flex items-center justify-between gap-2 p-2 rounded-lg", isOverdue && 'bg-red-50 dark:bg-red-950/30 shadow-inner shadow-red-500/10')}>
                                             <div className='flex-1 truncate'>
                                                 <p className="font-medium text-sm truncate" title={task.title}>
-                                                    <Link href={`/projects/${task.project_id}`} className="hover:underline">
+                                                    <Link href={`/projects/${task.projectId}`} className="hover:underline">
                                                         {task.title}
                                                     </Link>
                                                 </p>
@@ -374,3 +367,5 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
+
+    
