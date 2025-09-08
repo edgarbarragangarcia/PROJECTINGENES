@@ -96,13 +96,9 @@ export default function DashboardPage() {
     }, [tasks, selectedUserEmail]);
     
     const tasksFromCreatedProjects = useMemo(() => {
-        if (selectedUserEmail === 'all' || !selectedUserEmail) {
-            return tasks;
-        }
-        const createdProjectIds = userProjects.map(p => p.id);
-        
-        return tasks.filter(task => createdProjectIds.includes(task.projectId));
-    }, [tasks, userProjects, selectedUserEmail]);
+        const createdProjectIds = new Set(userProjects.map(p => p.id));
+        return tasks.filter(task => createdProjectIds.has(task.projectId));
+    }, [tasks, userProjects]);
     
     const selectedUserName = useMemo(() => {
         if (selectedUserEmail === 'all') return 'General';
@@ -374,3 +370,5 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
+
+    
