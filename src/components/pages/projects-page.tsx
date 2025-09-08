@@ -53,9 +53,11 @@ export default function ProjectsPage() {
 
 
   const filteredProjects = useMemo(() => {
-    if (selectedCreator === 'all') return projects;
-    return projects.filter(p => p.creator_email === selectedCreator);
-  }, [projects, selectedCreator]);
+    if (isAdmin && selectedCreator !== 'all') {
+       return projects.filter(p => p.creator_email === selectedCreator);
+    }
+    return projects;
+  }, [projects, selectedCreator, isAdmin]);
   
   const projectsToShow = filteredProjects.filter(p => selectedProjects.includes(p.id));
 
@@ -445,24 +447,22 @@ export default function ProjectsPage() {
         <PageHeader title="Proyectos">
           <div className='flex items-center gap-2'>
             {isAdmin && (
-              <>
-                <Select value={selectedCreator} onValueChange={setSelectedCreator}>
-                  <SelectTrigger className="w-[250px]">
-                    <SelectValue placeholder="Filtrar por creador..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los creadores</SelectItem>
-                    {creators.map(creator => (
-                      <SelectItem key={creator.email} value={creator.email}>{creator.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
-                  <FileDown />
-                  {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
-                </Button>
-              </>
+              <Select value={selectedCreator} onValueChange={setSelectedCreator}>
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder="Filtrar por creador..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los creadores</SelectItem>
+                  {creators.map(creator => (
+                    <SelectItem key={creator.email} value={creator.email}>{creator.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
+            <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
+              <FileDown />
+              {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
+            </Button>
             <Button size="sm" onClick={handleAddNew}>
               <PlusCircle />
               Añadir Proyecto
@@ -487,5 +487,3 @@ export default function ProjectsPage() {
     </>
   );
 }
-
-    
