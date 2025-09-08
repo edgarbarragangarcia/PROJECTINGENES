@@ -1,5 +1,5 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -16,39 +16,23 @@ export async function middleware(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value;
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+        set(name: string, value: string, options) {
+          request.cookies.set({ name, value, ...options });
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          response.cookies.set({ name, value, ...options });
         },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
+        remove(name: string, options) {
+          request.cookies.set({ name, value: '', ...options });
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
+          response.cookies.set({ name, value: '', ...options });
         },
       },
     }
@@ -60,19 +44,24 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Si hay sesión y el usuario está en la página raíz, redirigir al dashboard
-  if (session && pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
+  // Rutas públicas que no requieren autenticación
+  const publicPaths = ['/login', '/auth/callback', '/auth/auth-code-error'];
 
-  // Si no hay sesión y el usuario intenta acceder a una ruta protegida (que no sea login), redirigir a login
-  if (!session && pathname !== '/login') {
+  // Si el usuario no tiene sesión y está intentando acceder a una ruta protegida
+  if (!session && !publicPaths.includes(pathname)) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Si hay sesión y el usuario intenta acceder a login, redirigir al dashboard
-  if (session && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // Si el usuario tiene sesión
+  if (session) {
+    // Si intenta acceder a /login, redirigir al dashboard
+    if (pathname === '/login') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    // Si intenta acceder a la raíz, redirigir al dashboard
+    if (pathname === '/') {
+       return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
   }
 
   return response;
@@ -85,9 +74,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - auth/callback (supabase auth callback)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico|auth/callback).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
