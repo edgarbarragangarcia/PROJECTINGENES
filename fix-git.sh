@@ -23,7 +23,7 @@ git add .
 
 # Paso 4: Crear el commit inicial
 echo "Creando el commit inicial..."
-git commit -m "Commit inicial del proyecto"
+git commit -m "Actualización del proyecto con las últimas modificaciones"
 
 echo ""
 echo "--- ¡ÉXITO! ---"
