@@ -90,29 +90,42 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
   
-  const fetchProjects = useCallback(async (user: User, tasks: Task[]) => {
-    setProjectsLoading(true);
+  const fetchProjects = useCallback(async (user: User, allTasks: Task[]) => {
+    let query;
 
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     const isAdmin = profile?.role === 'admin';
-    
-    let projectsQuery = supabase.from('projects').select('*');
-    if (!isAdmin) {
-        projectsQuery = projectsQuery.eq('user_id', user.id);
+
+    if (isAdmin) {
+        query = supabase.from('projects').select('*');
+    } else {
+        const { data: projectData, error: projectError } = await supabase.rpc('get_projects_for_user', {
+             p_user_id: user.id,
+             p_user_email: user.email || ''
+        });
+
+        if (projectError) {
+          console.error("Error fetching user's projects:", projectError);
+          setProjectsError(projectError);
+          setProjects([]);
+          return;
+        }
+
+        const projectsWithProgress = calculateProjectsProgress(projectData || [], allTasks);
+        setProjects(projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        return;
     }
 
-    const { data: projectsData, error } = await projectsQuery;
+    const { data: projectsData, error } = await query;
 
     if (error) {
         console.error("Error fetching projects:", error);
         setProjectsError(error);
         setProjects([]);
     } else {
-        const projectsWithProgress = calculateProjectsProgress(projectsData || [], tasks);
+        const projectsWithProgress = calculateProjectsProgress(projectsData || [], allTasks);
         setProjects(projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     }
-
-    setProjectsLoading(false);
   }, [supabase, calculateProjectsProgress]);
 
 
@@ -233,8 +246,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase]);
 
 
-  const fetchTasks = useCallback(async (user: User) => {
-    setTasksLoading(true);
+  const fetchTasks = useCallback(async (user: User): Promise<Task[]> => {
     let query;
     
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
@@ -260,8 +272,6 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setTasks(processedTasks);
       return processedTasks;
     }
-    setTasksLoading(false);
-    return [];
   }, [supabase]);
 
   const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
@@ -544,17 +554,23 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       const user = session?.user;
       if (user) {
+        setProjectsLoading(true);
+        setTasksLoading(true);
         await fetchAllUsers();
         const tasks = await fetchTasks(user);
         await fetchProjects(user, tasks);
         await fetchDailyNotes(user);
         await fetchUserStories(user);
+        setProjectsLoading(false);
+        setTasksLoading(false);
       } else {
         setProjects([]);
         setTasks([]);
         setDailyNotes([]);
         setUserStories([]);
         setTasksState(prev => ({ ...prev, allUsers: [] }));
+        setProjectsLoading(false);
+        setTasksLoading(false);
       }
     });
 
@@ -564,7 +580,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase, fetchProjects, fetchTasks, fetchAllUsers, fetchDailyNotes, fetchUserStories]);
 
   useEffect(() => {
-    if (projectsState.projects.length > 0 && tasksState.tasks.length > 0) {
+    if (projectsState.projects.length > 0 || tasksState.tasks.length > 0) {
         const projectsWithProgress = calculateProjectsProgress(projectsState.projects, tasksState.tasks);
         const sortedProjects = projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         if (JSON.stringify(sortedProjects) !== JSON.stringify(projectsState.projects)) {
