@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Zap, LayoutDashboard, Sparkles, ListChecks } from "lucide-react";
 import Link from "next/link";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const GoogleIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="size-5 mr-2" viewBox="0 0 24 24">
@@ -21,11 +22,13 @@ const GoogleIcon = () => (
     </svg>
 );
 
-
-function LoginForm({ onLoginSuccess }: { onLoginSuccess: () => void }) {
+export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [registerSuccess, setRegisterSuccess] = useState(false);
+    const router = useRouter();
     const supabase = createClient();
 
     const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -39,33 +42,11 @@ function LoginForm({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         if (error) {
             setError(error.message);
         } else {
-            onLoginSuccess();
+            router.push('/dashboard');
+            router.refresh();
         }
     };
-
-    return (
-        <form onSubmit={handleSignIn} className="grid gap-4 pt-4">
-            <div className="grid gap-2">
-                <Label htmlFor="login-email">Email</Label>
-                <Input id="login-email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="grid gap-2">
-                <Label htmlFor="login-password">Contraseña</Label>
-                <Input id="login-password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            {error && <p className="text-destructive text-sm text-center">{error}</p>}
-            <Button type="submit" className="w-full mt-2">Iniciar Sesión</Button>
-        </form>
-    );
-}
-
-function RegisterForm({ onRegisterSuccess }: { onRegisterSuccess: () => void }) {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const supabase = createClient();
-
+    
     const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError(null);
@@ -85,43 +66,8 @@ function RegisterForm({ onRegisterSuccess }: { onRegisterSuccess: () => void }) 
         if (error) {
             setError(error.message);
         } else {
-            onRegisterSuccess();
+            setRegisterSuccess(true);
         }
-    };
-
-    return (
-        <form onSubmit={handleSignUp} className="grid gap-4 pt-4">
-            <div className="grid gap-2">
-                <Label htmlFor="register-email">Email</Label>
-                <Input id="register-email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="grid gap-2">
-                <Label htmlFor="register-password">Contraseña</Label>
-                <Input id="register-password" type="password" placeholder="Crea una contraseña segura" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            <div className="grid gap-2">
-                <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
-                <Input id="confirm-password" type="password" placeholder="Repite la contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
-            </div>
-            {error && <p className="text-destructive text-sm text-center">{error}</p>}
-            <Button type="submit" className="w-full mt-2">Crear Cuenta</Button>
-        </form>
-    );
-}
-
-export default function LoginPage() {
-    const [error, setError] = useState<string | null>(null);
-    const [registerSuccess, setRegisterSuccess] = useState(false);
-    const router = useRouter();
-    const supabase = createClient();
-
-    const handleLoginSuccess = () => {
-        router.push('/dashboard');
-        router.refresh();
-    };
-
-    const handleRegisterSuccess = () => {
-        setRegisterSuccess(true);
     };
 
     const handleGoogleSignIn = async () => {
@@ -186,61 +132,75 @@ export default function LoginPage() {
                 </div>
             </div>
             <div className="flex items-center justify-center p-6 min-h-screen">
-                <div className="w-full max-w-sm text-center">
-                    <h1 className="font-headline text-3xl font-bold">Bienvenido a PROJECTIA</h1>
-                    <p className="mt-2 text-muted-foreground">Elige tu método preferido para continuar.</p>
+                <div className="w-full max-w-sm">
+                    <div className="text-center mb-6">
+                        <h1 className="font-headline text-3xl font-bold">Bienvenido a PROJECTIA</h1>
+                        <p className="mt-2 text-muted-foreground">Inicia sesión o crea una cuenta para continuar.</p>
+                    </div>
                     
-                    {error && <p className="mt-4 text-destructive text-sm text-center">{error}</p>}
+                    {error && <p className="mb-4 text-destructive text-sm text-center">{error}</p>}
                     {registerSuccess && (
-                        <div className="mt-4 p-3 rounded-md bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-800">
+                        <div className="mb-4 p-3 rounded-md bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-800">
                             ¡Revisa tu correo para confirmar el registro!
                         </div>
                     )}
-                    
-                    <div className="mt-6 grid gap-4">
-                        <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
-                            <GoogleIcon />
-                            Continuar con Google
-                        </Button>
-                        
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <span className="w-full border-t" />
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-background px-2 text-muted-foreground">
-                                O continuar con email
-                                </span>
-                            </div>
-                        </div>
 
-                        <div className="flex gap-4">
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" className="w-full">Iniciar Sesión</Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-md">
-                                    <DialogHeader>
-                                        <DialogTitle className="font-headline text-2xl">Iniciar Sesión</DialogTitle>
-                                        <DialogDescription>Ingresa tus credenciales para acceder a tu cuenta.</DialogDescription>
-                                    </DialogHeader>
-                                    <LoginForm onLoginSuccess={handleLoginSuccess} />
-                                </DialogContent>
-                            </Dialog>
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button className="w-full">Registrarse</Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-md">
-                                    <DialogHeader>
-                                        <DialogTitle className="font-headline text-2xl">Crear una Cuenta</DialogTitle>
-                                        <DialogDescription>Completa el formulario para crear una nueva cuenta.</DialogDescription>
-                                    </DialogHeader>
-                                    <RegisterForm onRegisterSuccess={handleRegisterSuccess} />
-                                </DialogContent>
-                            </Dialog>
+                    <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
+                        <GoogleIcon />
+                        Continuar con Google
+                    </Button>
+
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground">
+                            O continuar con email
+                            </span>
                         </div>
                     </div>
+                    
+                    <Card>
+                        <CardHeader>
+                            <Tabs defaultValue="login" className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
+                                    <TabsTrigger value="register">Registrarse</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="login">
+                                    <form onSubmit={handleSignIn} className="grid gap-4 pt-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="login-email">Email</Label>
+                                            <Input id="login-email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="login-password">Contraseña</Label>
+                                            <Input id="login-password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                        </div>
+                                        <Button type="submit" className="w-full mt-2">Iniciar Sesión</Button>
+                                    </form>
+                                </TabsContent>
+                                <TabsContent value="register">
+                                    <form onSubmit={handleSignUp} className="grid gap-4 pt-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="register-email">Email</Label>
+                                            <Input id="register-email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="register-password">Contraseña</Label>
+                                            <Input id="register-password" type="password" placeholder="Crea una contraseña segura" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
+                                            <Input id="confirm-password" type="password" placeholder="Repite la contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                                        </div>
+                                        <Button type="submit" className="w-full mt-2">Crear Cuenta</Button>
+                                    </form>
+                                </TabsContent>
+                            </Tabs>
+                        </CardHeader>
+                    </Card>
                 </div>
             </div>
         </div>
