@@ -23,9 +23,9 @@ echo "3. Añadiendo todos los archivos del proyecto al área de preparación (st
 git add .
 echo "   Todos los archivos han sido añadidos."
 
-# Paso 4: Crear el commit inicial con un mensaje descriptivo
+# Paso 4: Crear el commit con un mensaje descriptivo
 echo "4. Creando el commit con los últimos cambios..."
-git commit -m "feat: Sincronización completa del proyecto y refactorización final"
+git commit -m "feat: Corregir redirección de autenticación en el middleware para Vercel"
 echo "   Commit creado exitosamente."
 
 echo ""
@@ -38,5 +38,7 @@ echo "1. Conecta tu repositorio local al remoto en GitHub:"
 echo "   git remote add origin https://github.com/edgarbarragangarcia/PROJECTINGENES.git"
 echo ""
 echo "2. Sube tus archivos a la rama 'main' en GitHub:"
-echo "   git push -u origin main"
+echo "   git push -u origin main -f"
+echo ""
+echo "NOTA: Usamos '-f' (force) en el push porque hemos reiniciado el historial de Git. Esto es seguro para este caso de uso."
 echo ""
