@@ -27,7 +27,8 @@ const safeParseJson = (jsonString: any, defaultValue: any) => {
   }
   if (typeof jsonString === 'string') {
     try {
-      return JSON.parse(jsonString);
+      const parsed = JSON.parse(jsonString);
+      return Array.isArray(parsed) ? parsed : defaultValue;
     } catch (e) {
       return defaultValue;
     }
@@ -64,7 +65,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   
   // --- Daily Notes ---
   const setDailyNotes = (notes: DailyNote[]) => setDailyNotesState(prevState => ({ ...prevState, notes }));
-  const setDailyNotesLoading = (loading: boolean) => setDailyNotesState(prevState => ({ ...prevState, loading }));
+  const setDailyNotesLoading = (loading: boolean) => setDailyNotesState(prevState => ({ ...prevState, loading: false }));
 
   // --- User Stories ---
   const setUserStories = (userStories: UserStory[]) => setUserStoriesState(prevState => ({ ...prevState, userStories }));
@@ -256,19 +257,18 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (isAdmin) {
        query = supabase.from('tasks').select('*, subtasks(*)');
     } else {
-        const { data: projectData, error: projectError } = await supabase.rpc('get_projects_for_user', {
-             p_user_id: user.id,
-             p_user_email: user.email || ''
-        });
-
-        if (projectError) {
-            console.error("Error fetching user's projects for tasks:", projectError);
-            setTasksLoading(false);
-            return;
-        }
-        
-        const projectIds = projectData.map((p: any) => p.id);
-        query = supabase.from('tasks').select('*, subtasks(*)').in('project_id', projectIds);
+       const userEmail = user.email || '';
+       const projectsCreatedByUserQuery = supabase.from('projects').select('id').eq('user_id', user.id);
+       const { data: projectsCreated, error: projectsError } = await projectsCreatedByUserQuery;
+       if (projectsError) {
+         console.error("Error fetching projects created by user:", projectsError);
+         setTasksLoading(false);
+         return;
+       }
+       const projectIdsCreatedByUser = projectsCreated.map(p => p.id);
+       query = supabase.from('tasks')
+         .select('*, subtasks(*)')
+         .or(`assignees.cs.["${userEmail}"],project_id.in.(${projectIdsCreatedByUser.join(',')})`);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -313,7 +313,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       user_id: user.id,
       start_date: restOfTaskData.startDate ? formatISO(restOfTaskData.startDate) : undefined,
       due_date: restOfTaskData.dueDate ? formatISO(restOfTaskData.dueDate) : undefined,
-      assignees: restOfTaskData.assignees ? JSON.stringify(restOfTaskData.assignees) : JSON.stringify([]),
+      assignees: restOfTaskData.assignees || [],
     };
     
     const { data: newTask, error } = await supabase
@@ -369,16 +369,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       updateData.image_url = null;
     }
     
-    if (updateData.assignees) {
-        updateData.assignees = JSON.stringify(updateData.assignees);
-    }
-    
     updateData.start_date = updateData.startDate ? formatISO(updateData.startDate) : undefined;
     updateData.due_date = updateData.dueDate ? formatISO(updateData.dueDate) : undefined;
     
     delete updateData.startDate;
     delete updateData.dueDate;
-    delete updateData.project_id; // Do not allow changing project
+    delete updateData.project_id;
     
     const { data: updatedTask, error } = await supabase
       .from('tasks')
