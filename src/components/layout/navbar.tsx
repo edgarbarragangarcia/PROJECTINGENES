@@ -68,9 +68,9 @@ export function Navbar() {
 
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex items-center h-16 px-4 md:px-6 border-b shrink-0 bg-card/95 backdrop-blur-sm">
+    <header className="fixed top-0 left-0 right-0 z-50 flex items-center h-16 px-4 md:px-6 border-b shrink-0 bg-primary/95 text-primary-foreground backdrop-blur-sm">
       <Link href="/dashboard" className="flex items-center gap-2 mr-6">
-        <div className="flex items-center justify-center size-8 rounded-lg bg-primary text-primary-foreground">
+        <div className="flex items-center justify-center size-8 rounded-lg bg-primary-foreground text-primary">
           <Zap className="size-5" />
         </div>
         <span className="font-headline text-lg font-semibold">PROJECTIA</span>
@@ -82,12 +82,12 @@ export function Navbar() {
             variant="ghost"
             asChild
             className={cn(
-                "text-muted-foreground",
-                pathname === item.href && "text-foreground bg-secondary"
+                "text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10",
+                pathname === item.href && "text-primary-foreground bg-primary-foreground/20"
             )}
           >
             <Link href={item.href} className='px-3'>
-              <item.icon className="mr-2 size-4 text-primary" />
+              <item.icon className="mr-2 size-4" />
               {item.label}
             </Link>
           </Button>
@@ -97,13 +97,13 @@ export function Navbar() {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                  <button className="flex items-center gap-2 text-sm font-medium text-left">
-                    <Avatar className="h-8 w-8 border-2 border-primary/50">
+                    <Avatar className="h-8 w-8 border-2 border-primary-foreground/50">
                         <AvatarImage src={user?.user_metadata.avatar_url} alt={user?.email || 'Usuario'} />
-                        <AvatarFallback>{getInitials(user?.email)}</AvatarFallback>
+                        <AvatarFallback className='text-primary'>{getInitials(user?.email)}</AvatarFallback>
                     </Avatar>
                     <div className='hidden md:flex flex-col'>
                       <span className='font-bold leading-tight'>{getUserFullName()}</span>
-                      <span className='text-xs text-muted-foreground leading-tight'>{currentUserProfile?.role === 'admin' ? 'Administrador' : 'Usuario'}</span>
+                      <span className='text-xs text-primary-foreground/80 leading-tight'>{currentUserProfile?.role === 'admin' ? 'Administrador' : 'Usuario'}</span>
                     </div>
                 </button>
             </DropdownMenuTrigger>
