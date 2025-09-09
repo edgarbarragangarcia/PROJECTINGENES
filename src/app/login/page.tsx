@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Zap, LayoutDashboard, Sparkles, ListChecks } from "lucide-react";
+import { Zap, LayoutDashboard, Sparkles, ListChecks, DownloadCloud } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,6 @@ export default function LoginPage() {
             setError(error.message);
         } else {
             router.push('/dashboard');
-            router.refresh();
         }
     };
     
@@ -87,48 +86,23 @@ export default function LoginPage() {
     return (
         <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
             <div className="hidden lg:flex flex-col items-center justify-center p-12 bg-gradient-to-br from-violet-100 via-pink-100 to-blue-100 dark:from-violet-950/50 dark:via-pink-950/50 dark:to-blue-950/50 border-r">
-                <div className="max-w-md w-full">
-                    <Link href="/" className="flex items-center gap-3 mb-8">
+                <div className="max-w-md w-full text-center">
+                    <Link href="/" className="flex items-center justify-center gap-3 mb-8">
                         <div className="flex items-center justify-center size-10 rounded-lg bg-primary text-primary-foreground">
                             <Zap className="size-6" />
                         </div>
                         <span className="font-headline text-2xl font-bold">PROJECTIA</span>
                     </Link>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">
-                        Transforma tus ideas en proyectos exitosos.
+                    <DownloadCloud className="mx-auto size-16 text-primary" />
+                    <h1 className="text-3xl font-bold font-headline tracking-tight mt-6">
+                        Instala PROJECTIA en tu escritorio.
                     </h1>
                     <p className="mt-4 text-muted-foreground">
-                        Gestiona tus proyectos con una herramienta visual, intuitiva y potenciada por IA que se adapta a tu forma de trabajar.
+                        Disfruta de una experiencia más rápida y fluida instalando la aplicación. Accede directamente desde tu escritorio y trabaja sin conexión.
                     </p>
-                    <div className="mt-8 space-y-4">
-                        <div className="flex items-start gap-3">
-                            <div className="p-2 bg-white rounded-full border shadow-sm">
-                                <LayoutDashboard className="size-5 text-primary"/>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold">Paneles Visuales</h3>
-                                <p className="text-sm text-muted-foreground">Organiza todo con tableros Kanban, calendarios y diagramas de Gantt.</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <div className="p-2 bg-white rounded-full border shadow-sm">
-                                <Sparkles className="size-5 text-primary"/>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold">Asistente IA</h3>
-                                <p className="text-sm text-muted-foreground">Deja que la IA te sugiera prioridades y te ayude a optimizar tu flujo de trabajo.</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <div className="p-2 bg-white rounded-full border shadow-sm">
-                                <ListChecks className="size-5 text-primary"/>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold">Seguimiento de Progreso</h3>
-                                <p className="text-sm text-muted-foreground">Monitoriza el avance de tus proyectos y tareas con dashboards claros y concisos.</p>
-                            </div>
-                        </div>
-                    </div>
+                     <p className="mt-4 text-sm text-muted-foreground">
+                        Una vez inicies sesión, busca el botón de descarga en el menú de usuario.
+                    </p>
                 </div>
             </div>
             <div className="flex items-center justify-center p-6 min-h-screen">
@@ -206,3 +180,4 @@ export default function LoginPage() {
         </div>
     );
 }
+
