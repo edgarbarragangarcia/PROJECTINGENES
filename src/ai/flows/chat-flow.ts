@@ -41,7 +41,7 @@ const chatFlow = ai.defineFlow(
   async (input) => {
     const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook-test/creadorCampa%C3%B1as';
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 segundos de timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos de timeout
 
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -66,13 +66,12 @@ const chatFlow = ai.defineFlow(
       if (!response.ok) {
         const errorBody = await response.text();
         console.error(`Webhook falló con estado ${response.status}:`, errorBody);
-        return { message: 'Lo siento, no pude procesar esa respuesta.' };
+        return { message: 'Lo siento, no pude procesar esa respuesta del servicio externo.' };
       }
       
       const responseData = await response.json();
       console.log('Respuesta del Webhook (raw):', JSON.stringify(responseData, null, 2));
       
-      // La respuesta esperada es un array, ej: [{ "output": "..." }]
       if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
         const webhookMessage = responseData[0].output;
         console.log('Mensaje extraído del webhook:', webhookMessage);
@@ -80,16 +79,17 @@ const chatFlow = ai.defineFlow(
       }
       
       console.log('El webhook respondió, pero con un formato inesperado o sin el campo "output".');
-      return { message: 'Lo siento, no pude procesar esa respuesta.' };
+      return { message: 'Lo siento, he recibido una respuesta inesperada y no puedo procesarla.' };
 
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        console.error('La solicitud al webhook expiró después de 50 segundos.');
-        return { message: 'Lo siento, la solicitud al servicio externo ha tardado demasiado en responder. Por favor, inténtalo de nuevo.' };
+        console.error('La solicitud al webhook expiró.');
+        return { message: 'Lo siento, el servicio externo ha tardado demasiado en responder. Por favor, inténtalo de nuevo más tarde.' };
       }
+      // Captura otros errores de red, como servidor caído
       console.error('Error al enviar al webhook:', error.message);
-      return { message: 'Lo siento, ha ocurrido un error al contactar el servicio.' };
+      return { message: 'Lo siento, no puedo conectar con el servicio externo en este momento. Es posible que esté temporalmente fuera de servicio.' };
     }
   }
 );
