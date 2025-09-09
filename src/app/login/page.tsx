@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Zap, LayoutDashboard, Sparkles, ListChecks, DownloadCloud } from "lucide-react";
+import { Zap, DownloadCloud, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePWAInstall } from "@/hooks/use-pwa-install";
 
 const GoogleIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="size-5 mr-2" viewBox="0 0 24 24">
@@ -21,6 +22,40 @@ const GoogleIcon = () => (
         <path d="M1 1h22v22H1z" fill="none"/>
     </svg>
 );
+
+function PWAInstallSection() {
+    const { isInstalled, canInstall, installPWA } = usePWAInstall();
+
+    return (
+        <div className="max-w-md w-full text-center">
+            <Link href="/" className="flex items-center justify-center gap-3 mb-8">
+                <div className="flex items-center justify-center size-10 rounded-lg bg-primary text-primary-foreground">
+                    <Zap className="size-6" />
+                </div>
+                <span className="font-headline text-2xl font-bold">PROJECTIA</span>
+            </Link>
+            <DownloadCloud className="mx-auto size-16 text-primary" />
+            <h1 className="text-3xl font-bold font-headline tracking-tight mt-6">
+                Instala PROJECTIA en tu escritorio.
+            </h1>
+            <p className="mt-4 text-muted-foreground">
+                Disfruta de una experiencia más rápida y fluida instalando la aplicación. Accede directamente desde tu escritorio y trabaja sin conexión.
+            </p>
+            {canInstall && !isInstalled && (
+                <Button className="mt-8" size="lg" onClick={installPWA}>
+                    <DownloadCloud className="mr-2" />
+                    Instalar Aplicación
+                </Button>
+            )}
+             {isInstalled && (
+                <div className="mt-8 inline-flex items-center justify-center text-center px-4 py-2 bg-green-100 text-green-800 rounded-lg border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">
+                    <CheckCircle className="mr-2 text-green-600 dark:text-green-400" />
+                    <span className="font-medium">Aplicación ya instalada</span>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -86,24 +121,7 @@ export default function LoginPage() {
     return (
         <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
             <div className="hidden lg:flex flex-col items-center justify-center p-12 bg-gradient-to-br from-violet-100 via-pink-100 to-blue-100 dark:from-violet-950/50 dark:via-pink-950/50 dark:to-blue-950/50 border-r">
-                <div className="max-w-md w-full text-center">
-                    <Link href="/" className="flex items-center justify-center gap-3 mb-8">
-                        <div className="flex items-center justify-center size-10 rounded-lg bg-primary text-primary-foreground">
-                            <Zap className="size-6" />
-                        </div>
-                        <span className="font-headline text-2xl font-bold">PROJECTIA</span>
-                    </Link>
-                    <DownloadCloud className="mx-auto size-16 text-primary" />
-                    <h1 className="text-3xl font-bold font-headline tracking-tight mt-6">
-                        Instala PROJECTIA en tu escritorio.
-                    </h1>
-                    <p className="mt-4 text-muted-foreground">
-                        Disfruta de una experiencia más rápida y fluida instalando la aplicación. Accede directamente desde tu escritorio y trabaja sin conexión.
-                    </p>
-                     <p className="mt-4 text-sm text-muted-foreground">
-                        Una vez inicies sesión, busca el botón de descarga en el menú de usuario.
-                    </p>
-                </div>
+                <PWAInstallSection />
             </div>
             <div className="flex items-center justify-center p-6 min-h-screen">
                 <div className="w-full max-w-sm">
@@ -181,3 +199,4 @@ export default function LoginPage() {
     );
 }
 
+    
