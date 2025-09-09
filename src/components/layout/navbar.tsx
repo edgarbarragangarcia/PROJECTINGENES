@@ -18,6 +18,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useEffect, useState } from 'react';
 import { useTasks } from '@/hooks/use-tasks';
+import { InstallPWAButton } from '../pwa/install-pwa-button';
 
 
 const menuItems = [
@@ -116,6 +117,8 @@ export function Navbar() {
                     </p>
                 </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <InstallPWAButton />
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
