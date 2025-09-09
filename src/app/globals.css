@@ -11,6 +11,7 @@
     --popover: 220 13% 98%;
     --popover-foreground: 222 47% 11%;
     --primary: 213 60% 26%; /* Azul Ingenes: #1a3d6d */
+    --primary-darker: 213 60% 20%;
     --primary-foreground: 0 0% 98%;
     --secondary: 220 14% 94%; /* Gris claro de Ingenes: #ebeef2 - derivado de bcbec0 */
     --secondary-foreground: 222 47% 11%;
@@ -47,6 +48,7 @@
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
     --primary: 213 60% 36%; /* Azul Ingenes más brillante para modo oscuro */
+    --primary-darker: 213 60% 30%;
     --primary-foreground: 0 0% 98%;
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
