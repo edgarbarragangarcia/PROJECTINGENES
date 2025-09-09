@@ -31,7 +31,6 @@ const menuItems = [
 
 export function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
   const supabase = createClient();
   const [user, setUser] = useState<any>(null);
   const { allUsers } = useTasks();
@@ -69,7 +68,7 @@ export function Navbar() {
 
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex items-center h-16 px-4 md:px-6 border-b shrink-0 bg-gradient-to-r from-violet-200/80 via-pink-200/80 to-blue-200/80 backdrop-blur-sm">
+    <header className="fixed top-0 left-0 right-0 z-50 flex items-center h-16 px-4 md:px-6 border-b shrink-0 bg-card/95 backdrop-blur-sm">
       <Link href="/dashboard" className="flex items-center gap-2 mr-6">
         <div className="flex items-center justify-center size-8 rounded-lg bg-primary text-primary-foreground">
           <Zap className="size-5" />
@@ -84,11 +83,11 @@ export function Navbar() {
             asChild
             className={cn(
                 "text-muted-foreground",
-                pathname === item.href && "text-foreground bg-white/50"
+                pathname === item.href && "text-foreground bg-secondary"
             )}
           >
             <Link href={item.href} className='px-3'>
-              <item.icon className="mr-2 size-4 text-purple-600" />
+              <item.icon className="mr-2 size-4 text-primary" />
               {item.label}
             </Link>
           </Button>
