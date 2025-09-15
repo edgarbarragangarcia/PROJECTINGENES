@@ -52,8 +52,8 @@ export function Navbar() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setUser(session?.user ?? null);
-        // Si se cierra la sesión, refrescar la página para que el middleware actúe.
         if (event === 'SIGNED_OUT') {
+           router.push('/login');
            router.refresh();
         }
       }
@@ -66,10 +66,8 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    // Redirige a la página raíz, que a su vez redirigirá a /login.
-    // Esto asegura que el flujo de redirección sea consistente.
-    router.push('/'); 
-    router.refresh(); // Fuerza la recarga para limpiar el estado del servidor.
+    router.push('/login');
+    router.refresh();
   };
   
   const getInitials = () => {

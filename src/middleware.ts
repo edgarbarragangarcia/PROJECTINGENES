@@ -45,6 +45,24 @@ export async function middleware(request: NextRequest) {
   // funcione correctamente en el entorno de servidor de Next.js.
   await supabase.auth.getUser();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Si el usuario no está autenticado y la ruta no es /login, redirigir a /login
+  if (!user && request.nextUrl.pathname !== '/login') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+  
+  // Si el usuario está autenticado y está en /login, redirigir a /dashboard
+  if (user && request.nextUrl.pathname === '/login') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
+    return NextResponse.redirect(url);
+  }
+
   return response;
 }
 
@@ -56,7 +74,8 @@ export const config = {
      * - _next/static (archivos estáticos)
      * - _next/image (archivos de optimización de imágenes)
      * - favicon.ico (archivo de favicon)
+     * - auth/callback (ruta de callback de supabase)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|auth/callback).*)',
   ],
 };
