@@ -1,13 +1,12 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
-import type { ProjectWithProgress, Task, Profile, User } from '@/lib/types';
+import type { Task, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
-import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, User as UserIcon, Users, FolderPlus, FolderCheck } from 'lucide-react';
+import { BarChart, FolderKanban, ListChecks, CheckCircle, Percent, Clock, Users, FolderPlus, FolderCheck } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, CartesianGrid, XAxis, YAxis, LabelList, Cell } from 'recharts';
 import { BarChart as RechartsBarChart } from 'recharts';
@@ -21,6 +20,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MyTasksMobile } from '@/components/dashboard/my-tasks-mobile';
 
 const chartConfig = {
   tasks: {
@@ -63,6 +64,7 @@ export default function DashboardPage() {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [selectedUserEmail, setSelectedUserEmail] = useState('all');
     const supabase = createClient();
+    const isMobile = useIsMobile();
 
     const currentUserProfile = useMemo(() => allUsers.find(u => u.id === currentUser?.id), [allUsers, currentUser]);
     const isAdmin = currentUserProfile?.role === 'admin';
@@ -85,10 +87,10 @@ export default function DashboardPage() {
 
     const assignedTasks = useMemo(() => {
         if (selectedUserEmail === 'all' || !selectedUserEmail) {
-            return tasks;
+            return isAdmin ? tasks : tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(currentUser?.email || ''));
         }
         return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
-    }, [tasks, selectedUserEmail]);
+    }, [tasks, selectedUserEmail, isAdmin, currentUser]);
     
     // For KPIs, filter projects created by the selected user (or current non-admin user)
     const createdProjectsByUser = useMemo(() => {
@@ -165,11 +167,23 @@ export default function DashboardPage() {
         .slice(0, 5), [assignedTasks]);
 
     const headerTitle = useMemo(() => {
+        if (isMobile) return 'Mis Tareas';
         if (isAdmin) {
             return `Dashboard ${selectedUserName}`;
         }
         return 'Mi Dashboard';
-    }, [isAdmin, selectedUserName]);
+    }, [isAdmin, selectedUserName, isMobile]);
+
+    if (isMobile) {
+        return (
+            <AppLayout>
+                <div className="flex flex-col h-full">
+                    <PageHeader title={headerTitle} />
+                    <MyTasksMobile tasks={assignedTasks} projects={projects} />
+                </div>
+            </AppLayout>
+        )
+    }
 
   return (
     <AppLayout>
@@ -377,5 +391,4 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
-
     

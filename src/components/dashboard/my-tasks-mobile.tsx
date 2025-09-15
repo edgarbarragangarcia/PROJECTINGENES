@@ -1,0 +1,117 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import type { ProjectWithProgress, Task } from '@/lib/types';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
+import { PriorityIcon } from '@/components/task/priority-icon';
+import { cn } from '@/lib/utils';
+import { TaskFormDialog } from '@/components/task/task-form-dialog';
+import { CheckCircle } from 'lucide-react';
+
+interface MyTasksMobileProps {
+    tasks: Task[];
+    projects: ProjectWithProgress[];
+}
+
+const getStatusBadgeClass = (status: Task['status']) => {
+    switch (status) {
+      case 'Backlog': return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-800';
+      case 'In Progress': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-800';
+      case 'Done': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-800';
+      case 'Stopper': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-800';
+      case 'Todo': return 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900/50 dark:text-sky-300 dark:border-sky-800';
+      default: return 'bg-secondary text-secondary-foreground';
+    }
+};
+
+const getPriorityBadgeVariant = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'High': return 'destructive';
+      case 'Medium': return 'secondary';
+      case 'Low': return 'outline';
+      default: return 'outline';
+    }
+};
+
+export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
+    const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+    const tasksByProject = useMemo(() => {
+        const grouped: { [key: string]: Task[] } = {};
+        tasks.forEach(task => {
+            if (!grouped[task.projectId]) {
+                grouped[task.projectId] = [];
+            }
+            grouped[task.projectId].push(task);
+        });
+        return grouped;
+    }, [tasks]);
+
+    const projectIdsWithTasks = Object.keys(tasksByProject);
+
+    if (tasks.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center text-center p-8 h-full">
+                <CheckCircle className="size-12 text-green-500 mb-4"/>
+                <p className="font-semibold text-lg">¡Todo en orden!</p>
+                <p className="text-sm text-muted-foreground">No tienes tareas asignadas por el momento.</p>
+            </div>
+        )
+    }
+
+    return (
+        <>
+            <div className="flex-1 overflow-auto p-4">
+                <Accordion type="multiple" defaultValue={projectIdsWithTasks} className="w-full">
+                    {projectIdsWithTasks.map(projectId => {
+                        const project = projects.find(p => p.id === projectId);
+                        const projectTasks = tasksByProject[projectId];
+                        return (
+                            <AccordionItem value={projectId} key={projectId}>
+                                <AccordionTrigger className="font-semibold text-lg">
+                                    <div className="flex items-center gap-3">
+                                        <span>{project?.name || 'Tareas sin proyecto'}</span>
+                                        <Badge variant="outline">{projectTasks.length}</Badge>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="space-y-3">
+                                        {projectTasks.map(task => (
+                                            <div
+                                                key={task.id}
+                                                onClick={() => setEditingTask(task)}
+                                                className="p-3 rounded-lg border bg-card cursor-pointer"
+                                            >
+                                                <p className="font-medium">{task.title}</p>
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
+                                                        {task.status}
+                                                    </Badge>
+                                                    <Badge variant={getPriorityBadgeVariant(task.priority)} className="flex items-center gap-1.5 w-fit">
+                                                        <PriorityIcon priority={task.priority} className="size-3" />
+                                                        {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                    })}
+                </Accordion>
+            </div>
+            {editingTask && (
+                <TaskFormDialog
+                    open={!!editingTask}
+                    onOpenChange={(isOpen) => !isOpen && setEditingTask(null)}
+                    taskToEdit={editingTask}
+                    projectId={editingTask.project_id}
+                />
+            )}
+        </>
+    )
+}
+
+    
