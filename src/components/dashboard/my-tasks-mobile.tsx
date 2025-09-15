@@ -82,7 +82,7 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
                 <CheckCircle className="size-12 text-green-500 mb-4"/>
                 <p className="font-semibold text-lg">¡Todo en orden!</p>
                 <p className="text-sm text-muted-foreground">No tienes tareas asignadas por el momento.</p>
-                 <Button className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg" size="icon" onClick={() => setIsCreateFormOpen(true)}>
+                 <Button className="fixed bottom-24 right-6 h-16 w-16 rounded-full shadow-lg" size="icon" onClick={() => setIsCreateFormOpen(true)}>
                     <Plus className="size-8" />
                 </Button>
                 {isCreateFormOpen && (
@@ -153,7 +153,7 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
                 </Accordion>
             </div>
             
-            <Button className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg" size="icon" onClick={() => setIsCreateFormOpen(true)}>
+            <Button className="fixed bottom-24 right-6 h-16 w-16 rounded-full shadow-lg" size="icon" onClick={() => setIsCreateFormOpen(true)}>
                 <Plus className="size-8" />
             </Button>
 
