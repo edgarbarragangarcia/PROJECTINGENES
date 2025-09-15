@@ -79,6 +79,25 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setTasksState(prevState => ({ ...prevState, allUsers: data || [] }));
     }
   }, [supabase]);
+
+  const updateUserRole = useCallback(async (userId: string, role: 'admin' | 'user') => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role })
+      .eq('id', userId);
+
+    if (error) {
+      throw error;
+    } else {
+      // Update global state
+      setTasksState(prev => ({
+        ...prev,
+        allUsers: prev.allUsers.map(user => 
+          user.id === userId ? { ...user, role } : user
+        ),
+      }));
+    }
+  }, [supabase]);
   
   const calculateProjectsProgress = useCallback((projects: Project[], tasks: Task[]): ProjectWithProgress[] => {
     return projects.map(p => {
@@ -639,7 +658,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     fetchTasks,
     setTasks,
     setTasksLoading,
-  }), [tasksState, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, fetchTasks]);
+    fetchAllUsers,
+    updateUserRole,
+  }), [tasksState, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, fetchTasks, fetchAllUsers, updateUserRole]);
 
   const dailyNotesContextValue: DailyNotesContextType = useMemo(() => ({
     ...dailyNotesState,

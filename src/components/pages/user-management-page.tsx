@@ -20,37 +20,24 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { createClient } from '@/lib/supabase/client';
-import { Profile } from '@/lib/types';
-import { useState } from 'react';
 
 export default function UserManagementPage() {
-  const { allUsers } = useTasks();
+  const { allUsers, updateUserRole } = useTasks();
   const { toast } = useToast();
-  const supabase = createClient();
-  const [users, setUsers] = useState<Profile[]>(allUsers);
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'user') => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role: newRole })
-      .eq('id', userId);
-
-    if (error) {
+    try {
+      await updateUserRole(userId, newRole);
+      toast({
+        title: 'Rol actualizado',
+        description: 'El rol del usuario ha sido actualizado correctamente.',
+      });
+    } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Error al actualizar el rol',
         description: error.message,
       });
-    } else {
-      toast({
-        title: 'Rol actualizado',
-        description: 'El rol del usuario ha sido actualizado correctamente.',
-      });
-      // Optimistically update UI
-      setUsers(currentUsers => 
-        currentUsers.map(u => u.id === userId ? { ...u, role: newRole } : u)
-      );
     }
   };
 
@@ -69,7 +56,7 @@ export default function UserManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map(user => (
+              {allUsers.map(user => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
@@ -101,5 +88,3 @@ export default function UserManagementPage() {
     </div>
   );
 }
-
-    
