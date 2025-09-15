@@ -7,8 +7,6 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirecciona siempre al dashboard, el middleware se encargará
-    // de la lógica de autenticación si el usuario no ha iniciado sesión.
     router.replace('/dashboard');
   }, [router]);
 

@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import type { CookieOptions } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -41,7 +40,7 @@ export async function middleware(request: NextRequest) {
   const publicPaths = ['/login', '/auth/callback', '/auth/auth-code-error'];
 
   // Si no hay sesión y la ruta no es pública, redirigir a /login
-  if (!session && !publicPaths.includes(pathname) && !pathname.startsWith('/_next') && !pathname.startsWith('/icons') && pathname !== '/manifest.json' && pathname !== '/favicon.ico' && !pathname.startsWith('/api')) {
+  if (!session && !publicPaths.includes(pathname) && !pathname.startsWith('/_next') && !pathname.startsWith('/icons') && pathname !== '/manifest.json' && pathname !== '/favicon.ico') {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
@@ -61,11 +60,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api/ (API routes)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
