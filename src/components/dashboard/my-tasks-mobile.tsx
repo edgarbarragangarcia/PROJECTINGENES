@@ -7,7 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '@/components/task/priority-icon';
 import { cn } from '@/lib/utils';
 import { TaskFormDialog } from '@/components/task/task-form-dialog';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Plus } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
+import { useTasks } from '@/hooks/use-tasks';
+import { useToast } from '@/hooks/use-toast';
 
 interface MyTasksMobileProps {
     tasks: Task[];
@@ -36,6 +40,9 @@ const getPriorityBadgeVariant = (priority: Task['priority']) => {
 
 export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
     const [editingTask, setEditingTask] = useState<Task | null>(null);
+    const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+    const { updateTask } = useTasks();
+    const { toast } = useToast();
 
     const tasksByProject = useMemo(() => {
         const grouped: { [key: string]: Task[] } = {};
@@ -50,12 +57,34 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
 
     const projectIdsWithTasks = Object.keys(tasksByProject);
 
+    const handleTaskCheck = async (task: Task, isChecked: boolean) => {
+        const newStatus = isChecked ? 'Done' : 'Todo';
+        try {
+            await updateTask(task.id, { status: newStatus });
+            toast({
+                title: `Tarea ${isChecked ? 'Completada' : 'Pendiente'}`,
+                description: `"${task.title}" ha sido actualizada.`
+            })
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error al actualizar',
+                description: error.message,
+            });
+        }
+    };
+
+
     if (tasks.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center text-center p-8 h-full">
                 <CheckCircle className="size-12 text-green-500 mb-4"/>
                 <p className="font-semibold text-lg">¡Todo en orden!</p>
                 <p className="text-sm text-muted-foreground">No tienes tareas asignadas por el momento.</p>
+                 <Button className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg" size="icon" onClick={() => setIsCreateFormOpen(true)}>
+                    <Plus className="size-8" />
+                </Button>
+                {isCreateFormOpen && <TaskFormDialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen} />}
             </div>
         )
     }
@@ -80,18 +109,33 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
                                         {projectTasks.map(task => (
                                             <div
                                                 key={task.id}
-                                                onClick={() => setEditingTask(task)}
-                                                className="p-3 rounded-lg border bg-card cursor-pointer"
+                                                className="p-3 rounded-lg border bg-card"
                                             >
-                                                <p className="font-medium">{task.title}</p>
-                                                <div className="flex items-center justify-between mt-2">
-                                                    <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
-                                                        {task.status}
-                                                    </Badge>
-                                                    <Badge variant={getPriorityBadgeVariant(task.priority)} className="flex items-center gap-1.5 w-fit">
-                                                        <PriorityIcon priority={task.priority} className="size-3" />
-                                                        {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
-                                                    </Badge>
+                                                <div className="flex items-start gap-3">
+                                                     <Checkbox
+                                                        id={`task-check-${task.id}`}
+                                                        className='mt-1'
+                                                        checked={task.status === 'Done'}
+                                                        onCheckedChange={(checked) => handleTaskCheck(task, !!checked)}
+                                                    />
+                                                    <div className='flex-1'>
+                                                        <label 
+                                                            htmlFor={`task-check-${task.id}`} 
+                                                            className={cn("font-medium cursor-pointer", task.status === 'Done' && 'line-through text-muted-foreground')}
+                                                            onClick={(e) => { e.preventDefault(); setEditingTask(task); }}
+                                                        >
+                                                            {task.title}
+                                                        </label>
+                                                        <div className="flex items-center justify-between mt-2">
+                                                            <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
+                                                                {task.status}
+                                                            </Badge>
+                                                            <Badge variant={getPriorityBadgeVariant(task.priority)} className="flex items-center gap-1.5 w-fit">
+                                                                <PriorityIcon priority={task.priority} className="size-3" />
+                                                                {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -102,6 +146,11 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
                     })}
                 </Accordion>
             </div>
+            
+            <Button className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg" size="icon" onClick={() => setIsCreateFormOpen(true)}>
+                <Plus className="size-8" />
+            </Button>
+
             {editingTask && (
                 <TaskFormDialog
                     open={!!editingTask}
@@ -110,8 +159,12 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
                     projectId={editingTask.project_id}
                 />
             )}
+            {isCreateFormOpen && (
+                <TaskFormDialog
+                    open={isCreateFormOpen}
+                    onOpenChange={setIsCreateFormOpen}
+                />
+            )}
         </>
     )
 }
-
-    
