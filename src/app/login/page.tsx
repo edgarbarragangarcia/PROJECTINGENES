@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Zap, DownloadCloud, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +65,18 @@ export default function LoginPage() {
     const [registerSuccess, setRegisterSuccess] = useState(false);
     const router = useRouter();
     const supabase = createClient();
+    
+    // Redirige al dashboard si ya hay una sesión activa.
+    useEffect(() => {
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                router.replace('/dashboard');
+            }
+        };
+        checkSession();
+    }, [router, supabase]);
+
 
     const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -78,6 +90,7 @@ export default function LoginPage() {
             setError(error.message);
         } else {
             router.push('/dashboard');
+            router.refresh(); // Asegura que el estado del servidor se actualice
         }
     };
     
@@ -106,16 +119,13 @@ export default function LoginPage() {
 
     const handleGoogleSignIn = async () => {
         setError(null);
-        const { error } = await supabase.auth.signInWithOAuth({
+        await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: `${location.origin}/auth/callback`,
                 scopes: 'https://www.googleapis.com/auth/calendar',
             },
         });
-        if (error) {
-            setError(error.message);
-        }
     };
 
     return (

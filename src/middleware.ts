@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
+// Este middleware es crucial para la autenticación de Supabase en Next.js.
+// Su única responsabilidad es refrescar el token de sesión del usuario en cada petición.
+// NO debe contener lógica de redirección. La redirección se maneja en las páginas/layouts.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -17,6 +20,8 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
+          // Si el middleware necesita establecer una cookie, debemos actualizar la petición
+          // y la respuesta.
           request.cookies.set({ name, value, ...options });
           response = NextResponse.next({
             request: { headers: request.headers },
@@ -24,6 +29,8 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
+          // Si el middleware necesita eliminar una cookie, debemos actualizar la petición
+          // y la respuesta.
           request.cookies.set({ name, value: '', ...options });
           response = NextResponse.next({
             request: { headers: request.headers },
@@ -34,24 +41,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const { pathname } = request.nextUrl;
-
-  const publicPaths = ['/login', '/auth/callback', '/auth/auth-code-error'];
-
-  // Si no hay sesión y la ruta no es pública, redirigir a /login
-  if (!session && !publicPaths.includes(pathname) && !pathname.startsWith('/_next') && !pathname.startsWith('/icons') && pathname !== '/manifest.json' && pathname !== '/favicon.ico') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
-  }
-
-  // Si hay sesión y el usuario intenta acceder a la página de login, redirigir a dashboard
-  if (session && pathname === '/login') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
-  }
+  // Refresca la sesión del usuario. Esto es vital para que la autenticación
+  // funcione correctamente en el entorno de servidor de Next.js.
+  await supabase.auth.getUser();
 
   return response;
 }
@@ -59,11 +51,11 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Coincide con todas las rutas de petición excepto las que comienzan con:
+     * - api (rutas de API)
+     * - _next/static (archivos estáticos)
+     * - _next/image (archivos de optimización de imágenes)
+     * - favicon.ico (archivo de favicon)
      */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
