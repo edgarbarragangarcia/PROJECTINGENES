@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Home, FolderKanban, CalendarClock, LogOut, Zap, BarChart3, ListChecks, GanttChartSquare, Users } from 'lucide-react';
+import { Home, FolderKanban, CalendarClock, LogOut, Zap, BarChart3, ListChecks, GanttChartSquare, Users, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useEffect, useState, useMemo } from 'react';
 import { useTasks } from '@/hooks/use-tasks';
@@ -34,6 +35,7 @@ export function Navbar() {
   const supabase = createClient();
   const [user, setUser] = useState<any>(null);
   const { allUsers } = useTasks();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const currentUserProfile = useMemo(() => {
       if (!user || allUsers.length === 0) return null;
@@ -83,10 +85,47 @@ export function Navbar() {
       return currentUserProfile?.full_name || user.email;
   }
 
+  const MobileNav = () => (
+     <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden text-primary-foreground hover:bg-primary-foreground/10">
+                <Menu />
+            </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-3/4">
+            <div className="flex flex-col h-full">
+                 <Link href="/dashboard" className="flex items-center gap-2 mb-6" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div className="flex items-center justify-center size-8 rounded-lg bg-primary text-primary-foreground">
+                    <Zap className="size-5" />
+                    </div>
+                    <span className="font-headline text-lg font-semibold">PROJECTIA</span>
+                </Link>
+                <nav className="flex flex-col gap-2">
+                    {menuItems.filter(item => !item.admin || isAdmin).map((item) => (
+                        <SheetClose asChild key={item.href}>
+                             <Link
+                                href={item.href}
+                                className={cn(
+                                    "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                                    pathname === item.href && "bg-muted text-primary"
+                                )}
+                            >
+                                <item.icon className="h-4 w-4" />
+                                {item.label}
+                            </Link>
+                        </SheetClose>
+                    ))}
+                </nav>
+            </div>
+        </SheetContent>
+    </Sheet>
+  );
+
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex items-center h-16 px-4 md:px-6 shrink-0 bg-gradient-to-r from-primary-darker to-primary text-primary-foreground shadow-lg">
-      <Link href="/dashboard" className="flex items-center gap-2 mr-6">
+      <MobileNav />
+      <Link href="/dashboard" className="flex items-center gap-2 mx-auto md:mx-0 md:mr-6">
         <div className="flex items-center justify-center size-8 rounded-lg bg-primary-foreground text-primary">
           <Zap className="size-5" />
         </div>
