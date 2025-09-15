@@ -222,23 +222,50 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase]);
 
   const deleteProject = useCallback(async (id: string) => {
-    
+    // 1. Delete user stories associated with the project
+    const { error: storyError } = await supabase.from('user_stories').delete().eq('project_id', id);
+    if (storyError) {
+        console.error("Error deleting user stories:", storyError);
+        throw storyError;
+    }
+
+    // 2. Get tasks to delete subtasks
     const { data: tasksToDelete, error: tasksError } = await supabase
         .from('tasks')
         .select('id')
         .eq('project_id', id);
 
-    if (tasksError) throw tasksError;
+    if (tasksError) {
+        console.error("Error fetching tasks for deletion:", tasksError);
+        throw tasksError;
+    }
 
     if (tasksToDelete && tasksToDelete.length > 0) {
         const taskIds = tasksToDelete.map(t => t.id);
         
-        await supabase.from('subtasks').delete().in('task_id', taskIds);
-        await supabase.from('tasks').delete().in('id', taskIds);
+        // 3. Delete subtasks
+        const { error: subtaskError } = await supabase.from('subtasks').delete().in('task_id', taskIds);
+        if (subtaskError) {
+            console.error("Error deleting subtasks:", subtaskError);
+            throw subtaskError;
+        }
+
+        // 4. Delete tasks
+        const { error: taskDeleteError } = await supabase.from('tasks').delete().in('id', taskIds);
+        if (taskDeleteError) {
+            console.error("Error deleting tasks:", taskDeleteError);
+            throw taskDeleteError;
+        }
     }
 
-    const { error } = await supabase.from('projects').delete().eq('id', id);
-    if (error) throw error;
+    // 5. Delete the project itself
+    const { error: projectDeleteError } = await supabase.from('projects').delete().eq('id', id);
+    if (projectDeleteError) {
+        console.error("Error deleting project:", projectDeleteError);
+        throw projectDeleteError;
+    }
+    
+    // Update local state
     setProjectsState(prev => ({
       ...prev,
       projects: prev.projects.filter(p => p.id !== id),
