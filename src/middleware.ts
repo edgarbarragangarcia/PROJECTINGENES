@@ -1,9 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
-// Este middleware es crucial para la autenticación de Supabase en Next.js.
-// Su única responsabilidad es refrescar el token de sesión del usuario en cada petición.
-// NO debe contener lógica de redirección. La redirección se maneja en las páginas/layouts.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -20,8 +17,6 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          // Si el middleware necesita establecer una cookie, debemos actualizar la petición
-          // y la respuesta.
           request.cookies.set({ name, value, ...options });
           response = NextResponse.next({
             request: { headers: request.headers },
@@ -29,8 +24,6 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          // Si el middleware necesita eliminar una cookie, debemos actualizar la petición
-          // y la respuesta.
           request.cookies.set({ name, value: '', ...options });
           response = NextResponse.next({
             request: { headers: request.headers },
@@ -41,26 +34,19 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresca la sesión del usuario. Esto es vital para que la autenticación
-  // funcione correctamente en el entorno de servidor de Next.js.
-  await supabase.auth.getUser();
+  // IMPORTANT: refreshing the session is crucial for server-side auth to work correctly.
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const publicPaths = ['/login', '/auth/callback', '/auth/auth-code-error'];
 
-  // Si el usuario no está autenticado y la ruta no es /login, redirigir a /login
-  if (!user && request.nextUrl.pathname !== '/login') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
+  // if the user is not logged in and not on a public path, redirect to login
+  if (!user && !publicPaths.includes(request.nextUrl.pathname)) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
-  
-  // Si el usuario está autenticado y está en /login, redirigir a /dashboard
+
+  // if the user is logged in and on the login page, redirect to dashboard
   if (user && request.nextUrl.pathname === '/login') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return response;
@@ -69,13 +55,14 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Coincide con todas las rutas de petición excepto las que comienzan con:
-     * - api (rutas de API)
-     * - _next/static (archivos estáticos)
-     * - _next/image (archivos de optimización de imágenes)
-     * - favicon.ico (archivo de favicon)
-     * - auth/callback (ruta de callback de supabase)
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - manifest.json (PWA manifest)
+     * - icons/ (PWA icons)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|auth/callback).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons/).*)',
   ],
 };
