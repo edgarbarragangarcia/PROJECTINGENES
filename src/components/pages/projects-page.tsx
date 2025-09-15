@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -448,7 +447,7 @@ export default function ProjectsPage() {
           <div className='flex items-center gap-2'>
             {isAdmin && (
               <Select value={selectedCreator} onValueChange={setSelectedCreator}>
-                <SelectTrigger className="w-[250px]">
+                <SelectTrigger className="w-full md:w-[250px]">
                   <SelectValue placeholder="Filtrar por creador..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -459,14 +458,39 @@ export default function ProjectsPage() {
                 </SelectContent>
               </Select>
             )}
-            <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
-              <FileDown />
-              {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
-            </Button>
-            <Button size="sm" onClick={handleAddNew}>
-              <PlusCircle />
-              Añadir Proyecto
-            </Button>
+            
+            {/* Desktop Buttons */}
+            <div className="hidden md:flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
+                    <FileDown />
+                    {selectedProjects.length > 0 ? `Generar PDF (${selectedProjects.length})` : 'Generar PDF'}
+                </Button>
+                <Button size="sm" onClick={handleAddNew}>
+                    <PlusCircle />
+                    Añadir Proyecto
+                </Button>
+            </div>
+
+            {/* Mobile Buttons */}
+            <div className="md:hidden flex items-center gap-2">
+                <Button size="sm" onClick={handleAddNew}>
+                    <PlusCircle />
+                    Añadir
+                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon">
+                            <MoreVertical />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleDownloadPdf} disabled={selectedProjects.length === 0}>
+                            <FileDown className="mr-2" />
+                            Generar PDF
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
           </div>
         </PageHeader>
         <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
@@ -487,3 +511,5 @@ export default function ProjectsPage() {
     </>
   );
 }
+
+    
