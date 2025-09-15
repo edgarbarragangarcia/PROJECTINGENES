@@ -12,6 +12,7 @@ import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { useTasks } from '@/hooks/use-tasks';
 import { useToast } from '@/hooks/use-toast';
+import { useProjects } from '@/hooks/use-projects';
 
 interface MyTasksMobileProps {
     tasks: Task[];
@@ -84,7 +85,12 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
                  <Button className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg" size="icon" onClick={() => setIsCreateFormOpen(true)}>
                     <Plus className="size-8" />
                 </Button>
-                {isCreateFormOpen && <TaskFormDialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen} />}
+                {isCreateFormOpen && (
+                    <TaskFormDialog
+                        open={isCreateFormOpen}
+                        onOpenChange={setIsCreateFormOpen}
+                    />
+                )}
             </div>
         )
     }
