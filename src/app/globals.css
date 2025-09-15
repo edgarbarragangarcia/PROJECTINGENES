@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 13% 98%;
+    --foreground: 222 47% 11%;
+    --card: 220 13% 98%;
+    --card-foreground: 222 47% 11%;
+    --popover: 220 13% 98%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 213 60% 26%; /* Azul Ingenes: #1a3d6d */
+    --primary-darker: 213 60% 20%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 220 14% 94%; /* Gris claro de Ingenes: #ebeef2 - derivado de bcbec0 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 9% 46%; /* Gris oscuro de Ingenes: #6d6e71 */
+    --accent: 216 34% 77%; /* Azul claro Ingenes: #b5bed1 */
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 213 60% 26%;
+    --chart-1: 213 60% 26%; /* Azul Ingenes */
+    --chart-2: 77 51% 45%; /* Verde Ingenes: #7fbc42 */
+    --chart-3: 216 34% 77%; /* Azul claro Ingenes */
+    --chart-4: 220 9% 46%; /* Gris oscuro Ingenes */
+    --chart-5: 0 84% 60%; /* Rojo para Stoppers */
+    --radius: 0.8rem;
+    --sidebar-background: 240 4.8% 95.9%;
+    --sidebar-foreground: 240 10% 3.9%;
+    --sidebar-primary: 262.1 83.3% 57.8%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 240 5.9% 90%;
+    --sidebar-ring: 262.1 83.3% 57.8%;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 213 60% 36%; /* Azul Ingenes más brillante para modo oscuro */
+    --primary-darker: 213 60% 30%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 216 34% 27%; /* Azul claro oscuro */
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 213 60% 36%;
+    --chart-1: 213 60% 36%; /* Azul Ingenes */
+    --chart-2: 77 51% 55%; /* Verde Ingenes */
+    --chart-3: 216 34% 57%; /* Azul claro Ingenes */
+    --chart-4: 220 9% 66%; /* Gris oscuro Ingenes */
+    --chart-5: 0 70% 50%; /* Rojo para Stoppers */
+    --sidebar-background: 240 10% 3.9%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 262.1 83.3% 57.8%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 262.1 83.3% 57.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground text-sm;
+  }
+}
