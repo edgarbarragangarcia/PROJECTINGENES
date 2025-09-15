@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -14,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useEffect, useState, useMemo } from 'react';
 import { useTasks } from '@/hooks/use-tasks';
@@ -92,31 +93,32 @@ export function Navbar() {
                 <Menu />
             </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-3/4">
-            <div className="flex flex-col h-full">
-                 <Link href="/dashboard" className="flex items-center gap-2 mb-6" onClick={() => setIsMobileMenuOpen(false)}>
-                    <div className="flex items-center justify-center size-8 rounded-lg bg-primary text-primary-foreground">
-                    <Zap className="size-5" />
-                    </div>
-                    <span className="font-headline text-lg font-semibold">PROJECTIA</span>
-                </Link>
-                <nav className="flex flex-col gap-2">
-                    {menuItems.filter(item => !item.admin || isAdmin).map((item) => (
-                        <SheetClose asChild key={item.href}>
-                             <Link
-                                href={item.href}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                                    pathname === item.href && "bg-muted text-primary"
-                                )}
-                            >
-                                <item.icon className="h-4 w-4" />
-                                {item.label}
-                            </Link>
-                        </SheetClose>
-                    ))}
-                </nav>
-            </div>
+        <SheetContent side="left" className="w-3/4 flex flex-col">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Navegación Principal</SheetTitle>
+            </SheetHeader>
+             <Link href="/dashboard" className="flex items-center gap-2 mb-6" onClick={() => setIsMobileMenuOpen(false)}>
+                <div className="flex items-center justify-center size-8 rounded-lg bg-primary text-primary-foreground">
+                <Zap className="size-5" />
+                </div>
+                <span className="font-headline text-lg font-semibold">PROJECTIA</span>
+            </Link>
+            <nav className="flex flex-col gap-2">
+                {menuItems.filter(item => !item.admin || isAdmin).map((item) => (
+                    <SheetClose asChild key={item.href}>
+                         <Link
+                            href={item.href}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                                pathname === item.href && "bg-muted text-primary"
+                            )}
+                        >
+                            <item.icon className="h-4 w-4" />
+                            {item.label}
+                        </Link>
+                    </SheetClose>
+                ))}
+            </nav>
         </SheetContent>
     </Sheet>
   );
@@ -185,3 +187,5 @@ export function Navbar() {
     </header>
   );
 }
+
+    
