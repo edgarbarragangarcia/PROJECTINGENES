@@ -22,8 +22,13 @@ type Message = {
   content: string;
 };
 
-export function ChatWidget() {
-  const [isOpen, setIsOpen] = useState(false);
+interface ChatWidgetProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+
+export function ChatWidget({ isOpen, onOpenChange }: ChatWidgetProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -62,7 +67,7 @@ export function ChatWidget() {
   };
   
   const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
+    onOpenChange(open);
     // Reset chat when closing
     if (!open) {
       setMessages([]);
@@ -70,89 +75,80 @@ export function ChatWidget() {
   }
 
   return (
-    <>
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
-        size="icon"
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
+      <SheetContent 
+        side="right" 
+        className="flex flex-col right-6 bottom-24 h-[60vh] w-[90vw] max-w-md rounded-xl"
       >
-        <MessageSquare className="size-6" />
-      </Button>
-      <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-        <SheetContent 
-          side="right" 
-          className="flex flex-col right-6 bottom-24 h-[60vh] w-[90vw] max-w-md rounded-xl"
-        >
-          <SheetHeader className="text-left">
-            <SheetTitle className="flex items-center gap-2 font-headline">
-              <Bot className="size-6 text-primary" />
-              Asistente PROJECTIA
-            </SheetTitle>
-            <SheetDescription>
-              Hazme una pregunta sobre gestión de proyectos, tareas o productividad.
-            </SheetDescription>
-          </SheetHeader>
-          <ScrollArea className="flex-1 my-4 pr-4">
-            <div className="space-y-4">
-              {messages.map((message, index) => (
+        <SheetHeader className="text-left">
+          <SheetTitle className="flex items-center gap-2 font-headline">
+            <Bot className="size-6 text-primary" />
+            Asistente PROJECTIA
+          </SheetTitle>
+          <SheetDescription>
+            Hazme una pregunta sobre gestión de proyectos, tareas o productividad.
+          </SheetDescription>
+        </SheetHeader>
+        <ScrollArea className="flex-1 my-4 pr-4">
+          <div className="space-y-4">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={cn(
+                  'flex items-start gap-3',
+                  message.role === 'user' ? 'justify-end' : 'justify-start'
+                )}
+              >
+                {message.role === 'model' && (
+                  <Avatar className="size-8">
+                    <AvatarFallback className='bg-primary text-primary-foreground'><Bot className="size-5" /></AvatarFallback>
+                  </Avatar>
+                )}
                 <div
-                  key={index}
                   className={cn(
-                    'flex items-start gap-3',
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                    'max-w-xs md:max-w-md lg:max-w-lg rounded-xl p-3 text-sm',
+                    message.role === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
                   )}
                 >
-                  {message.role === 'model' && (
-                    <Avatar className="size-8">
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                </div>
+                 {message.role === 'user' && (
+                  <Avatar className="size-8">
+                    <AvatarFallback><UserIcon className="size-5" /></AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
+            ))}
+            {isLoading && (
+               <div className="flex items-start gap-3 justify-start">
+                  <Avatar className="size-8">
                       <AvatarFallback className='bg-primary text-primary-foreground'><Bot className="size-5" /></AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div
-                    className={cn(
-                      'max-w-xs md:max-w-md lg:max-w-lg rounded-xl p-3 text-sm',
-                      message.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    )}
-                  >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  </Avatar>
+                   <div className="bg-muted rounded-xl p-3">
+                      <Loader className="size-5 animate-spin text-primary" />
                   </div>
-                   {message.role === 'user' && (
-                    <Avatar className="size-8">
-                      <AvatarFallback><UserIcon className="size-5" /></AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
-              ))}
-              {isLoading && (
-                 <div className="flex items-start gap-3 justify-start">
-                    <Avatar className="size-8">
-                        <AvatarFallback className='bg-primary text-primary-foreground'><Bot className="size-5" /></AvatarFallback>
-                    </Avatar>
-                     <div className="bg-muted rounded-xl p-3">
-                        <Loader className="size-5 animate-spin text-primary" />
-                    </div>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-          <SheetFooter>
-            <div className="flex w-full items-center gap-2">
-              <Input
-                type="text"
-                placeholder="Escribe tu mensaje..."
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isLoading}
-              />
-              <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon">
-                <Send />
-              </Button>
-            </div>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-    </>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+        <SheetFooter>
+          <div className="flex w-full items-center gap-2">
+            <Input
+              type="text"
+              placeholder="Escribe tu mensaje..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading}
+            />
+            <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon">
+              <Send />
+            </Button>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
