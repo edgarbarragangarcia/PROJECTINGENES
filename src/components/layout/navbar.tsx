@@ -23,7 +23,7 @@ import { InstallPWAButton } from '../pwa/install-pwa-button';
 
 
 const menuItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: BarChart3, admin: false },
+    { href: '/dashboard', label: 'Tareas', icon: BarChart3, admin: false },
     { href: '/projects', label: 'Proyectos', icon: ListChecks, admin: false },
     { href: '/calendar', label: 'Calendario', icon: CalendarClock, admin: false },
     { href: '/gantt', label: 'Gantt', icon: GanttChartSquare, admin: true },
