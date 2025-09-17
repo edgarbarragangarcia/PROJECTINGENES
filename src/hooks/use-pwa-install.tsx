@@ -23,7 +23,7 @@ export function usePWAInstall() {
     }
 
     const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
+      // event.preventDefault(); // Allow the browser to show the install prompt
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
 
