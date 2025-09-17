@@ -71,7 +71,7 @@ export function Navbar() {
     await supabase.auth.signOut();
     localStorage.clear();
     sessionStorage.clear();
-    window.location.href = 'https://9003-firebase-projectingenesgit-1758148198594.cluster-zhw3w37rxzgkutusbbhib6qhra.cloudworkstations.dev/login';
+    window.location.href = '/login';
   };
   
   const getInitials = () => {
