@@ -69,8 +69,9 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = 'https://9003-firebase-projectingenesgit-1758148198594.cluster-zhw3w37rxzgkutusbbhib6qhra.cloudworkstations.dev/login';
   };
   
   const getInitials = () => {
