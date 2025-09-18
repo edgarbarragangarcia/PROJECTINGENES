@@ -169,7 +169,7 @@ export default function DashboardPage() {
         return (
             <AppLayout>
                 <div className="flex flex-col h-full">
-                    <PageHeader title={headerTitle} />
+                    <PageHeader title={headerTitle} isAdmin={isAdmin} />
                     <MyTasksMobile 
                         tasks={tasks} 
                         projects={projects} 
@@ -184,7 +184,7 @@ export default function DashboardPage() {
   return (
     <AppLayout>
         <div className="flex flex-col h-full">
-        <PageHeader title={headerTitle}>
+        <PageHeader title={headerTitle} isAdmin={isAdmin}>
             {isAdmin && (
                 <div className="flex items-center gap-2">
                     <Users className="size-5 text-muted-foreground" />

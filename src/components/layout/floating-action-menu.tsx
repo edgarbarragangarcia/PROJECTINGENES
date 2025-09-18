@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -8,16 +7,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Plus, MessageSquare, PlusCircle } from 'lucide-react';
+import { Plus, MessageSquare, PlusCircle, FolderPlus } from 'lucide-react';
 import { ChatWidget } from '../chat/chat-widget';
 import { TaskFormDialog } from '../task/task-form-dialog';
-import { useProjects } from '@/hooks/use-projects';
+import { ProjectFormDialog } from '../project/project-form-dialog';
 
 export function FloatingActionMenu() {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
-  const { projects } = useProjects();
+  const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
 
   const handleChatClick = () => {
     setIsPopoverOpen(false);
@@ -27,6 +26,11 @@ export function FloatingActionMenu() {
   const handleTaskClick = () => {
     setIsPopoverOpen(false);
     setIsTaskFormOpen(true);
+  };
+
+  const handleProjectClick = () => {
+    setIsPopoverOpen(false);
+    setIsProjectFormOpen(true);
   };
 
   return (
@@ -49,6 +53,14 @@ export function FloatingActionMenu() {
             <Button
               variant="ghost"
               className="justify-start px-3"
+              onClick={handleProjectClick}
+            >
+              <FolderPlus className="mr-2" />
+              Nuevo Proyecto
+            </Button>
+            <Button
+              variant="ghost"
+              className="justify-start px-3"
               onClick={handleTaskClick}
             >
               <PlusCircle className="mr-2" />
@@ -67,10 +79,18 @@ export function FloatingActionMenu() {
       </Popover>
 
       <ChatWidget isOpen={isChatOpen} onOpenChange={setIsChatOpen} />
+      
       {isTaskFormOpen && (
         <TaskFormDialog
           open={isTaskFormOpen}
           onOpenChange={setIsTaskFormOpen}
+        />
+      )}
+
+      {isProjectFormOpen && (
+        <ProjectFormDialog
+          open={isProjectFormOpen}
+          onOpenChange={setIsProjectFormOpen}
         />
       )}
     </>
