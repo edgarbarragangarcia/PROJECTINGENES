@@ -13,6 +13,7 @@ import { Checkbox } from '../ui/checkbox';
 import { useTasks } from '@/hooks/use-tasks';
 import { useToast } from '@/hooks/use-toast';
 import { useProjects } from '@/hooks/use-projects';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface MyTasksMobileProps {
     tasks: Task[];
@@ -43,17 +44,35 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const { updateTask } = useTasks();
     const { toast } = useToast();
+    const [selectedAssignee, setSelectedAssignee] = useState('Todos');
+
+    const allAssignees = useMemo(() => {
+        const assignees = new Set<string>();
+        tasks.forEach(task => {
+            task.assignees?.forEach(assignee => {
+                assignees.add(assignee);
+            });
+        });
+        return ['Todos', ...Array.from(assignees)];
+    }, [tasks]);
+
+    const filteredTasks = useMemo(() => {
+        if (selectedAssignee === 'Todos') {
+            return tasks;
+        }
+        return tasks.filter(task => task.assignees?.includes(selectedAssignee));
+    }, [tasks, selectedAssignee]);
 
     const tasksByProject = useMemo(() => {
         const grouped: { [key: string]: Task[] } = {};
-        tasks.forEach(task => {
+        filteredTasks.forEach(task => {
             if (!grouped[task.projectId]) {
                 grouped[task.projectId] = [];
             }
             grouped[task.projectId].push(task);
         });
         return grouped;
-    }, [tasks]);
+    }, [filteredTasks]);
 
     const projectIdsWithTasks = Object.keys(tasksByProject);
 
@@ -87,60 +106,87 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
 
     return (
         <>
+            <div className="p-4 border-b">
+                <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Filtrar por responsable" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {allAssignees.map(assignee => (
+                            <SelectItem key={assignee} value={assignee}>
+                                {assignee}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
             <div className="flex-1 overflow-auto p-4">
-                <Accordion type="multiple" defaultValue={projectIdsWithTasks} className="w-full">
-                    {projectIdsWithTasks.map(projectId => {
-                        const project = projects.find(p => p.id === projectId);
-                        const projectTasks = tasksByProject[projectId];
-                        return (
-                            <AccordionItem value={projectId} key={projectId}>
-                                <AccordionTrigger className="font-semibold text-lg">
-                                    <div className="flex items-center gap-3">
-                                        <span>{project?.name || 'Tareas sin proyecto'}</span>
-                                        <Badge variant="outline">{projectTasks.length}</Badge>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <div className="space-y-3">
-                                        {projectTasks.map(task => (
-                                            <div
-                                                key={task.id}
-                                                className="p-3 rounded-lg border bg-card"
-                                            >
-                                                <div className="flex items-start gap-3">
-                                                     <Checkbox
-                                                        id={`task-check-${task.id}`}
-                                                        className='mt-1'
-                                                        checked={task.status === 'Done'}
-                                                        onCheckedChange={(checked) => handleTaskCheck(task, !!checked)}
-                                                    />
-                                                    <div className='flex-1'>
-                                                        <label 
-                                                            htmlFor={`task-check-${task.id}`} 
-                                                            className={cn("font-medium cursor-pointer", task.status === 'Done' && 'line-through text-muted-foreground')}
-                                                            onClick={(e) => { e.preventDefault(); setEditingTask(task); }}
-                                                        >
-                                                            {task.title}
-                                                        </label>
-                                                        <div className="flex items-center justify-between mt-2">
-                                                            <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
-                                                                {task.status}
-                                                            </Badge>
-                                                            <Badge variant={getPriorityBadgeVariant(task.priority)} className="flex items-center gap-1.5 w-fit">
-                                                                <PriorityIcon priority={task.priority} className="size-3" />
-                                                                {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
-                                                            </Badge>
+                {projectIdsWithTasks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-center p-8 h-full">
+                        <p className="font-semibold text-lg">No hay tareas</p>
+                        <p className="text-sm text-muted-foreground">No se encontraron tareas para el usuario seleccionado.</p>
+                    </div>
+                ) : (
+                    <Accordion type="multiple" defaultValue={projectIdsWithTasks} className="w-full">
+                        {projectIdsWithTasks.map(projectId => {
+                            const project = projects.find(p => p.id === projectId);
+                            const projectTasks = tasksByProject[projectId];
+                            return (
+                                <AccordionItem value={projectId} key={projectId}>
+                                    <AccordionTrigger className="font-semibold text-lg">
+                                        <div className="flex items-center gap-3">
+                                            <span>{project?.name || 'Tareas sin proyecto'}</span>
+                                            <Badge variant="outline">{projectTasks.length}</Badge>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="space-y-3">
+                                            {projectTasks.map(task => (
+                                                <div
+                                                    key={task.id}
+                                                    className="p-3 rounded-lg border bg-card"
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <Checkbox
+                                                            id={`task-check-${task.id}`}
+                                                            className='mt-1'
+                                                            checked={task.status === 'Done'}
+                                                            onCheckedChange={(checked) => handleTaskCheck(task, !!checked)}
+                                                        />
+                                                        <div className='flex-1'>
+                                                            <label 
+                                                                htmlFor={`task-check-${task.id}`} 
+                                                                className={cn("font-medium cursor-pointer", task.status === 'Done' && 'line-through text-muted-foreground')}
+                                                                onClick={(e) => { e.preventDefault(); setEditingTask(task); }}
+                                                            >
+                                                                {task.title}
+                                                            </label>
+                                                            {task.assignees && task.assignees.length > 0 && (
+                                                                <p className="text-xs text-muted-foreground mt-1">
+                                                                    Asignado a: {task.assignees.join(', ')}
+                                                                </p>
+                                                            )}
+                                                            <div className="flex items-center justify-between mt-2">
+                                                                <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
+                                                                    {task.status}
+                                                                </Badge>
+                                                                <Badge variant={getPriorityBadgeVariant(task.priority)} className="flex items-center gap-1.5 w-fit">
+                                                                    <PriorityIcon priority={task.priority} className="size-3" />
+                                                                    {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
+                                                                </Badge>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        )
-                    })}
-                </Accordion>
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )
+                        })}
+                    </Accordion>
+                )}
             </div>
 
             {editingTask && (
