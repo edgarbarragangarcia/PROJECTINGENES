@@ -5,7 +5,10 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
+  // TEMPORARY FIX for Cloud Workstation CORS issue.
+  // This disables PWA features. Remember to revert this for production.
+  disable: true,
+  // disable: process.env.NODE_ENV === 'development',
 });
 
 const nextConfig: NextConfig = {

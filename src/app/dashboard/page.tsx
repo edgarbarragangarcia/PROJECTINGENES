@@ -2,7 +2,7 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
-import type { Task, User } from '@/lib/types';
+import type { Task, User, Profile } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
@@ -73,17 +73,14 @@ export default function DashboardPage() {
         const checkUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             setCurrentUser(user);
-            if(user) {
-              const profile = allUsers.find(u => u.id === user.id);
-              if (profile?.role !== 'admin') {
+            if(user && !isAdmin) {
                 setSelectedUserEmail(user.email || 'all');
-              }
             }
         };
        if (allUsers.length > 0) {
             checkUser();
        }
-    }, [supabase.auth, allUsers]);
+    }, [supabase.auth, allUsers, isAdmin]);
 
     const assignedTasks = useMemo(() => {
         if (selectedUserEmail === 'all' || !selectedUserEmail) {
@@ -92,14 +89,10 @@ export default function DashboardPage() {
         return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
     }, [tasks, selectedUserEmail, isAdmin, currentUser]);
     
-    // For KPIs, filter projects created by the selected user (or current non-admin user)
     const createdProjectsByUser = useMemo(() => {
         if (selectedUserEmail === 'all') {
-             // Admin view of all projects
              return isAdmin ? projects : projects.filter(p => p.user_id === currentUser?.id);
         }
-        
-        // Find the user object for the selected email
         const selectedUser = allUsers.find(u => u.email === selectedUserEmail);
         if (!selectedUser) return [];
 
@@ -113,7 +106,6 @@ export default function DashboardPage() {
         return user?.full_name || user?.email || 'Desconocido';
     }, [selectedUserEmail, allUsers]);
 
-    // --- Chart Logic: Always based on assigned tasks ---
     const tasksByStatusForChart = useMemo(() => assignedTasks.reduce((acc, task) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
@@ -125,7 +117,6 @@ export default function DashboardPage() {
         fill: `var(--color-${status.replace(/ /g, '')})`
     })), [tasksByStatusForChart]);
 
-    // --- KPIs ---
     const totalAssignedTasks = assignedTasks.length;
     const completedAssignedTasks = useMemo(() => assignedTasks.reduce((acc, task) => {
         if (task.status === 'Done') return acc + 1;
@@ -179,7 +170,12 @@ export default function DashboardPage() {
             <AppLayout>
                 <div className="flex flex-col h-full">
                     <PageHeader title={headerTitle} />
-                    <MyTasksMobile tasks={assignedTasks} projects={projects} />
+                    <MyTasksMobile 
+                        tasks={tasks} 
+                        projects={projects} 
+                        allUsers={allUsers}
+                        currentUserProfile={currentUserProfile}
+                    />
                 </div>
             </AppLayout>
         )
@@ -391,4 +387,3 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
-    

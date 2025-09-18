@@ -1,23 +1,23 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import type { ProjectWithProgress, Task } from '@/lib/types';
+import { useMemo, useState, useEffect } from 'react';
+import type { ProjectWithProgress, Task, Profile, User } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '@/components/task/priority-icon';
 import { cn } from '@/lib/utils';
 import { TaskFormDialog } from '@/components/task/task-form-dialog';
-import { CheckCircle, Plus } from 'lucide-react';
-import { Button } from '../ui/button';
+import { CheckCircle } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
 import { useTasks } from '@/hooks/use-tasks';
 import { useToast } from '@/hooks/use-toast';
-import { useProjects } from '@/hooks/use-projects';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface MyTasksMobileProps {
     tasks: Task[];
     projects: ProjectWithProgress[];
+    allUsers: Profile[];
+    currentUserProfile?: Profile;
 }
 
 const getStatusBadgeClass = (status: Task['status']) => {
@@ -40,28 +40,28 @@ const getPriorityBadgeVariant = (priority: Task['priority']) => {
     }
 };
 
-export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
+export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }: MyTasksMobileProps) {
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const { updateTask } = useTasks();
     const { toast } = useToast();
-    const [selectedAssignee, setSelectedAssignee] = useState('Todos');
+    
+    const isAdmin = currentUserProfile?.role === 'admin';
+    const [selectedUserEmail, setSelectedUserEmail] = useState<string>('all');
 
-    const allAssignees = useMemo(() => {
-        const assignees = new Set<string>();
-        tasks.forEach(task => {
-            task.assignees?.forEach(assignee => {
-                assignees.add(assignee);
-            });
-        });
-        return ['Todos', ...Array.from(assignees)];
-    }, [tasks]);
+    useEffect(() => {
+        if (!isAdmin && currentUserProfile?.email) {
+            setSelectedUserEmail(currentUserProfile.email);
+        }
+    }, [isAdmin, currentUserProfile]);
 
     const filteredTasks = useMemo(() => {
-        if (selectedAssignee === 'Todos') {
+        if (selectedUserEmail === 'all' && isAdmin) {
             return tasks;
         }
-        return tasks.filter(task => task.assignees?.includes(selectedAssignee));
-    }, [tasks, selectedAssignee]);
+        return tasks.filter(task => 
+            Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail)
+        );
+    }, [tasks, selectedUserEmail, isAdmin]);
 
     const tasksByProject = useMemo(() => {
         const grouped: { [key: string]: Task[] } = {};
@@ -93,10 +93,19 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
         }
     };
 
-
-    if (tasks.length === 0) {
+    if (tasks.length === 0 && isAdmin) {
         return (
             <div className="flex flex-col items-center justify-center text-center p-8 h-full">
+                <CheckCircle className="size-12 text-green-500 mb-4"/>
+                <p className="font-semibold text-lg">¡Todo en orden!</p>
+                <p className="text-sm text-muted-foreground">No hay tareas en el sistema.</p>
+            </div>
+        )
+    }
+
+    if (filteredTasks.length === 0 && !isAdmin) {
+        return (
+             <div className="flex flex-col items-center justify-center text-center p-8 h-full">
                 <CheckCircle className="size-12 text-green-500 mb-4"/>
                 <p className="font-semibold text-lg">¡Todo en orden!</p>
                 <p className="text-sm text-muted-foreground">No tienes tareas asignadas por el momento.</p>
@@ -106,20 +115,23 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
 
     return (
         <>
-            <div className="p-4 border-b">
-                <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+           {isAdmin && (
+             <div className="p-4 border-b">
+                <Select value={selectedUserEmail} onValueChange={setSelectedUserEmail}>
                     <SelectTrigger className="w-full">
                         <SelectValue placeholder="Filtrar por responsable" />
                     </SelectTrigger>
                     <SelectContent>
-                        {allAssignees.map(assignee => (
-                            <SelectItem key={assignee} value={assignee}>
-                                {assignee}
+                        <SelectItem value="all">Todos los usuarios</SelectItem>
+                        {allUsers.map(user => (
+                            <SelectItem key={user.id} value={user.email!}>
+                                {user.full_name || user.email}
                             </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
             </div>
+           )}
 
             <div className="flex-1 overflow-auto p-4">
                 {projectIdsWithTasks.length === 0 ? (
@@ -162,11 +174,9 @@ export function MyTasksMobile({ tasks, projects }: MyTasksMobileProps) {
                                                             >
                                                                 {task.title}
                                                             </label>
-                                                            {task.assignees && task.assignees.length > 0 && (
-                                                                <p className="text-xs text-muted-foreground mt-1">
-                                                                    Asignado a: {task.assignees.join(', ')}
-                                                                </p>
-                                                            )}
+                                                             <p className="text-xs text-muted-foreground mt-1">
+                                                                Asignado a: {task.assignees?.join(', ') || 'Nadie'}
+                                                            </p>
                                                             <div className="flex items-center justify-between mt-2">
                                                                 <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
                                                                     {task.status}
