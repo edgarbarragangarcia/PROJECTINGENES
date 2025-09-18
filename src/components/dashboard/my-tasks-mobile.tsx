@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import type { ProjectWithProgress, Task, Profile } from '@/lib/types';
+import { statuses, type ProjectWithProgress, type Task, type Profile, type Status } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '@/components/task/priority-icon';
@@ -50,6 +50,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const isAdmin = currentUserProfile?.role === 'admin';
     const [selectedUserId, setSelectedUserId] = useState<string>('all');
     const [filterType, setFilterType] = useState<'assignee' | 'creator'>('assignee');
+    const [groupBy, setGroupBy] = useState<'project' | 'status'>('project');
 
     useEffect(() => {
         if (!isAdmin && currentUserProfile?.id) {
@@ -66,7 +67,6 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
             return tasks.filter(task => task.user_id === selectedUserId);
         } 
         
-        // Default to assignee filter
         const selectedUser = allUsers.find(u => u.id === selectedUserId);
         if (!selectedUser) return [];
         return tasks.filter(task => 
@@ -97,7 +97,19 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         return grouped;
     }, [filteredTasks]);
 
+    const tasksByStatus = useMemo(() => {
+        const grouped: { [key: string]: Task[] } = {};
+        filteredTasks.forEach(task => {
+            if (!grouped[task.status]) {
+                grouped[task.status] = [];
+            }
+            grouped[task.status].push(task);
+        });
+        return grouped;
+    }, [filteredTasks]);
+
     const projectIdsWithTasks = Object.keys(tasksByProject);
+    const statusKeys = useMemo(() => statuses.filter(s => tasksByStatus[s]?.length > 0), [tasksByStatus]);
 
     const handleTaskCheck = async (task: Task, isChecked: boolean) => {
         const newStatus = isChecked ? 'Done' : 'Todo';
@@ -114,6 +126,49 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                 description: error.message,
             });
         }
+    };
+
+    const renderTaskItem = (task: Task) => {
+        const project = projects.find(p => p.id === (task.project_id || task.projectId));
+        const creator = allUsers.find(u => u.id === task.user_id);
+        return (
+            <div
+                key={task.id}
+                className="p-3 rounded-lg border bg-card"
+            >
+                <div className="flex items-start gap-3">
+                    <Checkbox
+                        id={`task-check-${task.id}`}
+                        className='mt-1'
+                        checked={task.status === 'Done'}
+                        onCheckedChange={(checked) => handleTaskCheck(task, !!checked)}
+                    />
+                    <div className='flex-1'>
+                        <label 
+                            htmlFor={`task-check-${task.id}`} 
+                            className={cn("font-medium cursor-pointer", task.status === 'Done' && 'line-through text-muted-foreground')}
+                            onClick={(e) => { e.preventDefault(); setEditingTask(task); }}
+                        >
+                            {task.title}
+                        </label>
+                        <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                            <p>Proyecto: {project?.name || 'Tareas sin proyecto'}</p>
+                            <p>Creada por: {creator?.full_name || 'Desconocido'}</p>
+                            <p>Asignado a: {task.assignees?.join(', ') || 'Nadie'}</p>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                            <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
+                                {task.status}
+                            </Badge>
+                            <Badge variant={getPriorityBadgeVariant(task.priority)} className="flex items-center gap-1.5 w-fit">
+                                <PriorityIcon priority={task.priority} className="size-3" />
+                                {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
+                            </Badge>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
     };
 
     if (tasks.length === 0 && isAdmin) {
@@ -138,48 +193,68 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
 
     return (
         <>
-           {isAdmin && (
+           {(isAdmin || (tasks && tasks.length > 0)) && (
              <div className="p-4 border-b space-y-4">
                 <div className="flex items-center gap-2 font-semibold">
                     <SlidersHorizontal className="size-5"/>
-                    <Label>Filtros</Label>
+                    <Label>Filtros y Agrupación</Label>
                 </div>
-                <RadioGroup defaultValue="assignee" value={filterType} onValueChange={(value: 'assignee' | 'creator') => setFilterType(value)} className="flex gap-4">
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="assignee" id="r-assignee" />
-                        <Label htmlFor="r-assignee">Asignado a</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="creator" id="r-creator" />
-                        <Label htmlFor="r-creator">Creado por</Label>
-                    </div>
-                </RadioGroup>
+                
+                <div className='space-y-2'>
+                    <Label className='text-sm font-medium'>Agrupar por</Label>
+                     <RadioGroup defaultValue="project" value={groupBy} onValueChange={(value: 'project' | 'status') => setGroupBy(value)} className="flex gap-4">
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="project" id="r-project" />
+                            <Label htmlFor="r-project">Proyecto</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="status" id="r-status" />
+                            <Label htmlFor="r-status">Estado</Label>
+                        </div>
+                    </RadioGroup>
+                </div>
 
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                    <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Filtrar por usuario..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Todos los usuarios</SelectItem>
-                        {allUsers.map(user => (
-                            <SelectItem key={user.id} value={user.id!}>
-                                {user.full_name || user.email}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                {isAdmin && (
+                    <div className='space-y-2'>
+                         <Label className='text-sm font-medium'>Filtrar por</Label>
+                        <RadioGroup defaultValue="assignee" value={filterType} onValueChange={(value: 'assignee' | 'creator') => setFilterType(value)} className="flex gap-4">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="assignee" id="r-assignee" />
+                                <Label htmlFor="r-assignee">Asignado a</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="creator" id="r-creator" />
+                                <Label htmlFor="r-creator">Creado por</Label>
+                            </div>
+                        </RadioGroup>
+
+                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Filtrar por usuario..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los usuarios</SelectItem>
+                                {allUsers.map(user => (
+                                    <SelectItem key={user.id} value={user.id!}>
+                                        {user.full_name || user.email}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
             </div>
            )}
 
             <div className="flex-1 overflow-auto p-4">
-                {projectIdsWithTasks.length === 0 ? (
+                {filteredTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center text-center p-8 h-full">
                         <p className="font-semibold text-lg">No hay tareas</p>
                         <p className="text-sm text-muted-foreground">No se encontraron tareas para los filtros aplicados.</p>
                     </div>
                 ) : (
-                    <Accordion type="multiple" defaultValue={projectIdsWithTasks} className="w-full">
-                        {projectIdsWithTasks.map(projectId => {
+                    <Accordion key={groupBy} type="multiple" defaultValue={groupBy === 'project' ? projectIdsWithTasks : statusKeys} className="w-full">
+                        {groupBy === 'project' && projectIdsWithTasks.map(projectId => {
                             const project = projects.find(p => p.id === projectId);
                             const projectTasks = tasksByProject[projectId];
                             
@@ -193,51 +268,30 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                                     </AccordionTrigger>
                                     <AccordionContent>
                                         <div className="space-y-3">
-                                            {projectTasks.map(task => {
-                                                const creator = allUsers.find(u => u.id === task.user_id);
-                                                return (
-                                                    <div
-                                                        key={task.id}
-                                                        className="p-3 rounded-lg border bg-card"
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <Checkbox
-                                                                id={`task-check-${task.id}`}
-                                                                className='mt-1'
-                                                                checked={task.status === 'Done'}
-                                                                onCheckedChange={(checked) => handleTaskCheck(task, !!checked)}
-                                                            />
-                                                            <div className='flex-1'>
-                                                                <label 
-                                                                    htmlFor={`task-check-${task.id}`} 
-                                                                    className={cn("font-medium cursor-pointer", task.status === 'Done' && 'line-through text-muted-foreground')}
-                                                                    onClick={(e) => { e.preventDefault(); setEditingTask(task); }}
-                                                                >
-                                                                    {task.title}
-                                                                </label>
-                                                                <div className="text-xs text-muted-foreground mt-1 space-y-1">
-                                                                    <p>Proyecto: {project?.name || 'Tareas sin proyecto'}</p>
-                                                                    <p>Creada por: {creator?.full_name || 'Desconocido'}</p>
-                                                                    <p>Asignado a: {task.assignees?.join(', ') || 'Nadie'}</p>
-                                                                </div>
-                                                                <div className="flex items-center justify-between mt-2">
-                                                                    <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
-                                                                        {task.status}
-                                                                    </Badge>
-                                                                    <Badge variant={getPriorityBadgeVariant(task.priority)} className="flex items-center gap-1.5 w-fit">
-                                                                        <PriorityIcon priority={task.priority} className="size-3" />
-                                                                        {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
-                                                                    </Badge>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
+                                            {projectTasks.map(renderTaskItem)}
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
                             )
+                        })}
+
+                        {groupBy === 'status' && statusKeys.map(status => {
+                             const statusTasks = tasksByStatus[status as Status];
+                             return (
+                                <AccordionItem value={status} key={status}>
+                                     <AccordionTrigger className="font-semibold text-lg">
+                                         <div className="flex items-center gap-3">
+                                             <Badge variant="outline" className={cn(getStatusBadgeClass(status as Status), 'text-base')}>{status}</Badge>
+                                             <Badge variant="outline">{statusTasks.length}</Badge>
+                                         </div>
+                                     </AccordionTrigger>
+                                     <AccordionContent>
+                                         <div className="space-y-3">
+                                             {statusTasks.map(renderTaskItem)}
+                                         </div>
+                                     </AccordionContent>
+                                 </AccordionItem>
+                             )
                         })}
                     </Accordion>
                 )}
