@@ -78,10 +78,11 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const tasksByProject = useMemo(() => {
         const grouped: { [key: string]: Task[] } = {};
         filteredTasks.forEach(task => {
-            if (!grouped[task.projectId]) {
-                grouped[task.projectId] = [];
+            const projectId = task.project_id || task.projectId;
+            if (!grouped[projectId]) {
+                grouped[projectId] = [];
             }
-            grouped[task.projectId].push(task);
+            grouped[projectId].push(task);
         });
 
         for (const projectId in grouped) {
@@ -215,6 +216,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                                                                     {task.title}
                                                                 </label>
                                                                 <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                                                                    <p>Proyecto: {project?.name || 'Tareas sin proyecto'}</p>
                                                                     <p>Creada por: {creator?.full_name || 'Desconocido'}</p>
                                                                     <p>Asignado a: {task.assignees?.join(', ') || 'Nadie'}</p>
                                                                 </div>
@@ -246,7 +248,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                     open={!!editingTask}
                     onOpenChange={(isOpen) => !isOpen && setEditingTask(null)}
                     taskToEdit={editingTask}
-                    projectId={editingTask.project_id}
+                    projectId={editingTask.project_id || editingTask.projectId}
                 />
             )}
         </>
