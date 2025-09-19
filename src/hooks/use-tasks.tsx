@@ -37,6 +37,7 @@ export interface TasksContextType extends TasksState {
   setTasksLoading: (loading: boolean) => void;
   fetchAllUsers: () => Promise<void>;
   updateUserRole: (userId: string, role: 'admin' | 'user') => Promise<void>;
+  refreshAllData: () => Promise<void>;
 }
 
 export const TasksContext = createContext<TasksContextType | undefined>(undefined);

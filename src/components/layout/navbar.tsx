@@ -69,9 +69,7 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.href = '/login';
+    router.push('/login');
   };
   
   const getInitials = () => {
