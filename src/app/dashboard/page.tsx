@@ -73,29 +73,45 @@ export default function DashboardPage() {
         const checkUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             setCurrentUser(user);
-            if(user && !isAdmin) {
-                setSelectedUserEmail(user.email || 'all');
+
+            if (user && allUsers.length > 0) {
+                const profile = allUsers.find(u => u.id === user.id);
+                const userIsAdmin = profile?.role === 'admin';
+                
+                if (!userIsAdmin) {
+                    setSelectedUserEmail(user.email || 'all');
+                }
             }
         };
-       if (allUsers.length > 0) {
-            checkUser();
-       }
-    }, [supabase.auth, allUsers, isAdmin]);
+       
+        checkUser();
+       
+    }, [supabase.auth, allUsers]);
 
     const assignedTasks = useMemo(() => {
-        if (selectedUserEmail === 'all' || !selectedUserEmail) {
-            return isAdmin ? tasks : tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(currentUser?.email || ''));
+        if (isAdmin && selectedUserEmail === 'all') {
+            return tasks;
         }
-        return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
+        if (selectedUserEmail !== 'all' && selectedUserEmail) {
+            return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
+        }
+        if (!isAdmin && currentUser) {
+            return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(currentUser.email || ''));
+        }
+        return [];
     }, [tasks, selectedUserEmail, isAdmin, currentUser]);
     
     const createdProjectsByUser = useMemo(() => {
-        if (selectedUserEmail === 'all') {
-             return isAdmin ? projects : projects.filter(p => p.user_id === currentUser?.id);
+        if (isAdmin && selectedUserEmail === 'all') {
+            return projects;
         }
-        const selectedUser = allUsers.find(u => u.email === selectedUserEmail);
-        if (!selectedUser) return [];
+        
+        const userEmailToFilter = isAdmin ? selectedUserEmail : currentUser?.email;
+        if (!userEmailToFilter) return [];
 
+        const selectedUser = allUsers.find(u => u.email === userEmailToFilter);
+        if (!selectedUser) return projects.filter(p => p.creator_email === userEmailToFilter);
+        
         return projects.filter(p => p.user_id === selectedUser.id);
 
     }, [projects, selectedUserEmail, isAdmin, currentUser, allUsers]);

@@ -28,7 +28,7 @@ const formSchema = z.object({
 });
 
 export function ProjectFormDialog({ open, onOpenChange }: ProjectFormDialogProps) {
-    const { createProject } = useProjects();
+    const { addProject } = useProjects();
     const { allUsers } = useTasks();
     const { toast } = useToast();
     const supabase = createClient();
@@ -68,7 +68,12 @@ export function ProjectFormDialog({ open, onOpenChange }: ProjectFormDialogProps
             const userIdToAssign = values.user_id || currentUser?.id;
             if (!userIdToAssign) throw new Error('No se pudo determinar el responsable del proyecto.');
 
-            await createProject({ ...values, user_id: userIdToAssign });
+            const submissionData: any = {
+                ...values,
+                user_id: userIdToAssign
+            };
+
+            await addProject(submissionData);
             toast({ title: 'Proyecto creado', description: `El proyecto "${values.name}" ha sido creado.` });
             form.reset();
             onOpenChange(false);

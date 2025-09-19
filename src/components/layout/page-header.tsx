@@ -3,6 +3,7 @@
 interface PageHeaderProps {
   title: string;
   children?: React.ReactNode;
+  isAdmin?: boolean;
 }
 
 export function PageHeader({ title, children }: PageHeaderProps) {

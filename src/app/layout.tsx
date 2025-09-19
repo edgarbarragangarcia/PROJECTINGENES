@@ -6,7 +6,6 @@ import { AppProvider } from '@/providers/app-provider';
 export const metadata: Metadata = {
   title: 'PROJECTIA',
   description: 'Gestiona tus proyectos con PROJECTIA.',
-  manifest: '/manifest.json',
   icons: {
     apple: "/icons/icon-192x192.png",
   }
