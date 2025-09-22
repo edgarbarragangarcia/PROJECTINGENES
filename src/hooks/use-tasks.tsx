@@ -25,7 +25,7 @@ export const initialTasksState: TasksState = {
 // --- CONTEXT ---
 
 export interface TasksContextType extends TasksState {
-  addTask: (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'>) => Promise<void>;
+  addTask: (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'>) => Promise<Task>;
   updateTask: (id: string, data: Partial<Omit<Task, 'id' | 'created_at' | 'user_id'>>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   getTasksByStatus: (status: Status, projectId?: string) => Task[];

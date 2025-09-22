@@ -149,8 +149,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
 
   const addProject = useCallback(async (projectData: Omit<Project, 'id' | 'created_at' | 'user_id'> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
+    console.debug('[CombinedProvider] addProject: start', { projectData });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
+      console.error('[CombinedProvider] addProject: no authenticated user');
       throw new Error("Debes iniciar sesión para crear un proyecto.");
     }
     
@@ -188,7 +190,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[CombinedProvider] addProject: supabase insert error', error);
+      throw error;
+    }
+    console.debug('[CombinedProvider] addProject: inserted project', data);
     
     // Recargar todos los datos después de crear un proyecto
     await refreshAllData();
@@ -314,8 +320,12 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase]);
 
   const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'created_at' | 'user_id'> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
+    console.debug('[CombinedProvider] addTask: start', { taskData });
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Debes iniciar sesión para crear una tarea.");
+    if (!user) {
+      console.error('[CombinedProvider] addTask: no authenticated user');
+      throw new Error("Debes iniciar sesión para crear una tarea.");
+    }
 
     let imageUrl = '';
     if (taskData.imageFile) {
@@ -354,7 +364,11 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       .select('*, subtasks(*)')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[CombinedProvider] addTask: supabase insert error', error);
+      throw error;
+    }
+    console.debug('[CombinedProvider] addTask: inserted task', newTask);
     
     if (subtasks && subtasks.length > 0) {
       const subtasksToInsert = subtasks.map(st => ({
@@ -370,6 +384,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       ...prev,
       tasks: [processTask(newTask), ...prev.tasks],
     }));
+    return newTask as Task;
   }, [supabase]);
 
   const updateTask = useCallback(async (id: string, data: Partial<Task> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {

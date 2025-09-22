@@ -205,10 +205,10 @@ export function TaskFormDialog({
           description: `"${data.title}" ha sido actualizada.`
         });
       } else {
-        await addTask(submissionData);
+        const created = await addTask(submissionData);
         toast({ 
           title: 'Tarea Creada', 
-          description: `"${data.title}" ha sido añadida a tu tablero.`
+          description: `"${data.title}" ha sido añadida a tu tablero (id: ${created.id}).`
         });
       }
       
@@ -255,7 +255,8 @@ export function TaskFormDialog({
   }
   
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const input = e.target as any;
+  const file = input.files?.[0];
     if (file) {
         setImageFile(file);
         const reader = new FileReader();
@@ -428,8 +429,8 @@ export function TaskFormDialog({
                 <Input 
                   placeholder="Añadir nueva subtarea..."
                   value={subtaskInput}
-                  onChange={(e) => setSubtaskInput(e.target.value)}
-                  onKeyDown={(e) => {
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubtaskInput((e.target as any).value)}
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleAddSubtask();
