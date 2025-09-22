@@ -207,32 +207,10 @@ export function TaskFormDialog({
         createdViewport = true;
       }
 
-      // Prevent background touchmove / wheel. Allow interactions inside dialog content.
-      const onTouchMove = (e: TouchEvent) => {
-        const el = contentEl();
-        if (!el) return;
-        if (!el.contains((e.target as any))) {
-          // Prevent background scrolling/touch gestures
-          e.preventDefault();
-        }
-      };
-
-      const onWheel = (e: WheelEvent) => {
-        const el = contentEl();
-        if (!el) return;
-        if (!el.contains((e.target as any))) {
-          e.preventDefault();
-        }
-      };
-
-      const onGesture = (e: Event) => {
-        e.preventDefault();
-      };
-
-      doc.addEventListener('touchmove', onTouchMove, { passive: false });
-      doc.addEventListener('wheel', onWheel, { passive: false });
-      // iOS gesture events (may be unsupported in some browsers)
-      doc.addEventListener('gesturestart', onGesture as EventListener);
+      // We avoid adding global touch/wheel/gesture listeners because those
+      // interfered with popovers (calendar) which render outside the dialog
+      // (portal). Rely on body overflow:hidden and touch-action on the dialog
+      // content to prevent horizontal panning.
 
       return () => {
         doc.body.style.overflow = prevBodyOverflow;
@@ -243,10 +221,6 @@ export function TaskFormDialog({
           const v = doc.querySelector('meta[name="viewport"]');
           if (v) v.setAttribute('content', prevViewportContent);
         }
-
-        doc.removeEventListener('touchmove', onTouchMove as EventListener);
-        doc.removeEventListener('wheel', onWheel as EventListener);
-        doc.removeEventListener('gesturestart', onGesture as EventListener);
       };
     };
 
@@ -362,7 +336,7 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent id="task-form-dialog-content" className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+  <DialogContent id="task-form-dialog-content" className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto overflow-x-hidden" style={{ overscrollBehavior: 'contain' }}>
         <DialogHeader>
           <DialogTitle className="font-headline">
             {taskToEdit ? 'Editar Tarea' : 'Añadir Nueva Tarea'}
@@ -476,7 +450,7 @@ export function TaskFormDialog({
                 <Label htmlFor="task-image">Adjuntar Imagen</Label>
                 {imagePreview ? (
                     <div className="relative group">
-                        <Image src={imagePreview} alt="Vista previa de la tarea" width={450} height={250} className="rounded-md object-contain"/>
+                        <Image src={imagePreview} alt="Vista previa de la tarea" width={450} height={250} className="rounded-md object-contain max-w-full h-auto"/>
                         <Button type="button" size="icon" variant="destructive" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleRemoveImage}>
                             <X className="size-4" />
                         </Button>
