@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 import { Home, FolderKanban, CalendarClock, LogOut, Zap, BarChart3, ListChecks, GanttChartSquare, Users, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -69,16 +70,15 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     try {
-      // 1. Cerrar sesión en Supabase
+      // 1. Cerrar sesión en Supabase (esto limpiará automáticamente las cookies y el token)
       await supabase.auth.signOut();
       
-      // 2. Forzar navegación a login
-      await router.push('/login');
-      
-      // 3. Forzar recarga completa
+      // 2. Redirigir a login y forzar una recarga completa para limpiar todo el estado
+      router.push('/login');
       router.refresh();
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
+      router.replace('/login');
     }
   };
   
