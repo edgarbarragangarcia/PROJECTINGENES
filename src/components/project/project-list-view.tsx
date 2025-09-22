@@ -87,18 +87,18 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
       <Accordion type="multiple" className="w-full">
         {projects.map((project) => (
           <AccordionItem value={project.id} key={project.id}>
-            {/* Desktop row */}
-            <div className="hidden md:grid grid-cols-12 items-center px-4 py-2 border-b hover:bg-muted/50 transition-colors">
-               <div className="col-span-5 py-0 justify-start flex items-center gap-3">
+        {/* Desktop row */}
+        <div className="hidden md:grid grid-cols-12 items-center px-4 py-2 border-b hover:bg-muted/50 transition-colors">
+          <div className="col-span-5 py-0 justify-start flex items-center gap-3 min-w-0">
                  <Checkbox 
                    id={`select-list-${project.id}`}
                    checked={selectedProjects.includes(project.id)}
                    onCheckedChange={() => onSelectProject(project.id)}
                  />
-                 <AccordionTrigger className='py-0 flex-1 justify-start [&_svg]:data-[state=closed]:-rotate-90'>
-                   <div className="flex items-center gap-2">
+                 <AccordionTrigger className='py-0 flex-1 min-w-0 justify-start [&_svg]:data-[state=closed]:-rotate-90'>
+                   <div className="flex items-center gap-2 min-w-0">
                       <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                      <Link href={`/projects/${project.id}`} className="font-medium text-base hover:underline">{project.name}</Link>
+                      <Link href={`/projects/${project.id}`} className="font-medium text-base truncate block hover:underline">{project.name}</Link>
                    </div>
                  </AccordionTrigger>
                </div>
@@ -158,24 +158,32 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
                </div>
            </div>
 
-           {/* Mobile compact row */}
-           <div className="md:hidden flex flex-col px-4 py-3 border-b hover:bg-muted/50 transition-colors">
-             <div className="flex items-center justify-between gap-2">
-               <div className="flex items-center gap-3">
+           {/* Mobile compact row: title + progress under title, badge/menu to the right */}
+           <div className="md:hidden flex flex-col px-4 py-3 border-b hover:bg-muted/50 transition-colors overflow-hidden">
+             <div className="flex items-start justify-between gap-2">
+               <div className="flex items-start gap-3 min-w-0">
                  <Checkbox 
                    id={`select-list-mobile-${project.id}`}
                    checked={selectedProjects.includes(project.id)}
                    onCheckedChange={() => onSelectProject(project.id)}
                  />
-                 <AccordionTrigger className='py-0 flex-1 justify-start [&_svg]:data-[state=closed]:-rotate-90'>
-                   <div className="flex items-center gap-2">
-                      <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                      <Link href={`/projects/${project.id}`} className="font-medium text-sm truncate max-w-xs hover:underline">{project.name}</Link>
+                 <div className="min-w-0 flex-1">
+                   <AccordionTrigger className='py-0 flex-1 min-w-0 justify-start [&_svg]:data-[state=closed]:-rotate-90'>
+                     <div className="flex items-center gap-2 min-w-0">
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                        <Link href={`/projects/${project.id}`} className="font-medium text-sm truncate block hover:underline">{project.name}</Link>
+                     </div>
+                   </AccordionTrigger>
+                   <div className="mt-2">
+                     <div className="flex items-center gap-2">
+                       <Progress value={project.progress} className="h-2 w-full" />
+                       <span className="text-xs text-muted-foreground">{project.progress}%</span>
+                     </div>
                    </div>
-                 </AccordionTrigger>
+                 </div>
                </div>
-               <div className="flex items-center gap-2">
-                 <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs", getStatusBadgeClass(project.status))}>{project.status}</Badge>
+               <div className="flex flex-col items-end gap-2 ml-2">
+                 <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs whitespace-nowrap", getStatusBadgeClass(project.status))}>{project.status}</Badge>
                  <DropdownMenu>
                    <DropdownMenuTrigger asChild>
                      <Button variant="ghost" size="icon">
@@ -213,15 +221,7 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
                  </DropdownMenu>
                </div>
              </div>
-             <div className="mt-2 flex items-center justify-between gap-3">
-               <div className="flex-1">
-                 <div className="flex items-center gap-2">
-                   <Progress value={project.progress} className="h-2 w-full" />
-                   <span className="text-xs text-muted-foreground">{project.progress}%</span>
-                 </div>
-               </div>
-               <div className="text-sm text-muted-foreground pl-2">{getTaskCountForProject(project.id)} tareas</div>
-             </div>
+             <div className="mt-2 text-sm text-muted-foreground pl-10">{getTaskCountForProject(project.id)} tareas</div>
            </div>
             <AccordionContent>
               <div className="bg-slate-50 dark:bg-slate-900/50 px-8 py-4 border-b">
