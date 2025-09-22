@@ -173,6 +173,93 @@ export function TaskFormDialog({
     }
   }, [projectId, form]);
 
+  // When the dialog is open on mobile, prevent background scrolling and
+  // try to prevent pinch-zoom by updating the viewport meta tag. We also
+  // block touchmove/wheel events that originate outside the dialog content
+  // so the background doesn't move while the modal is open.
+  useEffect(() => {
+    const doc = (globalThis as any).document;
+    if (!doc) return;
+
+    let prevBodyOverflow = '';
+    let createdViewport = false;
+    let prevViewportContent: string | null = null;
+
+    const contentEl = () => doc.getElementById('task-form-dialog-content');
+
+    const enableBlocking = () => {
+      prevBodyOverflow = doc.body.style.overflow || '';
+      doc.body.style.overflow = 'hidden';
+
+      const viewportMeta = doc.querySelector('meta[name="viewport"]');
+      if (viewportMeta) {
+        prevViewportContent = viewportMeta.getAttribute('content');
+        try {
+          viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+        } catch (e) {
+          // ignore
+        }
+      } else {
+        const m = doc.createElement('meta');
+        m.name = 'viewport';
+        m.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+        doc.head.appendChild(m);
+        createdViewport = true;
+      }
+
+      // Prevent background touchmove / wheel. Allow interactions inside dialog content.
+      const onTouchMove = (e: TouchEvent) => {
+        const el = contentEl();
+        if (!el) return;
+        if (!el.contains((e.target as any))) {
+          // Prevent background scrolling/touch gestures
+          e.preventDefault();
+        }
+      };
+
+      const onWheel = (e: WheelEvent) => {
+        const el = contentEl();
+        if (!el) return;
+        if (!el.contains((e.target as any))) {
+          e.preventDefault();
+        }
+      };
+
+      const onGesture = (e: Event) => {
+        e.preventDefault();
+      };
+
+      doc.addEventListener('touchmove', onTouchMove, { passive: false });
+      doc.addEventListener('wheel', onWheel, { passive: false });
+      // iOS gesture events (may be unsupported in some browsers)
+      doc.addEventListener('gesturestart', onGesture as EventListener);
+
+      return () => {
+        doc.body.style.overflow = prevBodyOverflow;
+        if (createdViewport) {
+          const v = doc.querySelector('meta[name="viewport"]');
+          if (v && v.parentNode) v.parentNode.removeChild(v);
+        } else if (prevViewportContent !== null) {
+          const v = doc.querySelector('meta[name="viewport"]');
+          if (v) v.setAttribute('content', prevViewportContent);
+        }
+
+        doc.removeEventListener('touchmove', onTouchMove as EventListener);
+        doc.removeEventListener('wheel', onWheel as EventListener);
+        doc.removeEventListener('gesturestart', onGesture as EventListener);
+      };
+    };
+
+    let cleanup: (() => void) | undefined;
+    if (open) {
+      cleanup = enableBlocking();
+    }
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [open]);
+
   const onSubmit = async (data: TaskFormValues) => {
     try {
       if (!data.project_id) {
@@ -275,7 +362,7 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+    <DialogContent id="task-form-dialog-content" className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline">
             {taskToEdit ? 'Editar Tarea' : 'Añadir Nueva Tarea'}
