@@ -68,8 +68,18 @@ export function Navbar() {
   }, [supabase, router]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
+    try {
+      // 1. Cerrar sesión en Supabase
+      await supabase.auth.signOut();
+      
+      // 2. Forzar navegación a login
+      await router.push('/login');
+      
+      // 3. Forzar recarga completa
+      router.refresh();
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
   };
   
   const getInitials = () => {

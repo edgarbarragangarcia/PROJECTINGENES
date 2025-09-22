@@ -1,14 +1,11 @@
 
 import type {NextConfig} from 'next';
+import withSerwist from '@serwist/next';
 
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  // TEMPORARY FIX for Cloud Workstation CORS issue.
-  // This disables PWA features. Remember to revert this for production.
-  disable: true,
-  // disable: process.env.NODE_ENV === 'development',
+const withPWAConfig = withSerwist({
+  swSrc: 'src/app/sw.ts',
+  swDest: 'public/sw.js',
+  disable: process.env.NODE_ENV === 'development',
 });
 
 const nextConfig: NextConfig = {
@@ -33,4 +30,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+export default withPWAConfig(nextConfig);
