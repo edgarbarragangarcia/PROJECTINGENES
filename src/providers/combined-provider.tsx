@@ -118,10 +118,13 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     if (isAdmin) {
         query = supabase.from('projects').select('*');
     } else {
-        const { data: projectData, error: projectError } = await supabase.rpc('get_projects_for_user', {
-             p_user_id: user.id,
-             p_user_email: user.email || ''
-        });
+        // For non-admin users, fetch projects owned/created by the current user.
+        // Using a direct query avoids depending on an RPC that may be constrained by policies
+        // and ensures we return all projects where user_id equals the authenticated user's id.
+        const { data: projectData, error: projectError } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('user_id', user.id);
 
         if (projectError) {
           console.error("Error fetching user's projects:", projectError);
