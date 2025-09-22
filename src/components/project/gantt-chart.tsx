@@ -2,7 +2,7 @@
 'use client'
 
 import type { Status, Task } from '@/lib/types';
-import { useMemo, useRef, UIEvent } from 'react';
+import { useMemo, useRef, UIEvent, useState, useEffect } from 'react';
 import { format, differenceInDays, startOfDay, addDays, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -26,10 +26,12 @@ const ROW_HEIGHT = 40; // px
 export function GanttChart({ tasks, dayWidth = 40 }: GanttChartProps) {
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const timelineContainerRef = useRef<HTMLDivElement>(null);
+  const [localDayWidth, setLocalDayWidth] = useState(dayWidth);
   
   const handleVerticalScroll = (e: UIEvent<HTMLDivElement>) => {
     if (leftPanelRef.current) {
-      leftPanelRef.current.scrollTop = e.currentTarget.scrollTop;
+      // e.currentTarget is the scrollable timeline container
+      (leftPanelRef.current as any).scrollTop = (e.currentTarget as any).scrollTop;
     }
   };
 
@@ -90,30 +92,54 @@ export function GanttChart({ tasks, dayWidth = 40 }: GanttChartProps) {
     return { chartData: data, totalDays, timelineDays, months };
   }, [tasks]);
 
+  // Responsive day width: reduce width on narrow viewports for better mobile UX
+  useEffect(() => {
+    const update = () => {
+      try {
+        const w = typeof globalThis !== 'undefined' && (globalThis as any).innerWidth ? (globalThis as any).innerWidth : 1024;
+        if (w < 480) {
+          setLocalDayWidth(Math.max(18, Math.floor(dayWidth * 0.45)));
+        } else if (w < 768) {
+          setLocalDayWidth(Math.max(22, Math.floor(dayWidth * 0.65)));
+        } else {
+          setLocalDayWidth(dayWidth);
+        }
+      } catch (e) {
+        setLocalDayWidth(dayWidth);
+      }
+    };
+    update();
+    if (typeof globalThis !== 'undefined' && (globalThis as any).addEventListener) {
+      (globalThis as any).addEventListener('resize', update);
+      return () => (globalThis as any).removeEventListener('resize', update);
+    }
+    return;
+  }, [dayWidth]);
+
   if (!tasks.length || chartData.length === 0) {
     return <div className="flex items-center justify-center h-full text-muted-foreground p-4">No hay tareas con fechas de inicio y fin para mostrar.</div>;
   }
 
   return (
-    <div className="flex h-full w-full border-t">
-      {/* Left Panel: Task Details */}
-      <div className="w-[450px] border-r flex-shrink-0 bg-card flex flex-col">
+    <div className="flex h-full w-full border-t flex-col md:flex-row">
+      {/* Left Panel: Task Details (responsive) */}
+      <div className="w-56 md:w-[450px] border-r flex-shrink-0 bg-card flex flex-col">
         <div className="h-[60px] flex-shrink-0 flex items-center p-2 border-b font-semibold bg-muted/50 sticky top-0 z-20">
-          <div className="w-[200px] px-2">Nombre de la tarea</div>
-          <div className="w-[100px] px-2">Responsable</div>
-          <div className="w-[75px] px-2">Inicio</div>
-          <div className="w-[75px] px-2">Fin</div>
+          <div className="w-full md:w-[200px] px-2 truncate">Nombre de la tarea</div>
+          <div className="hidden md:block w-[100px] px-2">Responsable</div>
+          <div className="hidden md:block w-[75px] px-2">Inicio</div>
+          <div className="hidden md:block w-[75px] px-2">Fin</div>
         </div>
         <div 
           ref={leftPanelRef} 
-          className="flex-1 overflow-y-hidden"
+          className="flex-1 overflow-y-auto"
         >
           {chartData.map((task) => (
             <div key={task.id} className="flex items-center border-b" style={{ height: `${ROW_HEIGHT}px` }}>
-              <div className="w-[200px] px-2 text-sm truncate" title={task.title}>{task.title}</div>
-              <div className="w-[100px] px-2 text-sm text-muted-foreground truncate" title={task.assignees?.join(', ')}>{task.assignees?.join(', ') || 'N/A'}</div>
-              <div className="w-[75px] px-2 text-sm text-muted-foreground">{task.startDate ? format(new Date(task.startDate!), 'dd/MM') : 'N/A'}</div>
-              <div className="w-[75px] px-2 text-sm text-muted-foreground">{task.dueDate ? format(new Date(task.dueDate!), 'dd/MM') : 'N/A'}</div>
+              <div className="w-full md:w-[200px] px-2 text-sm truncate" title={task.title}>{task.title}</div>
+              <div className="hidden md:block w-[100px] px-2 text-sm text-muted-foreground truncate" title={task.assignees?.join(', ')}>{task.assignees?.join(', ') || 'N/A'}</div>
+              <div className="hidden md:block w-[75px] px-2 text-sm text-muted-foreground">{task.startDate ? format(new Date(task.startDate!), 'dd/MM') : 'N/A'}</div>
+              <div className="hidden md:block w-[75px] px-2 text-sm text-muted-foreground">{task.dueDate ? format(new Date(task.dueDate!), 'dd/MM') : 'N/A'}</div>
             </div>
           ))}
         </div>
@@ -121,23 +147,23 @@ export function GanttChart({ tasks, dayWidth = 40 }: GanttChartProps) {
 
       {/* Right Panel: Timeline */}
       <ScrollArea 
-        className="flex-1" 
+        className="flex-1 overflow-auto scrolling-touch" 
         onScroll={handleVerticalScroll}
         ref={timelineContainerRef}
       >
-        <div className="h-full relative" style={{ width: totalDays * dayWidth }}>
+        <div className="h-full relative" style={{ width: totalDays * localDayWidth }}>
           {/* Timeline Header */}
           <div className="sticky top-0 z-10 bg-card">
             <div className="flex h-[30px] border-b">
               {Object.entries(months).map(([month, dayCount]) => (
-                <div key={month} className="flex items-center justify-center border-r" style={{ width: dayCount * dayWidth }}>
+                <div key={month} className="flex items-center justify-center border-r" style={{ width: dayCount * localDayWidth }}>
                   <span className="text-sm font-medium capitalize">{month}</span>
                 </div>
               ))}
             </div>
             <div className="flex h-[30px] border-b">
               {timelineDays.map((day, index) => (
-                <div key={index} className="flex items-center justify-center border-r flex-shrink-0" style={{ width: dayWidth }}>
+                <div key={index} className="flex items-center justify-center border-r flex-shrink-0" style={{ width: localDayWidth }}>
                   <span className="text-xs text-muted-foreground">{format(day, 'd')}</span>
                 </div>
               ))}
@@ -146,7 +172,7 @@ export function GanttChart({ tasks, dayWidth = 40 }: GanttChartProps) {
           
           <div className="relative" style={{ height: chartData.length * ROW_HEIGHT }}>
             {/* Grid Background */}
-            <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${totalDays}, ${dayWidth}px)` }}>
+            <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${totalDays}, ${localDayWidth}px)` }}>
               {timelineDays.map((_, index) => (
                 <div key={`grid-v-${index}`} className="border-r h-full"></div>
               ))}
@@ -166,8 +192,8 @@ export function GanttChart({ tasks, dayWidth = 40 }: GanttChartProps) {
                         title={`${task.title} | ${task.startDate ? format(new Date(task.startDate), 'dd/MM/yy') : ''} - ${task.dueDate ? format(new Date(task.dueDate), 'dd/MM/yy') : ''}`}
                         style={{
                             top: `${index * ROW_HEIGHT + 5}px`,
-                            left: `${task.gantt.start * dayWidth + 2}px`,
-                            width: `${task.gantt.duration * dayWidth - 4}px`,
+                            left: `${task.gantt.start * localDayWidth + 2}px`,
+                            width: `${task.gantt.duration * localDayWidth - 4}px`,
                         }}
                     >
                        <div className={cn(
