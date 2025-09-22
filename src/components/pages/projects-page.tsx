@@ -497,7 +497,7 @@ export default function ProjectsPage() {
           {renderContent()}
         </div>
       </div>
-      {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} projectToEdit={projectToEdit} />}
+      {isFormOpen && <ProjectFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} project={projectToEdit} />}
       <div className="absolute -left-[9999px] top-0">
         {projectsToShow.map(project => (
           <div key={`chart-container-${project.id}`} id={`chart-for-project-${project.id}`} className="w-[600px] p-4 bg-background">

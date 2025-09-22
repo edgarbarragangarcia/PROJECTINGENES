@@ -190,11 +190,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) throw error;
     
-    const newProjectWithProgress: ProjectWithProgress = { ...data, progress: 0 };
-    setProjectsState(prev => ({
-        ...prev,
-        projects: [newProjectWithProgress, ...prev.projects],
-    }));
+    // Recargar todos los datos después de crear un proyecto
+    await refreshAllData();
   }, [supabase]);
 
   const updateProject = useCallback(async (id: string, data: Partial<Project> & { imageFile?: File, onUploadProgress?: (p: number) => void }) => {
@@ -232,12 +229,8 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     
     if (error) throw error;
 
-    setProjectsState(prev => ({
-      ...prev,
-      projects: prev.projects.map((p: ProjectWithProgress) => 
-        p.id === id ? { ...p, ...updatedProject, progress: p.progress } : p
-      ),
-    }));
+    // Recargar todos los datos después de actualizar un proyecto
+    await refreshAllData();
   }, [supabase]);
 
   const deleteProject = useCallback(async (id: string) => {
@@ -626,14 +619,43 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase, fetchProjects, fetchTasks, fetchAllUsers, fetchDailyNotes, fetchUserStories]);
 
   useEffect(() => {
-    if (projectsState.projects.length > 0 || tasksState.tasks.length > 0) {
-        const projectsWithProgress = calculateProjectsProgress(projectsState.projects, tasksState.tasks);
-        const sortedProjects = projectsWithProgress.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        if (JSON.stringify(sortedProjects) !== JSON.stringify(projectsState.projects)) {
-           setProjects(sortedProjects);
-        }
+    if (projectsState.projects.length === 0) return;
+
+    // Crear un mapa de tareas por proyecto para un acceso más eficiente
+    const tasksByProject = tasksState.tasks.reduce((acc, task) => {
+      if (!acc[task.project_id]) {
+        acc[task.project_id] = [];
+      }
+      acc[task.project_id].push(task);
+      return acc;
+    }, {} as Record<string, Task[]>);
+
+    // Calcular el nuevo progreso solo si las tareas han cambiado para cada proyecto
+    const updatedProjects = projectsState.projects.map(project => {
+      const projectTasks = tasksByProject[project.id] || [];
+      const totalTasks = projectTasks.length;
+      const doneTasks = projectTasks.filter(t => t.status === 'Done').length;
+      const newProgress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+      
+      // Solo actualizar si el progreso ha cambiado
+      if (newProgress !== project.progress) {
+        return { ...project, progress: newProgress };
+      }
+      return project;
+    });
+
+    // Comparar si realmente hubo cambios antes de actualizar el estado
+    const hasChanges = updatedProjects.some(
+      (project, index) => project.progress !== projectsState.projects[index].progress
+    );
+
+    if (hasChanges) {
+      const sortedProjects = updatedProjects.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setProjects(sortedProjects);
     }
-}, [tasksState.tasks, projectsState.projects, calculateProjectsProgress]);
+  }, [tasksState.tasks, projectsState.projects]);
 
 
   const projectsContextValue: ProjectsContextType = useMemo(() => ({
@@ -646,6 +668,21 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setProjectsLoading,
     setProjectsError,
   }), [projectsState, addProject, updateProject, deleteProject, fetchProjects, tasksState.tasks]);
+
+  const refreshAllData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setProjectsLoading(true);
+      setTasksLoading(true);
+      await fetchAllUsers();
+      const tasks = await fetchTasks(user);
+      await fetchProjects(user, tasks);
+      await fetchDailyNotes(user);
+      await fetchUserStories(user);
+      setProjectsLoading(false);
+      setTasksLoading(false);
+    }
+  }, [supabase.auth, fetchProjects, fetchTasks, fetchAllUsers, fetchDailyNotes, fetchUserStories]);
 
   const tasksContextValue: TasksContextType = useMemo(() => ({
     ...tasksState,
@@ -660,7 +697,9 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     setTasksLoading,
     fetchAllUsers,
     updateUserRole,
-  }), [tasksState, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, fetchTasks, fetchAllUsers, updateUserRole]);
+    refreshAllData,
+  }), [tasksState, addTask, updateTask, deleteTask, getTasksByStatus, getTasksByProject, 
+      fetchTasks, fetchAllUsers, updateUserRole, refreshAllData]);
 
   const dailyNotesContextValue: DailyNotesContextType = useMemo(() => ({
     ...dailyNotesState,
