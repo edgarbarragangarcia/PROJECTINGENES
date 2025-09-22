@@ -51,7 +51,9 @@ export function Navbar() {
     const fetchUserAndProfile = async () => {
       try {
         setLoading(true);
+        console.debug('[Navbar] fetchUserAndProfile: start');
         const { data: { user } } = await supabase.auth.getUser();
+        console.debug('[Navbar] fetchUserAndProfile: got user', user);
         setUser(user);
 
          if (user) {
@@ -61,6 +63,7 @@ export function Navbar() {
              .eq('id', user.id)
              .single();
            if (profile) {
+            console.debug('[Navbar] fetchUserAndProfile: got profile from DB', profile);
              setCurrentUserProfile({
                ...profile,
                email: profile.email || '',
@@ -79,6 +82,7 @@ export function Navbar() {
     fetchUserAndProfile();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.debug('[Navbar] auth state changed', event, { sessionAvailable: !!session });
       if (event === 'SIGNED_OUT') {
         setUser(null);
         setCurrentUserProfile(null);
@@ -96,7 +100,9 @@ export function Navbar() {
     const loadUserData = async () => {
       try {
         setLoading(true);
+        console.debug('[Navbar] loadUserData: start, allUsers.length=', allUsers.length);
         const { data: { user }, error: authError } = await supabase.auth.getUser();
+        console.debug('[Navbar] loadUserData: supabase.getUser returned', user);
         if (authError) throw authError;
 
         if (user) {
@@ -105,6 +111,7 @@ export function Navbar() {
           // Primero intentar obtener el perfil desde allUsers (ya cargados globalmente)
           const profileFromAll = allUsers.find((u: any) => u.id === user.id);
           if (profileFromAll) {
+            console.debug('[Navbar] loadUserData: found profile in allUsers', profileFromAll);
             setCurrentUserProfile({
               ...profileFromAll,
               email: profileFromAll.email || '',
@@ -122,6 +129,7 @@ export function Navbar() {
             .single();
 
           if (profile) {
+            console.debug('[Navbar] loadUserData: got profile from DB', profile);
             setCurrentUserProfile({
               ...profile,
               email: profile.email || '',
@@ -149,6 +157,7 @@ export function Navbar() {
     }
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      console.debug('[Navbar] auth listener (loadUserData effect) registered');
       if (event === 'SIGNED_IN') {
         loadUserData();
       }
