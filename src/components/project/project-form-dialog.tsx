@@ -23,9 +23,12 @@ interface ProjectFormDialogProps {
 const formSchema = z.object({
     name: z.string().min(1, 'El nombre es obligatorio'),
     description: z.string().optional(),
-    status: z.enum(['Activo', 'Inactivo', 'Completado']).default('Activo'),
+    status: z.enum(['En Progreso', 'Completado', 'En Pausa']).default('En Progreso'),
     user_id: z.string().optional(),
+    progress: z.number().default(0)
 });
+
+type FormData = z.infer<typeof formSchema>;
 
 export function ProjectFormDialog({ open, onOpenChange }: ProjectFormDialogProps) {
     const { addProject } = useProjects();
@@ -47,13 +50,14 @@ export function ProjectFormDialog({ open, onOpenChange }: ProjectFormDialogProps
 
     const isAdmin = useMemo(() => currentUser?.role === 'admin', [currentUser]);
     
-    const form = useForm<z.infer<typeof formSchema>>({
+    const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: '',
             description: '',
-            status: 'Activo',
+            status: 'En Progreso',
             user_id: undefined,
+            progress: 0,
         },
     });
 
@@ -63,14 +67,20 @@ export function ProjectFormDialog({ open, onOpenChange }: ProjectFormDialogProps
         }
     }, [isAdmin, currentUser, form]);
 
-    const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const onSubmit = async (values: FormData) => {
         try {
             const userIdToAssign = values.user_id || currentUser?.id;
             if (!userIdToAssign) throw new Error('No se pudo determinar el responsable del proyecto.');
 
-            const submissionData: any = {
-                ...values,
-                user_id: userIdToAssign
+            const submissionData = {
+                name: values.name,
+                description: values.description || '', // Aseguramos que description no sea undefined
+                status: values.status,
+                progress: values.progress || 0,
+                user_id: userIdToAssign,
+                creator_email: currentUser?.email,
+                creator_name: currentUser?.user_metadata?.full_name || currentUser?.email,
+                image_url: '' // Campo requerido por la interfaz Project
             };
 
             await addProject(submissionData);
@@ -113,6 +123,28 @@ export function ProjectFormDialog({ open, onOpenChange }: ProjectFormDialogProps
                                     <FormControl>
                                         <Textarea placeholder="Describe brevemente el objetivo del proyecto." {...field} />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="status"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Estado del Proyecto</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecciona un estado" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="En Progreso">En Progreso</SelectItem>
+                                            <SelectItem value="Completado">Completado</SelectItem>
+                                            <SelectItem value="En Pausa">En Pausa</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}
