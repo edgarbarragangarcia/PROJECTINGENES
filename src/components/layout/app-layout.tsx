@@ -1,6 +1,7 @@
 import { ChatWidget } from '../chat/chat-widget';
 import { FloatingActionMenu } from './floating-action-menu';
 import { Navbar } from './navbar';
+import { LoadingIndicator } from './loading-indicator';
 
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -9,6 +10,7 @@ type AppLayoutProps = {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex flex-col h-screen">
+      <LoadingIndicator />
       <Navbar />
       <main className="flex-1 flex flex-col overflow-y-auto pt-16">
         {children}

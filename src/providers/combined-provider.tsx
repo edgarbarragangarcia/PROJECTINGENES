@@ -589,6 +589,59 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase]);
 
    useEffect(() => {
+    let projectsSubscription: any;
+    let tasksSubscription: any;
+    let dailyNotesSubscription: any;
+    let userStoriesSubscription: any;
+
+    const setupRealtimeSubscriptions = (user: User) => {
+      // Suscripción a cambios en proyectos
+      projectsSubscription = supabase
+        .channel('projects_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'projects' },
+          async () => {
+            const tasks = await fetchTasks(user);
+            await fetchProjects(user, tasks);
+          }
+        )
+        .subscribe();
+
+      // Suscripción a cambios en tareas
+      tasksSubscription = supabase
+        .channel('tasks_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'tasks' },
+          async () => {
+            const tasks = await fetchTasks(user);
+            await fetchProjects(user, tasks);
+          }
+        )
+        .subscribe();
+
+      // Suscripción a cambios en notas diarias
+      dailyNotesSubscription = supabase
+        .channel('daily_notes_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'daily_notes' },
+          () => fetchDailyNotes(user)
+        )
+        .subscribe();
+
+      // Suscripción a cambios en historias de usuario
+      userStoriesSubscription = supabase
+        .channel('user_stories_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'user_stories' },
+          () => fetchUserStories(user)
+        )
+        .subscribe();
+    };
+
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       const user = session?.user;
@@ -600,6 +653,7 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         await fetchProjects(user, tasks);
         await fetchDailyNotes(user);
         await fetchUserStories(user);
+        setupRealtimeSubscriptions(user);
         setProjectsLoading(false);
         setTasksLoading(false);
       } else {
@@ -615,6 +669,10 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       authListener.subscription.unsubscribe();
+      projectsSubscription?.unsubscribe();
+      tasksSubscription?.unsubscribe();
+      dailyNotesSubscription?.unsubscribe();
+      userStoriesSubscription?.unsubscribe();
     };
   }, [supabase, fetchProjects, fetchTasks, fetchAllUsers, fetchDailyNotes, fetchUserStories]);
 
