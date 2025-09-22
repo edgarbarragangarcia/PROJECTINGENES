@@ -17,8 +17,15 @@ export function usePWAInstall() {
 
   useEffect(() => {
     // Check if the app is already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
+    const w = (globalThis as any);
+
+    // Check if the app is already installed (display-mode: standalone)
+    try {
+      if (w?.matchMedia && w.matchMedia('(display-mode: standalone)').matches) {
+        setIsInstalled(true);
+      }
+    } catch (e) {
+      // ignore in non-browser environments
     }
 
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -26,18 +33,24 @@ export function usePWAInstall() {
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    if (w?.addEventListener) {
+      w.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    }
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setInstallPrompt(null);
     };
 
-    window.addEventListener('appinstalled', handleAppInstalled);
+    if (w?.addEventListener) {
+      w.addEventListener('appinstalled', handleAppInstalled);
+    }
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      if (w?.removeEventListener) {
+        w.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        w.removeEventListener('appinstalled', handleAppInstalled);
+      }
     };
   }, []);
 

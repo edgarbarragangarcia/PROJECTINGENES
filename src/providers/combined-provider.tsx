@@ -642,6 +642,30 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
         .subscribe();
     };
 
+    // On mount, try to read the current session and load initial data immediately
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session || null);
+        const user = session?.user;
+        if (user) {
+          setProjectsLoading(true);
+          setTasksLoading(true);
+          await fetchAllUsers();
+          const tasks = await fetchTasks(user);
+          await fetchProjects(user, tasks);
+          await fetchDailyNotes(user);
+          await fetchUserStories(user);
+          setupRealtimeSubscriptions(user);
+          setProjectsLoading(false);
+          setTasksLoading(false);
+        }
+      } catch (err) {
+        console.error('Error initializing session in CombinedProvider:', err);
+      }
+    })();
+
+    // Also listen for auth state changes to react to sign-in / sign-out events
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       const user = session?.user;
