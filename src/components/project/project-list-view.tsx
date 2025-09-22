@@ -68,7 +68,8 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
   return (
     <div className="border rounded-lg">
       <div className="px-4 py-2 bg-muted/50 rounded-t-lg">
-        <div className="grid grid-cols-12 items-center">
+        {/* Desktop header */}
+        <div className="hidden md:grid grid-cols-12 items-center">
             <div className="col-span-5 font-medium text-sm text-muted-foreground flex items-center gap-4">
                 <span className='pl-8'>Nombre del Proyecto</span>
             </div>
@@ -77,79 +78,151 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
             <div className="col-span-1 font-medium text-sm text-muted-foreground">Tareas</div>
             <div className="col-span-1"></div>
         </div>
+        {/* Mobile header (simple) */}
+        <div className="md:hidden flex items-center justify-between">
+          <div className="font-medium text-sm">Proyectos</div>
+          <div className="text-xs text-muted-foreground">Toca un proyecto para ver detalles</div>
+        </div>
       </div>
       <Accordion type="multiple" className="w-full">
         {projects.map((project) => (
           <AccordionItem value={project.id} key={project.id}>
-             <div className="grid grid-cols-12 items-center px-4 py-2 border-b hover:bg-muted/50 transition-colors">
-                <div className="col-span-5 py-0 justify-start flex items-center gap-3">
-                  <Checkbox 
-                    id={`select-list-${project.id}`}
-                    checked={selectedProjects.includes(project.id)}
-                    onCheckedChange={() => onSelectProject(project.id)}
-                  />
-                  <AccordionTrigger className='py-0 flex-1 justify-start [&_svg]:data-[state=closed]:-rotate-90'>
-                    <div className="flex items-center gap-2">
-                       <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                       <Link href={`/projects/${project.id}`} className="font-medium text-base hover:underline">{project.name}</Link>
-                    </div>
-                  </AccordionTrigger>
-                </div>
-                <div className="col-span-2">
-                   <Badge 
-                      variant={getStatusBadgeVariant(project.status)} 
-                      className={cn("text-xs", getStatusBadgeClass(project.status))}
-                    >
-                      {project.status}
-                    </Badge>
-                </div>
-                <div className="col-span-3">
+            {/* Desktop row */}
+            <div className="hidden md:grid grid-cols-12 items-center px-4 py-2 border-b hover:bg-muted/50 transition-colors">
+               <div className="col-span-5 py-0 justify-start flex items-center gap-3">
+                 <Checkbox 
+                   id={`select-list-${project.id}`}
+                   checked={selectedProjects.includes(project.id)}
+                   onCheckedChange={() => onSelectProject(project.id)}
+                 />
+                 <AccordionTrigger className='py-0 flex-1 justify-start [&_svg]:data-[state=closed]:-rotate-90'>
                    <div className="flex items-center gap-2">
-                      <Progress value={project.progress} className="h-2 w-full max-w-[150px]" />
-                      <span className="text-xs text-muted-foreground">{project.progress}%</span>
-                  </div>
-                </div>
-                <div className="col-span-1">
-                  {getTaskCountForProject(project.id)}
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEdit(project)}>
-                        <Edit className="mr-2 size-4" />
-                        Editar
-                      </DropdownMenuItem>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>
-                            <Trash2 className="mr-2 size-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta acción no se puede deshacer. Esto eliminará permanentemente el proyecto y todas sus tareas asociadas.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(project.id, project.name)} className="bg-destructive hover:bg-destructive/90">
-                              Eliminar
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-            </div>
+                      <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                      <Link href={`/projects/${project.id}`} className="font-medium text-base hover:underline">{project.name}</Link>
+                   </div>
+                 </AccordionTrigger>
+               </div>
+               <div className="col-span-2">
+                  <Badge 
+                     variant={getStatusBadgeVariant(project.status)} 
+                     className={cn("text-xs", getStatusBadgeClass(project.status))}
+                   >
+                     {project.status}
+                   </Badge>
+               </div>
+               <div className="col-span-3">
+                  <div className="flex items-center gap-2">
+                     <Progress value={project.progress} className="h-2 w-full max-w-[150px]" />
+                     <span className="text-xs text-muted-foreground">{project.progress}%</span>
+                 </div>
+               </div>
+               <div className="col-span-1">
+                 {getTaskCountForProject(project.id)}
+               </div>
+               <div className="col-span-1 flex justify-end">
+                 <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" size="icon">
+                       <MoreVertical className="size-4" />
+                     </Button>
+                   </DropdownMenuTrigger>
+                   <DropdownMenuContent align="end">
+                     <DropdownMenuItem onClick={() => onEdit(project)}>
+                       <Edit className="mr-2 size-4" />
+                       Editar
+                     </DropdownMenuItem>
+                     <AlertDialog>
+                       <AlertDialogTrigger asChild>
+                         <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>
+                           <Trash2 className="mr-2 size-4" />
+                           Eliminar
+                         </DropdownMenuItem>
+                       </AlertDialogTrigger>
+                       <AlertDialogContent>
+                         <AlertDialogHeader>
+                           <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                           <AlertDialogDescription>
+                             Esta acción no se puede deshacer. Esto eliminará permanentemente el proyecto y todas sus tareas asociadas.
+                           </AlertDialogDescription>
+                         </AlertDialogHeader>
+                         <AlertDialogFooter>
+                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                           <AlertDialogAction onClick={() => onDelete(project.id, project.name)} className="bg-destructive hover:bg-destructive/90">
+                             Eliminar
+                           </AlertDialogAction>
+                         </AlertDialogFooter>
+                       </AlertDialogContent>
+                     </AlertDialog>
+                   </DropdownMenuContent>
+                 </DropdownMenu>
+               </div>
+           </div>
+
+           {/* Mobile compact row */}
+           <div className="md:hidden flex flex-col px-4 py-3 border-b hover:bg-muted/50 transition-colors">
+             <div className="flex items-center justify-between gap-2">
+               <div className="flex items-center gap-3">
+                 <Checkbox 
+                   id={`select-list-mobile-${project.id}`}
+                   checked={selectedProjects.includes(project.id)}
+                   onCheckedChange={() => onSelectProject(project.id)}
+                 />
+                 <AccordionTrigger className='py-0 flex-1 justify-start [&_svg]:data-[state=closed]:-rotate-90'>
+                   <div className="flex items-center gap-2">
+                      <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                      <Link href={`/projects/${project.id}`} className="font-medium text-sm truncate max-w-xs hover:underline">{project.name}</Link>
+                   </div>
+                 </AccordionTrigger>
+               </div>
+               <div className="flex items-center gap-2">
+                 <Badge variant={getStatusBadgeVariant(project.status)} className={cn("text-xs", getStatusBadgeClass(project.status))}>{project.status}</Badge>
+                 <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" size="icon">
+                       <MoreVertical className="size-4" />
+                     </Button>
+                   </DropdownMenuTrigger>
+                   <DropdownMenuContent align="end">
+                     <DropdownMenuItem onClick={() => onEdit(project)}>
+                       <Edit className="mr-2 size-4" />
+                       Editar
+                     </DropdownMenuItem>
+                     <AlertDialog>
+                       <AlertDialogTrigger asChild>
+                         <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>
+                           <Trash2 className="mr-2 size-4" />
+                           Eliminar
+                         </DropdownMenuItem>
+                       </AlertDialogTrigger>
+                       <AlertDialogContent>
+                         <AlertDialogHeader>
+                           <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                           <AlertDialogDescription>
+                             Esta acción no se puede deshacer. Esto eliminará permanentemente el proyecto y todas sus tareas asociadas.
+                           </AlertDialogDescription>
+                         </AlertDialogHeader>
+                         <AlertDialogFooter>
+                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                           <AlertDialogAction onClick={() => onDelete(project.id, project.name)} className="bg-destructive hover:bg-destructive/90">
+                             Eliminar
+                           </AlertDialogAction>
+                         </AlertDialogFooter>
+                       </AlertDialogContent>
+                     </AlertDialog>
+                   </DropdownMenuContent>
+                 </DropdownMenu>
+               </div>
+             </div>
+             <div className="mt-2 flex items-center justify-between gap-3">
+               <div className="flex-1">
+                 <div className="flex items-center gap-2">
+                   <Progress value={project.progress} className="h-2 w-full" />
+                   <span className="text-xs text-muted-foreground">{project.progress}%</span>
+                 </div>
+               </div>
+               <div className="text-sm text-muted-foreground pl-2">{getTaskCountForProject(project.id)} tareas</div>
+             </div>
+           </div>
             <AccordionContent>
               <div className="bg-slate-50 dark:bg-slate-900/50 px-8 py-4 border-b">
                  {getTasksForProject(project.id).length > 0 ? (
