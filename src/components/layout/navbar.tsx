@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -31,42 +30,139 @@ const menuItems = [
     { href: '/user-management', label: 'Usuarios', icon: Users, admin: true },
 ];
 
+interface UserProfile {
+  id: string;
+  email: string;
+  role: 'admin' | 'user';
+  full_name?: string;
+}
+
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
   const { allUsers } = useTasks();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const currentUserProfile = useMemo(() => {
-      if (!user || allUsers.length === 0) return null;
-      return allUsers.find(u => u.id === user.id);
-  }, [user, allUsers]);
+  useEffect(() => {
+    const fetchUserAndProfile = async () => {
+      try {
+        setLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+
+         if (user) {
+           const { data: profile } = await supabase
+             .from('profiles')
+             .select('*')
+             .eq('id', user.id)
+             .single();
+           if (profile) {
+             setCurrentUserProfile({
+               ...profile,
+               email: profile.email || '',
+               role: profile.role || 'user',
+               full_name: profile.full_name || undefined,
+             });
+           }
+         }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserAndProfile();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setCurrentUserProfile(null);
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, [supabase]);
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    }
-    fetchUser();
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        if (event === 'SIGNED_OUT') {
-           router.push('/login');
-           router.refresh();
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+
+        if (user) {
+          setUser(user);
+
+          // Primero intentar obtener el perfil desde allUsers (ya cargados globalmente)
+          const profileFromAll = allUsers.find((u: any) => u.id === user.id);
+          if (profileFromAll) {
+            setCurrentUserProfile({
+              ...profileFromAll,
+              email: profileFromAll.email || '',
+              role: profileFromAll.role || 'user',
+              full_name: profileFromAll.full_name || undefined,
+            });
+            return;
+          }
+
+          // Si no está en allUsers, intentar consultar la tabla profiles
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (profile) {
+            setCurrentUserProfile({
+              ...profile,
+              email: profile.email || '',
+              role: profile.role || 'user',
+              full_name: profile.full_name || undefined,
+            });
+          }
+        } else {
+          setUser(null);
+          setCurrentUserProfile(null);
+          router.replace('/login');
         }
+      } catch (error) {
+        console.error('Error loading user:', error);
+        setUser(null);
+        setCurrentUserProfile(null);
+        router.replace('/login');
+      } finally {
+        setLoading(false);
       }
-    );
+    };
+
+    if (allUsers.length > 0) {
+      loadUserData();
+    }
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        loadUserData();
+      }
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setCurrentUserProfile(null);
+        router.replace('/login');
+      }
+    });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      authListener?.subscription?.unsubscribe();
     };
-  }, [supabase, router]);
+  }, [allUsers, supabase, router]);
 
   const handleSignOut = async () => {
     try {
@@ -83,16 +179,23 @@ export function Navbar() {
   };
   
   const getInitials = () => {
-    if (!user) return 'U';
-    if (currentUserProfile?.full_name) {
-      return currentUserProfile.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    if (loading) return '...';
+    if (!user || !currentUserProfile) return 'U';
+    if (currentUserProfile.full_name) {
+      return currentUserProfile.full_name
+        .split(' ')
+        .map(n => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
     }
-    return user.email?.substring(0, 2).toUpperCase() || 'U';
+    return currentUserProfile.email.substring(0, 2).toUpperCase();
   }
   
   const getUserFullName = () => {
-      if (!user) return 'Usuario';
-      return currentUserProfile?.full_name || user.email;
+    if (loading) return 'Cargando...';
+    if (!user || !currentUserProfile) return 'No autenticado';
+    return currentUserProfile.full_name || currentUserProfile.email;
   }
 
   const MobileNav = () => (

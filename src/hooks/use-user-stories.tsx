@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { UserStory, User } from '@/lib/types';
