@@ -96,6 +96,19 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         } as Task;
     };
 
+    // Format assignees safely for display. Always returns a string.
+    const formatAssignees = (value: any): string => {
+        try {
+            const arr = safeParseAssignees(value);
+            if (Array.isArray(arr) && arr.length > 0) return arr.join(', ');
+            return 'Nadie';
+        } catch (e) {
+            // Defensive fallback
+            if (typeof value === 'string') return value;
+            return 'Nadie';
+        }
+    };
+
     useEffect(() => {
         let mounted = true;
         const supabase = createClient();
@@ -333,7 +346,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                         <div className="text-xs text-muted-foreground mt-1 space-y-1">
                             <p>Proyecto: {project?.name || 'Tareas sin proyecto'}</p>
                             <p>Creada por: {creator?.full_name || 'Desconocido'}</p>
-                            <p>Asignado a: {task.assignees?.join(', ') || 'Nadie'}</p>
+                            <p>Asignado a: {formatAssignees(task.assignees)}</p>
                         </div>
                         <div className="flex items-center justify-between mt-2">
                             <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
