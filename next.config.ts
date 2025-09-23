@@ -10,6 +10,8 @@ const withPWAConfig = withSerwist({
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Enable source maps in production so stack traces on Vercel map to original files
+  productionBrowserSourceMaps: true,
   typescript: {
     ignoreBuildErrors: true,
   },
