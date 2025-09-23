@@ -53,6 +53,23 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const isAdmin = currentUserProfile?.role === 'admin';
     // debug logs removed
 
+    // Safely parse assignees which can come as an array, a JSON string, or a comma-separated string
+    const safeParseAssignees = (value: any): string[] => {
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'string') {
+            // Try JSON.parse first (most common from Postgres jsonb stored as string)
+            try {
+                const parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) return parsed;
+            } catch (e) {
+                // fallthrough to comma-split
+            }
+            // Fallback: comma-separated list
+            return value.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        return [];
+    };
+
     const [mobileTasks, setMobileTasks] = useState<Task[]>([]);
     const [mobileProjects, setMobileProjects] = useState<ProjectWithProgress[]>([]);
     const [loadingMobileData, setLoadingMobileData] = useState(true);
@@ -61,7 +78,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
 
     const displayTasks = fetchedMobileData ? mobileTasks : tasks.map(t => ({ ...t })).map(t => ({
         ...t,
-        assignees: Array.isArray(t.assignees) ? t.assignees : (t.assignees ? JSON.parse(t.assignees) : []),
+        assignees: safeParseAssignees(t.assignees),
         project_id: t.project_id || (t as any).projectId,
     } as Task));
     const displayProjects = fetchedMobileData ? mobileProjects : projects;
@@ -70,7 +87,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         return {
             ...t,
             // ensure assignees is an array
-            assignees: Array.isArray(t.assignees) ? t.assignees : (t.assignees ? JSON.parse(t.assignees) : []),
+            assignees: safeParseAssignees(t.assignees),
             // prefer project_id; if absent, try projectId
             project_id: t.project_id || (t as any).projectId,
             // parse dates if strings

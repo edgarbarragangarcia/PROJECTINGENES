@@ -15,9 +15,22 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, 
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // previously reported errors to /api/telemetry; telemetry removed
-    // keep the method for future use or SDK integration
-    // console.error('Captured client error', error, info);
+    // In production, send errors to the server so they appear in Vercel logs
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        fetch('/api/log-client-error', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ts: new Date().toISOString(), message: error.message, stack: error.stack, info }),
+        }).catch(() => {});
+      } else {
+        // in dev, still log to console
+        // eslint-disable-next-line no-console
+        console.error('Captured client error', error, info);
+      }
+    } catch (e) {
+      // ignore
+    }
   }
 
   render() {
