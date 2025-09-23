@@ -51,7 +51,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const { toast } = useToast();
     
     const isAdmin = currentUserProfile?.role === 'admin';
-    try { console.debug('[MyTasksMobile] received props', { tasks: tasks.length, projects: projects.length, isAdmin, user: currentUserProfile?.email }); } catch (e) {}
+    // debug logs removed
 
     const [mobileTasks, setMobileTasks] = useState<Task[]>([]);
     const [mobileProjects, setMobileProjects] = useState<ProjectWithProgress[]>([]);
@@ -271,7 +271,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const projectIdsWithTasks = Object.keys(tasksByProject);
     const statusKeys = useMemo(() => statuses.filter(s => tasksByStatus[s]?.length > 0), [tasksByStatus]);
 
-    const showDebugPanel = currentUserProfile?.email === 'prueba@ingenes.com';
+    const showDebugPanel = false;
 
     const handleTaskCheck = async (task: Task, isChecked: boolean) => {
         const newStatus = isChecked ? 'Done' : 'Todo';
@@ -355,16 +355,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
 
     return (
         <>
-           {showDebugPanel && (
-               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded mb-3 text-sm">
-                   <div><strong>Debug móvil</strong></div>
-                   <div>Loading: {String(loadingMobileData)}</div>
-                   <div>Fetched: {String(fetchedMobileData)}</div>
-                   <div>Tasks (props): {tasks.length} — Tasks (fetched): {mobileTasks.length}</div>
-                   <div>Projects (props): {projects.length} — Projects (fetched): {mobileProjects.length}</div>
-                   {mobileFetchError && <div className="text-destructive">Error: {mobileFetchError}</div>}
-               </div>
-           )}
+           {/* debug panel removed */}
            {(isAdmin || (tasks && tasks.length > 0)) && (
              <div className="p-4 border-b space-y-4">
                 <div className="flex items-center gap-2 font-semibold">
