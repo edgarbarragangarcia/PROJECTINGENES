@@ -64,7 +64,19 @@ export function useTasks(user: User | null) {
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Task[];
+      // Normalize fields: provide camelCase Date fields for UI convenience
+      const mapped = (data || []).map((t: any) => {
+        const startDate = t.start_date ? new Date(t.start_date) : (t.startDate ? new Date(t.startDate) : undefined);
+        const dueDate = t.due_date ? new Date(t.due_date) : (t.dueDate ? new Date(t.dueDate) : undefined);
+        return {
+          ...t,
+          start_date: t.start_date ?? t.startDate ?? null,
+          due_date: t.due_date ?? t.dueDate ?? null,
+          startDate: startDate,
+          dueDate: dueDate,
+        } as Task;
+      });
+      return mapped as Task[];
     },
     {
       revalidateOnFocus: false,
