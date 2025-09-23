@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { statuses, type ProjectWithProgress, type Task, type Profile, type Status } from '@/lib/types';
@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 interface MyTasksMobileProps {
     tasks: Task[];
@@ -48,6 +50,137 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const { toast } = useToast();
     
     const isAdmin = currentUserProfile?.role === 'admin';
+    try { console.debug('[MyTasksMobile] received props', { tasks: tasks.length, projects: projects.length, isAdmin, user: currentUserProfile?.email }); } catch (e) {}
+
+    const [mobileTasks, setMobileTasks] = useState<Task[]>([]);
+    const [mobileProjects, setMobileProjects] = useState<ProjectWithProgress[]>([]);
+    const [loadingMobileData, setLoadingMobileData] = useState(true);
+    const [fetchedMobileData, setFetchedMobileData] = useState(false);
+    const [mobileFetchError, setMobileFetchError] = useState<string | null>(null);
+
+    const displayTasks = fetchedMobileData ? mobileTasks : tasks;
+    const displayProjects = fetchedMobileData ? mobileProjects : projects;
+
+    useEffect(() => {
+        let mounted = true;
+        const supabase = createClient();
+
+        const fetchMobileData = async () => {
+            setLoadingMobileData(true);
+            setMobileFetchError(null);
+                try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    if (mounted) {
+                        setMobileTasks([]);
+                        setMobileProjects([]);
+                        setFetchedMobileData(true);
+                    }
+                    return;
+                }
+
+                // Admin: fetch everything
+                if (currentUserProfile?.role === 'admin') {
+                    const { data: allTasks } = await supabase.from('tasks').select('*, subtasks(*)').order('created_at', { ascending: false });
+                    const { data: allProjects } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+                    if (!mounted) return;
+                    setMobileTasks((allTasks || []) as Task[]);
+                    setMobileProjects((allProjects || []) as ProjectWithProgress[]);
+                    setFetchedMobileData(true);
+                    return;
+                }
+
+                // Regular user: tasks created by user OR assigned to user's email
+                const userEmail = user.email || '';
+                const { data: tasksData, error: tasksError } = await supabase
+                    .from('tasks')
+                    .select('*, subtasks(*)')
+                    .or(`user_id.eq.${user.id},assignees.cs.["${userEmail}"]`)
+                    .order('created_at', { ascending: false });
+
+                if (tasksError) {
+                    console.error('Error fetching mobile tasks:', tasksError);
+                    setMobileFetchError(tasksError.message || JSON.stringify(tasksError));
+                }
+
+                const tasksList = (tasksData || []) as Task[];
+
+                // Get project IDs from tasks
+                const projectIds = Array.from(new Set(tasksList.map(t => t.project_id).filter(Boolean)));
+
+                // Fetch projects owned by user
+                const { data: ownedProjects } = await supabase.from('projects').select('*').eq('user_id', user.id);
+
+                // Try RPC to get projects user has access to (handles RLS)
+                let rpcProjects: any[] = [];
+                try {
+                    const { data: rpcData, error: rpcError } = await supabase.rpc('get_projects_for_user', {
+                        p_user_id: user.id,
+                        p_user_email: user.email || ''
+                    });
+                    if (rpcError) {
+                        console.debug('RPC get_projects_for_user error:', rpcError);
+                    } else if (rpcData) {
+                        rpcProjects = rpcData as any[];
+                    }
+                } catch (e) {
+                    console.debug('RPC call failed', e);
+                }
+
+                // Fetch projects related to tasks (by projectIds)
+                let relatedProjects: any[] = [];
+                if (projectIds.length > 0) {
+                    const { data: projData } = await supabase.from('projects').select('*').in('id', projectIds);
+                    relatedProjects = projData || [];
+                }
+
+                const combinedProjects = [...(ownedProjects || []), ...(rpcProjects || []), ...relatedProjects];
+                // unique by id
+                const uniqueProjectsMap: Record<string, any> = {};
+                combinedProjects.forEach(p => { if (p && p.id) uniqueProjectsMap[p.id] = p; });
+                const uniqueProjects = Object.values(uniqueProjectsMap) as ProjectWithProgress[];
+
+                if (!mounted) return;
+                setMobileTasks(tasksList.map(t => ({ ...t })));
+                setMobileProjects(uniqueProjects);
+                setFetchedMobileData(true);
+            } catch (e: any) {
+                console.error('Error fetching mobile data:', e);
+                if (mounted) setMobileFetchError(e?.message || String(e));
+                if (mounted) setFetchedMobileData(true);
+            } finally {
+                if (mounted) setLoadingMobileData(false);
+            }
+        };
+
+        fetchMobileData();
+
+        // Subscribe to auth changes so mobile view refetches automatically after sign-in/sign-out
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+            try {
+                if (event === 'SIGNED_IN') {
+                    // Re-fetch data for the newly signed-in user
+                    fetchMobileData();
+                }
+                if (event === 'SIGNED_OUT') {
+                    // Clear mobile data on sign-out
+                    if (mounted) {
+                        setMobileTasks([]);
+                        setMobileProjects([]);
+                        setFetchedMobileData(true);
+                    }
+                }
+            } catch (e) {
+                console.error('Error handling auth state change in MyTasksMobile', e);
+            }
+        });
+
+        return () => {
+            mounted = false;
+            try { authListener?.subscription?.unsubscribe(); } catch (e) {}
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUserProfile]);
     const [selectedUserId, setSelectedUserId] = useState<string>('all');
     const [filterType, setFilterType] = useState<'assignee' | 'creator'>('assignee');
     const [groupBy, setGroupBy] = useState<'project' | 'status'>('project');
@@ -60,25 +193,25 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
 
     const filteredTasks = useMemo(() => {
         if (selectedUserId === 'all' && isAdmin) {
-            return tasks;
+            return displayTasks;
         }
 
         if (filterType === 'creator') {
-            return tasks.filter(task => task.user_id === selectedUserId);
+            return displayTasks.filter(task => task.user_id === selectedUserId);
         } 
         
         const selectedUser = allUsers.find(u => u.id === selectedUserId);
         if (!selectedUser) return [];
-        return tasks.filter(task => 
+        return displayTasks.filter(task => 
             Array.isArray(task.assignees) && task.assignees.includes(selectedUser.email!)
         );
 
-    }, [tasks, selectedUserId, isAdmin, filterType, allUsers]);
+    }, [displayTasks, selectedUserId, isAdmin, filterType, allUsers]);
 
     const tasksByProject = useMemo(() => {
         const grouped: { [key: string]: Task[] } = {};
         filteredTasks.forEach(task => {
-            const projectId = task.project_id || task.projectId;
+            const projectId = task.project_id || (task as any).projectId;
             if (!grouped[projectId]) {
                 grouped[projectId] = [];
             }
@@ -111,6 +244,8 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const projectIdsWithTasks = Object.keys(tasksByProject);
     const statusKeys = useMemo(() => statuses.filter(s => tasksByStatus[s]?.length > 0), [tasksByStatus]);
 
+    const showDebugPanel = currentUserProfile?.email === 'prueba@ingenes.com';
+
     const handleTaskCheck = async (task: Task, isChecked: boolean) => {
         const newStatus = isChecked ? 'Done' : 'Todo';
         try {
@@ -129,7 +264,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     };
 
     const renderTaskItem = (task: Task) => {
-        const project = projects.find(p => p.id === (task.project_id || task.projectId));
+        const project = displayProjects.find(p => p.id === (task.project_id || (task as any).projectId));
         const creator = allUsers.find(u => u.id === task.user_id);
         return (
             <div
@@ -171,7 +306,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         )
     };
 
-    if (tasks.length === 0 && isAdmin) {
+    if (displayTasks.length === 0 && isAdmin) {
         return (
             <div className="flex flex-col items-center justify-center text-center p-8 h-full">
                 <CheckCircle className="size-12 text-green-500 mb-4"/>
@@ -193,6 +328,16 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
 
     return (
         <>
+           {showDebugPanel && (
+               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded mb-3 text-sm">
+                   <div><strong>Debug móvil</strong></div>
+                   <div>Loading: {String(loadingMobileData)}</div>
+                   <div>Fetched: {String(fetchedMobileData)}</div>
+                   <div>Tasks (props): {tasks.length} — Tasks (fetched): {mobileTasks.length}</div>
+                   <div>Projects (props): {projects.length} — Projects (fetched): {mobileProjects.length}</div>
+                   {mobileFetchError && <div className="text-destructive">Error: {mobileFetchError}</div>}
+               </div>
+           )}
            {(isAdmin || (tasks && tasks.length > 0)) && (
              <div className="p-4 border-b space-y-4">
                 <div className="flex items-center gap-2 font-semibold">
@@ -255,7 +400,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                 ) : (
                     <Accordion key={groupBy} type="multiple" defaultValue={groupBy === 'project' ? projectIdsWithTasks : statusKeys} className="w-full">
                         {groupBy === 'project' && projectIdsWithTasks.map(projectId => {
-                            const project = projects.find(p => p.id === projectId);
+                            const project = displayProjects.find(p => p.id === projectId);
                             const projectTasks = tasksByProject[projectId];
                             
                             return (

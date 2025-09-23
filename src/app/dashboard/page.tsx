@@ -62,6 +62,7 @@ export default function DashboardPage() {
     const { tasks, allUsers } = useTasks();
     const { projects } = useProjects();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loadingUser, setLoadingUser] = useState(true);
     const [selectedUserEmail, setSelectedUserEmail] = useState('all');
     const supabase = createClient();
     const isMobile = useIsMobile();
@@ -71,48 +72,74 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const checkUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setCurrentUser(user);
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                setCurrentUser(user);
 
-            if (user && allUsers.length > 0) {
-                const profile = allUsers.find(u => u.id === user.id);
-                const userIsAdmin = profile?.role === 'admin';
-                
-                if (!userIsAdmin) {
-                    setSelectedUserEmail(user.email || 'all');
+                if (user && allUsers.length > 0) {
+                    const profile = allUsers.find(u => u.id === user.id);
+                    const userIsAdmin = profile?.role === 'admin';
+                    if (!userIsAdmin) {
+                        setSelectedUserEmail(user.email || 'all');
+                    }
                 }
+            } catch (e) {
+                console.error('Error checking user in Dashboard:', e);
+            } finally {
+                setLoadingUser(false);
             }
         };
-       
+
         checkUser();
        
     }, [supabase.auth, allUsers]);
 
     const assignedTasks = useMemo(() => {
+        // Admin sees everything
         if (isAdmin && selectedUserEmail === 'all') {
             return tasks;
         }
+
+        // If admin filtered by a specific user email, show tasks assigned to that email OR created by that user
         if (selectedUserEmail !== 'all' && selectedUserEmail) {
-            return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail));
+            const selectedUser = allUsers.find(u => u.email === selectedUserEmail);
+            return tasks.filter(task => {
+                const assigned = Array.isArray(task.assignees) && task.assignees.includes(selectedUserEmail);
+                const createdBy = selectedUser ? task.user_id === selectedUser.id : false;
+                // If we don't have the selectedUser record, allow matching by assignees only
+                return assigned || createdBy;
+            });
         }
+
+        // For non-admins, include tasks that were created by the current user or assigned to them
         if (!isAdmin && currentUser) {
-            return tasks.filter(task => Array.isArray(task.assignees) && task.assignees.includes(currentUser.email || ''));
+            return tasks.filter(task => {
+                const assigned = Array.isArray(task.assignees) && task.assignees.includes(currentUser.email || '');
+                const createdBy = task.user_id === currentUser.id;
+                return assigned || createdBy;
+            });
         }
+
         return [];
-    }, [tasks, selectedUserEmail, isAdmin, currentUser]);
+    }, [tasks, selectedUserEmail, isAdmin, currentUser, allUsers]);
     
     const createdProjectsByUser = useMemo(() => {
         if (isAdmin && selectedUserEmail === 'all') {
             return projects;
         }
-        
+
         const userEmailToFilter = isAdmin ? selectedUserEmail : currentUser?.email;
         if (!userEmailToFilter) return [];
 
         const selectedUser = allUsers.find(u => u.email === userEmailToFilter);
-        if (!selectedUser) return projects.filter(p => p.creator_email === userEmailToFilter);
-        
-        return projects.filter(p => p.user_id === selectedUser.id);
+
+        // If we have the user object, prefer filtering by user_id, but also include creator_email as fallback
+        if (selectedUser) {
+            return projects.filter(p => p.user_id === selectedUser.id || p.creator_email === userEmailToFilter);
+        }
+
+        // If we don't have the user in allUsers, fall back to matching by creator_email and user_id
+        return projects.filter(p => p.creator_email === userEmailToFilter || p.user_id === currentUser?.id);
 
     }, [projects, selectedUserEmail, isAdmin, currentUser, allUsers]);
     
@@ -182,9 +209,19 @@ export default function DashboardPage() {
     }, [isAdmin, selectedUserName, isMobile]);
 
     if (isMobile) {
+        if (loadingUser) {
+            return (
+                <AppLayout>
+                    <div className="flex-1 p-6 flex items-center justify-center">Cargando usuario...</div>
+                </AppLayout>
+            );
+        }
         // Para la vista móvil solo enviar las tareas y proyectos relevantes al usuario autenticado
         const mobileTasks = isAdmin && selectedUserEmail === 'all' ? tasks : assignedTasks;
         const mobileProjects = isAdmin && selectedUserEmail === 'all' ? projects : createdProjectsByUser;
+
+        // Debug: mostrar en consola cuántas tareas/proyectos llegaron para el usuario autenticado
+        try { if (currentUser && currentUser.email === 'prueba@ingenes.com') console.debug('[Dashboard Mobile] currentUser', currentUser?.email, 'tasks', mobileTasks.length, 'projects', mobileProjects.length); } catch (e) {}
 
         return (
             <AppLayout>
