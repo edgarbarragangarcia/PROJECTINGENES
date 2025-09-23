@@ -182,13 +182,17 @@ export default function DashboardPage() {
     }, [isAdmin, selectedUserName, isMobile]);
 
     if (isMobile) {
+        // Para la vista móvil solo enviar las tareas y proyectos relevantes al usuario autenticado
+        const mobileTasks = isAdmin && selectedUserEmail === 'all' ? tasks : assignedTasks;
+        const mobileProjects = isAdmin && selectedUserEmail === 'all' ? projects : createdProjectsByUser;
+
         return (
             <AppLayout>
                 <div className="flex flex-col h-full">
                     <PageHeader title={headerTitle} isAdmin={isAdmin} />
                     <MyTasksMobile 
-                        tasks={tasks} 
-                        projects={projects} 
+                        tasks={mobileTasks} 
+                        projects={mobileProjects} 
                         allUsers={allUsers}
                         currentUserProfile={currentUserProfile}
                     />

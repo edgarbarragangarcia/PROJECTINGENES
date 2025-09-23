@@ -7,7 +7,7 @@ import { TasksContext, initialTasksState, type TasksContextType } from '@/hooks/
 import { DailyNotesContext, initialDailyNotesState, type DailyNotesState, type DailyNotesContextType } from '@/hooks/use-daily-notes';
 import { createClient } from '@/lib/supabase/client';
 import type { Project, ProjectWithProgress, Task, DailyNote, User, Subtask, UserStory, Profile } from '@/lib/types';
-import { useState, useCallback, useEffect, type ReactNode, useMemo } from 'react';
+import { useState, useCallback, useEffect, type ReactNode, useMemo, useRef } from 'react';
 import { format, formatISO, startOfDay,parseISO } from 'date-fns';
 import { GoogleCalendarProvider } from './google-calendar-provider';
 import type { Session } from '@supabase/supabase-js';
@@ -606,57 +606,141 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
       setUserStoriesState(prev => ({ ...prev, userStories: prev.userStories.filter(us => us.id !== id) }));
   }, [supabase]);
 
-   useEffect(() => {
-    let projectsSubscription: any;
-    let tasksSubscription: any;
-    let dailyNotesSubscription: any;
-    let userStoriesSubscription: any;
+  useEffect(() => {
+    // Use refs to keep channel instances across re-renders and avoid duplicate subscriptions
+    const projectsChannelRef = { current: null as any } as { current: any };
+    const tasksChannelRef = { current: null as any } as { current: any };
+    const dailyNotesChannelRef = { current: null as any } as { current: any };
+    const userStoriesChannelRef = { current: null as any } as { current: any };
+
+    const unsubscribeChannel = (ch: any) => {
+      try {
+        if (!ch) return;
+        // channel.unsubscribe may be a function or return a promise
+        if (typeof ch.unsubscribe === 'function') {
+          ch.unsubscribe();
+        } else if (typeof ch.remove === 'function') {
+          ch.remove();
+        }
+      } catch (e) {
+        console.debug('Error unsubscribing channel', e);
+      }
+    };
 
     const setupRealtimeSubscriptions = (user: User) => {
-      // Suscripción a cambios en proyectos
-      projectsSubscription = supabase
+      // Ensure previous channels are unsubscribed first
+      unsubscribeChannel(projectsChannelRef.current);
+      unsubscribeChannel(tasksChannelRef.current);
+      unsubscribeChannel(dailyNotesChannelRef.current);
+      unsubscribeChannel(userStoriesChannelRef.current);
+
+      // Projects
+      projectsChannelRef.current = supabase
         .channel('projects_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'projects' },
-          async () => {
-            const tasks = await fetchTasks(user);
-            await fetchProjects(user, tasks);
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async (payload: any) => {
+          console.debug('[Realtime] projects payload', payload?.eventType || payload?.type, payload);
+          try {
+            const evt = payload?.eventType || payload?.type || payload?.event;
+            if (evt === 'INSERT' || evt === 'UPDATE') {
+              const newProj = payload.new;
+              setProjectsState(prev => {
+                const exists = prev.projects.some(p => p.id === newProj.id);
+                const merged = exists ? prev.projects.map(p => p.id === newProj.id ? { ...p, ...newProj } : p) : [newProj, ...prev.projects];
+                return { ...prev, projects: merged };
+              });
+            } else if (evt === 'DELETE') {
+              const oldProj = payload.old;
+              setProjectsState(prev => ({ ...prev, projects: prev.projects.filter(p => p.id !== oldProj.id) }));
+            }
+          } catch (e) {
+            console.error('Error handling projects realtime payload', e);
           }
-        )
+        })
         .subscribe();
 
-      // Suscripción a cambios en tareas
-      tasksSubscription = supabase
+      // Tasks
+      tasksChannelRef.current = supabase
         .channel('tasks_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'tasks' },
-          async () => {
-            const tasks = await fetchTasks(user);
-            await fetchProjects(user, tasks);
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, async (payload: any) => {
+          console.debug('[Realtime] tasks payload', payload?.eventType || payload?.type, payload);
+          try {
+            const evt = payload?.eventType || payload?.type || payload?.event;
+            if (evt === 'INSERT') {
+              const newTask = processTask(payload.new);
+              setTasksState(prev => ({ ...prev, tasks: [newTask, ...prev.tasks] }));
+            } else if (evt === 'UPDATE') {
+              const updated = processTask(payload.new);
+              setTasksState(prev => ({ ...prev, tasks: prev.tasks.map(t => t.id === updated.id ? updated : t) }));
+            } else if (evt === 'DELETE') {
+              const oldTask = payload.old;
+              setTasksState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== oldTask.id) }));
+            }
+
+            // Recalculate project progress after task changes
+            setProjectsState(prevProjectsState => {
+              const tasks = (tasksChannelRef.current && tasksChannelRef.current) ? undefined : undefined; // no-op to satisfy linter
+              const allTasks = tasksState.tasks; // use latest snapshot from closure
+              const updatedTasks = (() => {
+                // Try to compute an updated task list based on the payload
+                try {
+                  if (!payload) return tasksState.tasks;
+                  const evtLocal = payload?.eventType || payload?.type || payload?.event;
+                  if (evtLocal === 'INSERT') return [processTask(payload.new), ...tasksState.tasks];
+                  if (evtLocal === 'UPDATE') return tasksState.tasks.map(t => t.id === payload.new.id ? processTask(payload.new) : t);
+                  if (evtLocal === 'DELETE') return tasksState.tasks.filter(t => t.id !== payload.old.id);
+                } catch (e) {
+                  return tasksState.tasks;
+                }
+                return tasksState.tasks;
+              })();
+
+              const recalculated = calculateProjectsProgress(prevProjectsState.projects, updatedTasks);
+              return { ...prevProjectsState, projects: recalculated };
+            });
+          } catch (e) {
+            console.error('Error handling tasks realtime payload', e);
           }
-        )
+        })
         .subscribe();
 
-      // Suscripción a cambios en notas diarias
-      dailyNotesSubscription = supabase
+      // Daily notes
+      dailyNotesChannelRef.current = supabase
         .channel('daily_notes_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'daily_notes' },
-          () => fetchDailyNotes(user)
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_notes' }, (payload: any) => {
+          console.debug('[Realtime] daily_notes payload', payload?.eventType || payload?.type, payload);
+          try {
+            const evt = payload?.eventType || payload?.type || payload?.event;
+            if (evt === 'INSERT') {
+              setDailyNotesState(prev => ({ ...prev, notes: [...prev.notes, payload.new] }));
+            } else if (evt === 'UPDATE') {
+              setDailyNotesState(prev => ({ ...prev, notes: prev.notes.map(n => n.id === payload.new.id ? payload.new : n) }));
+            } else if (evt === 'DELETE') {
+              setDailyNotesState(prev => ({ ...prev, notes: prev.notes.filter(n => n.id !== payload.old.id) }));
+            }
+          } catch (e) {
+            console.error('Error handling daily_notes realtime payload', e);
+          }
+        })
         .subscribe();
 
-      // Suscripción a cambios en historias de usuario
-      userStoriesSubscription = supabase
+      // User stories
+      userStoriesChannelRef.current = supabase
         .channel('user_stories_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'user_stories' },
-          () => fetchUserStories(user)
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_stories' }, (payload: any) => {
+          console.debug('[Realtime] user_stories payload', payload?.eventType || payload?.type, payload);
+          try {
+            const evt = payload?.eventType || payload?.type || payload?.event;
+            if (evt === 'INSERT') {
+              setUserStoriesState(prev => ({ ...prev, userStories: [payload.new, ...prev.userStories] }));
+            } else if (evt === 'UPDATE') {
+              setUserStoriesState(prev => ({ ...prev, userStories: prev.userStories.map(us => us.id === payload.new.id ? payload.new : us) }));
+            } else if (evt === 'DELETE') {
+              setUserStoriesState(prev => ({ ...prev, userStories: prev.userStories.filter(us => us.id !== payload.old.id) }));
+            }
+          } catch (e) {
+            console.error('Error handling user_stories realtime payload', e);
+          }
+        })
         .subscribe();
     };
 
@@ -710,11 +794,15 @@ export const CombinedProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => {
-      authListener.subscription.unsubscribe();
-      projectsSubscription?.unsubscribe();
-      tasksSubscription?.unsubscribe();
-      dailyNotesSubscription?.unsubscribe();
-      userStoriesSubscription?.unsubscribe();
+      try {
+        authListener.subscription.unsubscribe();
+      } catch (e) {
+        // ignore
+      }
+      unsubscribeChannel(projectsChannelRef.current);
+      unsubscribeChannel(tasksChannelRef.current);
+      unsubscribeChannel(dailyNotesChannelRef.current);
+      unsubscribeChannel(userStoriesChannelRef.current);
     };
   }, [supabase, fetchProjects, fetchTasks, fetchAllUsers, fetchDailyNotes, fetchUserStories]);
 
