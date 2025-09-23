@@ -2,7 +2,7 @@ import { ChatWidget } from '../chat/chat-widget';
 import { FloatingActionMenu } from './floating-action-menu';
 import { Navbar } from './navbar';
 import { LoadingIndicator } from './loading-indicator';
-import TelemetryPanel from '@/components/layout/telemetry-panel';
+import TelemetryPanel from './telemetry-panel';
 
 type AppLayoutProps = {
   children: React.ReactNode;
