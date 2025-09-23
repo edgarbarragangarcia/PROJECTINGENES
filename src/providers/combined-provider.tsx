@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type ReactNode, useEffect, useState, useCallback } from 'react';
+import React, { type ReactNode, useEffect, useState, useCallback, useMemo } from 'react';
 
 import { ProjectsContext, initialProjectsState } from '@/hooks/use-projects';
 import { TasksContext, initialTasksState } from '@/hooks/use-tasks';
@@ -98,8 +98,21 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
     setLocalLoading(loading);
   }, []);
 
+  // Compute projects annotated with a numeric progress (0-100)
+  const projectsWithProgress = useMemo(() => {
+    const projectsArr: any[] = (projectsData || []) as any[];
+    const tasksArr: any[] = (tasksData || []) as any[];
+    return projectsArr.map(p => {
+      const projTasks = tasksArr.filter(t => t.project_id === p.id || t.projectId === p.id);
+      const total = projTasks.length;
+      const completed = projTasks.filter(t => (t.status || '').toString() === 'Done').length;
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return { ...p, progress };
+    });
+  }, [projectsData, tasksData]);
+
   const projectsContextValue = {
-    projects: projectsData as any,
+    projects: (projectsWithProgress as any[]),
     loading: !!projectsLoading || localLoading,
     error: projectsError ?? null,
     addProject,
