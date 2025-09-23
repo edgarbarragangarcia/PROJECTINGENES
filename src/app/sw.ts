@@ -22,8 +22,32 @@ precacheAndRoute(self.__SW_MANIFEST || [])
 cleanupOutdatedCaches()
 
 // Set up App Shell-style routing
-const handler = createHandlerBoundToURL('/index.html')
-const navigationRoute = new NavigationRoute(handler, {
+// Some builds (SSR / Next) may not generate a precached '/index.html'.
+// createHandlerBoundToURL throws when the URL is not precached, which
+// causes an unhandled exception in the service worker. To avoid that,
+// check the precache manifest first and fall back to a simple network
+// handler when the app shell isn't present.
+const appShellUrl = '/index.html'
+let handler: ReturnType<typeof createHandlerBoundToURL> | { handle: (arg: any) => Promise<Response> }
+const precache = (self as any).__SW_MANIFEST || []
+const hasAppShell = Array.isArray(precache) && precache.some((entry: any) => entry && entry.url === appShellUrl)
+
+if (hasAppShell) {
+  handler = createHandlerBoundToURL(appShellUrl)
+} else {
+  // Fallback: route navigation requests to network so we don't throw.
+  handler = {
+    handle: async ({ request }: { request: Request }) => {
+      try {
+        return await fetch(request)
+      } catch (e) {
+        return new Response('', { status: 504 })
+      }
+    },
+  }
+}
+
+const navigationRoute = new NavigationRoute(handler as any, {
   denylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
 })
 registerRoute(navigationRoute)
