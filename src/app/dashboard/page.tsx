@@ -220,8 +220,7 @@ export default function DashboardPage() {
         const mobileTasks = isAdmin && selectedUserEmail === 'all' ? tasks : assignedTasks;
         const mobileProjects = isAdmin && selectedUserEmail === 'all' ? projects : createdProjectsByUser;
 
-        // Debug: mostrar en consola cuántas tareas/proyectos llegaron para el usuario autenticado
-        try { if (currentUser && currentUser.email === 'prueba@ingenes.com') console.debug('[Dashboard Mobile] currentUser', currentUser?.email, 'tasks', mobileTasks.length, 'projects', mobileProjects.length); } catch (e) {}
+    // debug removed
 
         return (
             <AppLayout>
