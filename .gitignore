@@ -40,7 +40,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Lock files
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# Lock files (commit one of these if you want reproducible installs)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
