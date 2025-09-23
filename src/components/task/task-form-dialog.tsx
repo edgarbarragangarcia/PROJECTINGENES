@@ -661,7 +661,7 @@ export function TaskFormDialog({
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-0" align="start" noPortal>
                         <Calendar
                           mode="single"
                           selected={field.value}
@@ -700,7 +700,7 @@ export function TaskFormDialog({
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-0" align="start" noPortal>
                         <Calendar
                           mode="single"
                           selected={field.value}
