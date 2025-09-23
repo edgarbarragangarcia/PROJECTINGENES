@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
+import { parseISO } from 'date-fns';
 
 interface MyTasksMobileProps {
     tasks: Task[];
@@ -58,8 +59,25 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const [fetchedMobileData, setFetchedMobileData] = useState(false);
     const [mobileFetchError, setMobileFetchError] = useState<string | null>(null);
 
-    const displayTasks = fetchedMobileData ? mobileTasks : tasks;
+    const displayTasks = fetchedMobileData ? mobileTasks : tasks.map(t => ({ ...t })).map(t => ({
+        ...t,
+        assignees: Array.isArray(t.assignees) ? t.assignees : (t.assignees ? JSON.parse(t.assignees) : []),
+        project_id: t.project_id || (t as any).projectId,
+    } as Task));
     const displayProjects = fetchedMobileData ? mobileProjects : projects;
+
+    const normalizeTask = (t: any): Task => {
+        return {
+            ...t,
+            // ensure assignees is an array
+            assignees: Array.isArray(t.assignees) ? t.assignees : (t.assignees ? JSON.parse(t.assignees) : []),
+            // prefer project_id; if absent, try projectId
+            project_id: t.project_id || (t as any).projectId,
+            // parse dates if strings
+            startDate: t.start_date ? parseISO(t.start_date) : (t.startDate || undefined),
+            dueDate: t.due_date ? parseISO(t.due_date) : (t.dueDate || undefined),
+        } as Task;
+    };
 
     useEffect(() => {
         let mounted = true;
@@ -141,7 +159,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                 const uniqueProjects = Object.values(uniqueProjectsMap) as ProjectWithProgress[];
 
                 if (!mounted) return;
-                setMobileTasks(tasksList.map(t => ({ ...t })));
+                setMobileTasks(tasksList.map(t => normalizeTask(t)));
                 setMobileProjects(uniqueProjects);
                 setFetchedMobileData(true);
             } catch (e: any) {
@@ -196,15 +214,24 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
             return displayTasks;
         }
 
+        const selectedUser = allUsers.find(u => u.id === selectedUserId);
+
+        // If we're filtering by creator explicitly
         if (filterType === 'creator') {
             return displayTasks.filter(task => task.user_id === selectedUserId);
-        } 
-        
-        const selectedUser = allUsers.find(u => u.id === selectedUserId);
-        if (!selectedUser) return [];
-        return displayTasks.filter(task => 
-            Array.isArray(task.assignees) && task.assignees.includes(selectedUser.email!)
-        );
+        }
+
+        // If we have the selected user profile, include tasks created by them OR assigned to their email
+        if (selectedUser) {
+            return displayTasks.filter(task => {
+                const assigned = Array.isArray(task.assignees) && task.assignees.includes(selectedUser.email!);
+                const createdBy = task.user_id === selectedUserId;
+                return assigned || createdBy;
+            });
+        }
+
+        // No selected user -> no tasks
+        return [];
 
     }, [displayTasks, selectedUserId, isAdmin, filterType, allUsers]);
 
