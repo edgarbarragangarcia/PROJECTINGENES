@@ -22,9 +22,10 @@ import {
 // that uses the SWR read hooks and exposes typed mutators which update the SWR cache.
 export function CombinedProvider({ children }: { children: ReactNode }) {
   const supabase = createClient();
-  const [sessionUser, setSessionUser] = useState<any>(null);
+  // sessionUser: undefined = not checked yet, null = checked & no user, object = user
+  const [sessionUser, setSessionUser] = useState<any | undefined>(undefined);
 
-  // Load current user on mount
+  // Load current user on mount and mark initialized
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -32,26 +33,31 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (mounted) setSessionUser(user ?? null);
       } catch (e) {
-        // ignore
+        if (mounted) setSessionUser(null);
       }
     })();
     return () => { mounted = false; };
   }, [supabase]);
 
   // Projects (SWR)
+  // Don't call SWR hooks until we've determined the session state. When sessionUser
+  // is undefined the hooks are not invoked; once resolved they will fetch accordingly.
   const {
     data: projectsData = [],
     error: projectsError,
     isLoading: projectsLoading,
     mutate: mutateProjects,
-  } = useProjectsSWR(sessionUser);
+  } = useProjectsSWR(sessionUser ?? null);
 
   // Tasks / other domain SWR hooks (left wired to SWR so components using contexts can read them later)
-  const { data: tasksData = [] } = useTasksSWR(sessionUser);
-  const { data: dailyNotesData = [] } = useDailyNotesSWR(sessionUser);
-  const { data: userStoriesData = [] } = useUserStoriesSWR(sessionUser);
+  const { data: tasksData = [] } = useTasksSWR(sessionUser ?? null);
+  const { data: dailyNotesData = [] } = useDailyNotesSWR(sessionUser ?? null);
+  const { data: userStoriesData = [] } = useUserStoriesSWR(sessionUser ?? null);
   const { data: allUsersData = [] } = useAllUsersSWR();
 
+  // While we haven't checked session, show nothing (avoid rendering consumers
+  // that would receive null/empty caches). This ensures mobile fetch logic that
+  // depends on auth (MyTasksMobile) can query supabase directly and see an auth'ed user.
   // Local loading override so consumers can call setProjectsLoading
   const [localLoading, setLocalLoading] = useState(false);
 
@@ -104,9 +110,23 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
     setProjectsLoading,
   } as any;
 
+  if (sessionUser === undefined) {
+    return (
+      <ProjectsContext.Provider value={initialProjectsState as any}>
+        <TasksContext.Provider value={initialTasksState as any}>
+          <DailyNotesContext.Provider value={initialDailyNotesState as any}>
+            <UserStoriesContext.Provider value={initialUserStoriesState as any}>
+              <GoogleCalendarProvider session={null}>{/* loading... */ null}</GoogleCalendarProvider>
+            </UserStoriesContext.Provider>
+          </DailyNotesContext.Provider>
+        </TasksContext.Provider>
+      </ProjectsContext.Provider>
+    );
+  }
+
   return (
     <ProjectsContext.Provider value={projectsContextValue}>
-      <TasksContext.Provider value={{ ...initialTasksState, tasks: tasksData } as any}>
+      <TasksContext.Provider value={{ ...initialTasksState, tasks: tasksData, allUsers: allUsersData, loading: !!projectsLoading } as any}>
         <DailyNotesContext.Provider value={{ ...initialDailyNotesState, notes: dailyNotesData } as any}>
           <UserStoriesContext.Provider value={{ ...initialUserStoriesState, stories: userStoriesData } as any}>
             <GoogleCalendarProvider session={null}>{children}</GoogleCalendarProvider>
