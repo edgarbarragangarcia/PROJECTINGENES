@@ -1,0 +1,112 @@
+'use client';
+
+import React, { type ReactNode, useMemo, useCallback, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { GoogleCalendarProvider } from './google-calendar-provider';
+import { ProjectsContext, initialProjectsState } from '@/hooks/use-projects';
+import { TasksContext, initialTasksState } from '@/hooks/use-tasks';
+import { DailyNotesContext, initialDailyNotesState } from '@/hooks/use-daily-notes';
+import { UserStoriesContext, initialUserStoriesState } from '@/hooks/use-user-stories';
+import { useProjects, useTasks, useDailyNotes, useUserStories, useAllUsers } from '@/lib/use-data-hooks';
+import type { ProjectWithProgress, Task, DailyNote, UserStory } from '@/types';
+
+export function CombinedProvider({ children }: { children: ReactNode }) {
+  const supabase = createClient();
+  const [sessionUser, setSessionUser] = useState<any>(null);
+
+  // Use SWR hooks (read-only canonical source)
+  const { data: projects = [], isLoading: projectsLoading } = useProjects(sessionUser);
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks(sessionUser);
+  const { data: dailyNotes = [] } = useDailyNotes(sessionUser);
+  const { data: userStories = [] } = useUserStories(sessionUser);
+  const { data: allUsers = [] } = useAllUsers();
+
+  // Minimal no-op mutators that can be implemented later. They keep types correct.
+  const addProject = useCallback(async (_: any) => {}, []);
+  const updateProject = useCallback(async (_: string, __: any) => {}, []);
+  const deleteProject = useCallback(async (_: string) => {}, []);
+
+  const addTask = useCallback(async (_: any) => {} as Promise<Task>, []);
+  const updateTask = useCallback(async (_: string, __: any) => {}, []);
+  const deleteTask = useCallback(async (_: string) => {}, []);
+
+  const addNote = useCallback(async (_: string, __: Date) => {}, []);
+  const updateNote = useCallback(async (_: string, __: string) => {}, []);
+  const deleteNote = useCallback(async (_: string) => {}, []);
+
+  const addUserStory = useCallback(async (_: any) => {}, []);
+  const updateUserStory = useCallback(async (_: string, __: any) => {}, []);
+  const deleteUserStory = useCallback(async (_: string) => {}, []);
+
+  const projectsContextValue = useMemo(() => ({
+    ...initialProjectsState,
+    projects: projects as ProjectWithProgress[],
+    loading: projectsLoading,
+    error: null,
+    addProject,
+    updateProject,
+    deleteProject,
+    fetchProjects: async (_: any) => {},
+    setProjects: (_: ProjectWithProgress[]) => {},
+    setProjectsLoading: (_: boolean) => {},
+    setProjectsError: (_: Error | null) => {},
+  }), [projects, projectsLoading]);
+
+  const tasksContextValue = useMemo(() => ({
+    ...initialTasksState,
+    tasks: tasks as Task[],
+    loading: tasksLoading,
+    error: null,
+    draggedTask: null,
+    allUsers: allUsers || [],
+    addTask,
+    updateTask,
+    deleteTask,
+    getTasksByStatus: (_: any) => [],
+    getTasksByProject: (_: string) => [],
+    setDraggedTask: (_: string | null) => {},
+    fetchTasks: async (_: any) => [],
+    setTasks: (_: Task[]) => {},
+    setTasksLoading: (_: boolean) => {},
+    fetchAllUsers: async () => {},
+    updateUserRole: async (_: string, __: 'admin' | 'user') => {},
+    refreshAllData: async () => {},
+  }), [tasks, tasksLoading, allUsers]);
+
+  const dailyNotesContextValue = useMemo(() => ({
+    ...initialDailyNotesState,
+    notes: dailyNotes as DailyNote[],
+    loading: false,
+    error: null,
+    fetchDailyNotes: async (_: any) => {},
+    setDailyNotes: (_: DailyNote[]) => {},
+    setDailyNotesLoading: (_: boolean) => {},
+    addNote,
+    updateNote,
+    deleteNote,
+    getNotesByDate: (_: Date) => [] as DailyNote[],
+  }), [dailyNotes]);
+
+  const userStoriesContextValue = useMemo(() => ({
+    ...initialUserStoriesState,
+    userStories: userStories as UserStory[],
+    loading: false,
+    error: null,
+    fetchUserStories: async (_: any) => {},
+    addUserStory,
+    updateUserStory,
+    deleteUserStory,
+  }), [userStories]);
+
+  return (
+    <ProjectsContext.Provider value={projectsContextValue}>
+      <TasksContext.Provider value={tasksContextValue}>
+        <DailyNotesContext.Provider value={dailyNotesContextValue}>
+          <UserStoriesContext.Provider value={userStoriesContextValue}>
+            <GoogleCalendarProvider session={null}>{children}</GoogleCalendarProvider>
+          </UserStoriesContext.Provider>
+        </DailyNotesContext.Provider>
+      </TasksContext.Provider>
+    </ProjectsContext.Provider>
+  );
+}
