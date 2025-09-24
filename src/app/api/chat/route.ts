@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log('[API Chat] Request body:', JSON.stringify(body, null, 2));
 
-    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook-test/projectBot';
+    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook/projectBot';
     console.log(`[API Chat] Forwarding request to: ${webhookUrl}`);
 
     // Agregar timeout y mejor manejo de errores
