@@ -174,11 +174,11 @@ export default function LoginPage() {
                                     <form onSubmit={handleSignIn} className="grid gap-4 pt-4">
                                         <div className="grid gap-2">
                                             <Label htmlFor="login-email">Email</Label>
-                                            <Input id="login-email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                                            <Input id="login-email" type="email" placeholder="tu@email.com" value={email} onChange={(e: any) => setEmail(e.target.value)} required />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="login-password">Contraseña</Label>
-                                            <Input id="login-password" type="password" placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                            <Input id="login-password" type="password" placeholder="Tu contraseña" value={password} onChange={(e: any) => setPassword(e.target.value)} required />
                                         </div>
                                         <Button type="submit" className="w-full mt-2">Iniciar Sesión</Button>
                                     </form>
@@ -187,15 +187,15 @@ export default function LoginPage() {
                                     <form onSubmit={handleSignUp} className="grid gap-4 pt-4">
                                         <div className="grid gap-2">
                                             <Label htmlFor="register-email">Email</Label>
-                                            <Input id="register-email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                                            <Input id="register-email" type="email" placeholder="tu@email.com" value={email} onChange={(e: any) => setEmail(e.target.value)} required />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="register-password">Contraseña</Label>
-                                            <Input id="register-password" type="password" placeholder="Crea una contraseña segura" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                            <Input id="register-password" type="password" placeholder="Crea una contraseña segura" value={password} onChange={(e: any) => setPassword(e.target.value)} required />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
-                                            <Input id="confirm-password" type="password" placeholder="Repite la contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                                            <Input id="confirm-password" type="password" placeholder="Repite la contraseña" value={confirmPassword} onChange={(e: any) => setConfirmPassword(e.target.value)} required />
                                         </div>
                                         <Button type="submit" className="w-full mt-2">Crear Cuenta</Button>
                                     </form>

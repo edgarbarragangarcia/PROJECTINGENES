@@ -46,7 +46,30 @@ export const TasksContext = createContext<TasksContextType | undefined>(undefine
 export const useTasks = () => {
   const context = useContext(TasksContext);
   if (context === undefined) {
-    throw new Error('useTasks must be used within a TasksProvider');
+    // Defensive fallback to avoid client crash if provider missing
+    // eslint-disable-next-line no-console
+    console.error('useTasks used outside a TasksProvider - returning fallback.');
+    const noopAsync = async () => { throw new Error('TasksProvider not available'); };
+    const fallback: TasksContextType = {
+      tasks: initialTasksState.tasks,
+      loading: initialTasksState.loading,
+      error: initialTasksState.error,
+      draggedTask: initialTasksState.draggedTask,
+      allUsers: initialTasksState.allUsers,
+      addTask: noopAsync as any,
+      updateTask: noopAsync as any,
+      deleteTask: noopAsync as any,
+      getTasksByStatus: () => [],
+      getTasksByProject: () => [],
+      setDraggedTask: () => {},
+      fetchTasks: async () => [],
+      setTasks: () => {},
+      setTasksLoading: () => {},
+      fetchAllUsers: async () => {},
+      updateUserRole: noopAsync as any,
+      refreshAllData: noopAsync as any,
+    } as any;
+    return fallback;
   }
   return context;
 };

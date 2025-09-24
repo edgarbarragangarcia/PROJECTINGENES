@@ -42,8 +42,8 @@ export default function ProjectsPage() {
 
   const creators = useMemo(() => {
     const creatorMap = new Map<string, string>();
-    projects.forEach(p => {
-      if (p.creator_email && p.creator_name) {
+    (projects || []).forEach(p => {
+      if (p && p.creator_email && p.creator_name) {
         creatorMap.set(p.creator_email, p.creator_name);
       }
     });
@@ -52,13 +52,14 @@ export default function ProjectsPage() {
 
 
   const filteredProjects = useMemo(() => {
+    const src = projects || [];
     if (isAdmin && selectedCreator !== 'all') {
-       return projects.filter(p => p.creator_email === selectedCreator);
+       return src.filter(p => p && p.creator_email === selectedCreator);
     }
-    return projects;
+    return src;
   }, [projects, selectedCreator, isAdmin]);
   
-  const projectsToShow = filteredProjects.filter(p => selectedProjects.includes(p.id));
+  const projectsToShow = (filteredProjects || []).filter(p => p && selectedProjects.includes(p.id));
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -119,7 +120,7 @@ export default function ProjectsPage() {
     
     yPos += 15;
     
-    const projectsToExport = filteredProjects.filter(p => selectedProjects.includes(p.id));
+  const projectsToExport = (filteredProjects || []).filter(p => p && selectedProjects.includes(p.id));
 
     for (const project of projectsToExport) {
         if (yPos > 150) { 

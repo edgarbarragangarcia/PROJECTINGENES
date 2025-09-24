@@ -38,7 +38,27 @@ export const ProjectsContext = createContext<ProjectsContextType | undefined>(un
 export const useProjects = () => {
   const context = useContext(ProjectsContext);
   if (context === undefined) {
-    throw new Error('useProjects must be used within a ProjectsProvider');
+    // Defensive fallback: don't throw in rendering paths to avoid crashing the whole
+    // client-side app if the provider wasn't mounted for some reason. Log an error
+    // so the issue can be diagnosed and return a minimal, safe implementation.
+    // Consumers that perform mutations will still receive a thrown error when
+    // calling the mutation helpers, but basic rendering will not crash.
+    // eslint-disable-next-line no-console
+    console.error('useProjects used outside a ProjectsProvider - returning fallback.');
+    const noopAsync = async () => { throw new Error('ProjectsProvider not available'); };
+    const fallback: ProjectsContextType = {
+      projects: initialProjectsState.projects,
+      loading: initialProjectsState.loading,
+      error: initialProjectsState.error,
+      addProject: noopAsync as any,
+      updateProject: noopAsync as any,
+      deleteProject: noopAsync as any,
+      fetchProjects: async () => {},
+      setProjects: () => {},
+      setProjectsLoading: () => {},
+      setProjectsError: () => {},
+    };
+    return fallback;
   }
   return context;
 };

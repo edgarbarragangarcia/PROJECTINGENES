@@ -52,7 +52,10 @@ export function ChatWidget({ isOpen, onOpenChange }: ChatWidgetProps) {
     setInput('');
 
   // Snapshot of sent messages to include in the request (avoid stale closure)
-  const historySnapshot = messages.filter(m => m.status === 'sent').map(m => ({ role: m.role, content: m.content }));
+  const historySnapshot = messages
+    .filter(m => m.status === 'sent')
+    .slice(-10) // Take only the last 10 messages
+    .map(m => ({ role: m.role, content: m.content }));
 
   // Crear y añadir el mensaje del usuario
     const userMessageId = generateMessageId();

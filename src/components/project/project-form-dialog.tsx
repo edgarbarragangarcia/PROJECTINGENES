@@ -22,9 +22,9 @@ interface ProjectFormDialogProps {
         id: string;
         name: string;
         description?: string;
-        status: 'En Progreso' | 'Completado' | 'En Pausa';
-        user_id: string;
-        progress: number;
+        status?: 'En Progreso' | 'Completado' | 'En Pausa';
+        user_id?: string;
+        progress?: number;
     };
 }
 

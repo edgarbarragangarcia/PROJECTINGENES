@@ -39,6 +39,13 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, 
         <div style={{ padding: 24 }}>
           <h2>Application error: an unexpected client-side exception has occurred.</h2>
           <p>Please check the browser console for more information.</p>
+          {process.env.NODE_ENV !== 'production' && this.state.error && (
+            <details style={{ whiteSpace: 'pre-wrap', marginTop: 12 }}>
+              <summary style={{ cursor: 'pointer' }}>Error details (development only)</summary>
+              <div><strong>Message:</strong> {this.state.error.message}</div>
+              <pre style={{ marginTop: 8 }}>{this.state.error.stack}</pre>
+            </details>
+          )}
         </div>
       );
     }

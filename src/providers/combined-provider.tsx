@@ -51,7 +51,7 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
 
   // Tasks / other domain SWR hooks (left wired to SWR so components using contexts can read them later)
   const { data: tasksData = [], mutate: mutateTasks, error: tasksError, isLoading: tasksLoading } = useTasksSWR(sessionUser ?? null);
-  const { data: dailyNotesData = [] } = useDailyNotesSWR(sessionUser ?? null);
+  const { data: dailyNotesData = [], mutate: mutateDailyNotes } = useDailyNotesSWR(sessionUser ?? null);
   const { data: userStoriesData = [] } = useUserStoriesSWR(sessionUser ?? null);
   const { data: allUsersData = [] } = useAllUsersSWR();
 
@@ -326,10 +326,55 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
     // noop: tasks loading is derived from SWR isLoading; we keep function for compatibility
   }, []);
 
+  // --- Daily Notes ---
+  const addNote = useCallback(async (note: string, date: Date) => {
+    if (!sessionUser) throw new Error('User not authenticated');
+    const { data, error } = await supabase.from('daily_notes').insert([{ note, date: date.toISOString().slice(0,10), user_id: sessionUser.id }]).select().single();
+    if (error) throw error;
+    if (mutateDailyNotes) {
+      await mutateDailyNotes((prev: any[] = []) => [data, ...prev], false);
+    }
+  }, [supabase, mutateDailyNotes, sessionUser]);
+
+  const updateNote = useCallback(async (id: string, note: string) => {
+    const { data, error } = await supabase.from('daily_notes').update({ note }).eq('id', id).select().single();
+    if (error) throw error;
+    if (mutateDailyNotes) {
+      await mutateDailyNotes((prev: any[] = []) => prev.map(n => n.id === id ? data : n), false);
+    }
+  }, [supabase, mutateDailyNotes]);
+
+  const deleteNote = useCallback(async (id: string) => {
+    const { error } = await supabase.from('daily_notes').delete().eq('id', id);
+    if (error) throw error;
+    if (mutateDailyNotes) {
+      await mutateDailyNotes((prev: any[] = []) => prev.filter(n => n.id !== id), false);
+    }
+  }, [supabase, mutateDailyNotes]);
+
+  const getNotesByDate = useCallback((date: Date) => {
+    const dateString = date.toISOString().slice(0, 10);
+    return (dailyNotesData as any[]).filter(note => note.date === dateString);
+  }, [dailyNotesData]);
+
+  const dailyNotesContextValue = {
+    ...initialDailyNotesState,
+    notes: dailyNotesData,
+    loading: !dailyNotesData,
+    addNote,
+    updateNote,
+    deleteNote,
+    getNotesByDate,
+    // placeholder no-ops for functions not implemented here
+    fetchDailyNotes: async () => {},
+    setDailyNotes: () => {},
+    setDailyNotesLoading: () => {},
+  };
+
   return (
     <ProjectsContext.Provider value={projectsContextValue}>
   <TasksContext.Provider value={{ ...initialTasksState, tasks: tasksData, allUsers: allUsersData, loading: !!projectsLoading || !!tasksLoading, addTask, updateTask, deleteTask, getTasksByProject, getTasksByStatus, setDraggedTask, fetchTasks: fetchProjects, setTasks, setTasksLoading } as any}>
-        <DailyNotesContext.Provider value={{ ...initialDailyNotesState, notes: dailyNotesData } as any}>
+        <DailyNotesContext.Provider value={dailyNotesContextValue as any}>
           <UserStoriesContext.Provider value={{ ...initialUserStoriesState, stories: userStoriesData } as any}>
             <GoogleCalendarProvider session={null}>{children}</GoogleCalendarProvider>
           </UserStoriesContext.Provider>

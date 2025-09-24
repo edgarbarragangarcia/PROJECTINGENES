@@ -32,7 +32,7 @@ const sendDocumentWebhookFlow = ai.defineFlow(
     outputSchema: WebhookOutputSchema,
   },
   async (input) => {
-    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook/projectBot';
+    const webhookUrl = 'https://n8nqa.ingenes.com:5689/webhook-test/projectBot';
 
     try {
       const response = await fetch(webhookUrl, {
