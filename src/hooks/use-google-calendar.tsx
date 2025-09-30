@@ -17,7 +17,9 @@ export const initialGoogleCalendarState: GoogleCalendarState = {
 
 // --- CONTEXT ---
 
-export interface GoogleCalendarContextType extends GoogleCalendarState {
+export interface GoogleCalendarContextType {
+  session: Session | null;
+  providerToken: string | null;
   isLoading: boolean;
   setProviderToken: (token: string | null) => void;
   setSession: (session: Session | null) => void;

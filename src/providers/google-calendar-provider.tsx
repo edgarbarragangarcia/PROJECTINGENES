@@ -17,9 +17,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
   const supabase = createClientComponentClient();
   const router = useRouter();
   const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
-  // Use localSession so the provider works even when parent passes `null`
-  const [localSession, setLocalSession] = useState<Session | null>(session ?? null);
-  const [isLoading, setIsLoading] = useState(!session); // If no session is passed, we are loading
+  const isLoading = session === null;
 
   useEffect(() => {
     const storedCalendarId = (globalThis as any).localStorage?.getItem('selectedGoogleCalendarId');
@@ -27,28 +25,6 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
       setSelectedCalendarId(JSON.parse(storedCalendarId));
     }
   }, []);
-
-  // If the parent didn't provide a session prop, try to load it from the client
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (session) return; // prop already provided
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (mounted) {
-          setLocalSession(data.session ?? null);
-        }
-      } catch (e) {
-        // ignore - localSession stays null
-        console.debug('Could not load client session for GoogleCalendarProvider', e);
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    })();
-    return () => { mounted = false; };
-  }, [session, supabase]);
 
   const selectCalendar = (calendarId: string) => {
     setSelectedCalendarId(calendarId);
@@ -72,7 +48,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
   };
 
   const getCalendarList = async () => {
-    const providerToken = localSession?.provider_token ?? session?.provider_token ?? null;
+    const providerToken = session?.provider_token;
     if (!providerToken) {
       throw new Error("No estás autenticado con Google o el token ha expirado. Por favor, inicia sesión de nuevo.");
     }
@@ -98,7 +74,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
       return JSON.parse(cachedEvents);
     }
 
-    const providerToken = localSession?.provider_token ?? session?.provider_token ?? null;
+    const providerToken = session?.provider_token;
     if (!providerToken) {
       throw new Error("No estás autenticado con Google o el token ha expirado. Por favor, inicia sesión de nuevo.");
     }
@@ -119,7 +95,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
   }
 
   const createCalendarEvent = async (calendarId: string, event: any) => {
-    const providerToken = localSession?.provider_token ?? session?.provider_token ?? null;
+    const providerToken = session?.provider_token;
     if (!providerToken) {
       throw new Error("No estás autenticado con Google o el token ha expirado. Por favor, inicia sesión de nuevo.");
     }
@@ -140,9 +116,9 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
     return response.json();
   };
 
-    const value = {
-    session: localSession,
-    providerToken: localSession?.provider_token || session?.provider_token || null,
+  const value = {
+    session,
+    providerToken: session?.provider_token || null,
     isLoading,
     setProviderToken: () => {}, 
     setSession: () => {},

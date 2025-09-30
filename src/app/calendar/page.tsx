@@ -211,7 +211,7 @@ export default function CalendarPage() {
             ) : (
               <Button onClick={handleGoogleSync} disabled={isSyncing || isGoogleCalendarLoading}>
                 <GoogleCalendarIcon />
-                {isSyncing ? 'Sincronizando...' : 'Sincronizar con Google'}
+                {isGoogleCalendarLoading ? 'Cargando...' : (isSyncing ? 'Sincronizando...' : 'Sincronizar con Google')}
               </Button>
             )}
           </div>

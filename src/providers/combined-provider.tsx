@@ -1,6 +1,7 @@
 "use client";
 
 import React, { type ReactNode, useEffect, useState, useCallback, useMemo } from 'react';
+import type { Session } from '@supabase/supabase-js';
 
 import { ProjectsContext, initialProjectsState } from '@/hooks/use-projects';
 import { TasksContext, initialTasksState } from '@/hooks/use-tasks';
@@ -22,37 +23,53 @@ import {
 // that uses the SWR read hooks and exposes typed mutators which update the SWR cache.
 export function CombinedProvider({ children }: { children: ReactNode }) {
   const supabase = createClient();
-  // sessionUser: undefined = not checked yet, null = checked & no user, object = user
-  const [sessionUser, setSessionUser] = useState<any | undefined>(undefined);
+  // session: undefined = not checked yet, null = checked & no user, object = session
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
 
-  // Load current user on mount and mark initialized
+  // Load current session on mount and listen for changes.
   useEffect(() => {
     let mounted = true;
-    (async () => {
+
+    async function getInitialSession() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (mounted) setSessionUser(user ?? null);
+        const { data } = await supabase.auth.getSession();
+        if (mounted) setSession(data.session ?? null);
       } catch (e) {
-        if (mounted) setSessionUser(null);
+        if (mounted) setSession(null);
       }
-    })();
-    return () => { mounted = false; };
+    }
+
+    getInitialSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (mounted) {
+          setSession(session);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      authListener?.subscription.unsubscribe();
+    };
   }, [supabase]);
 
   // Projects (SWR)
-  // Don't call SWR hooks until we've determined the session state. When sessionUser
+  // Don't call SWR hooks until we've determined the session state. When session
   // is undefined the hooks are not invoked; once resolved they will fetch accordingly.
+  const user = session ? session.user : null;
   const {
     data: projectsData = [],
     error: projectsError,
     isLoading: projectsLoading,
     mutate: mutateProjects,
-  } = useProjectsSWR(sessionUser ?? null);
+  } = useProjectsSWR(user);
 
   // Tasks / other domain SWR hooks (left wired to SWR so components using contexts can read them later)
-  const { data: tasksData = [], mutate: mutateTasks, error: tasksError, isLoading: tasksLoading } = useTasksSWR(sessionUser ?? null);
-  const { data: dailyNotesData = [], mutate: mutateDailyNotes } = useDailyNotesSWR(sessionUser ?? null);
-  const { data: userStoriesData = [] } = useUserStoriesSWR(sessionUser ?? null);
+  const { data: tasksData = [], mutate: mutateTasks, error: tasksError, isLoading: tasksLoading } = useTasksSWR(user);
+  const { data: dailyNotesData = [], mutate: mutateDailyNotes } = useDailyNotesSWR(user);
+  const { data: userStoriesData = [] } = useUserStoriesSWR(user);
   const { data: allUsersData = [] } = useAllUsersSWR();
 
   // While we haven't checked session, show nothing (avoid rendering consumers
@@ -328,13 +345,13 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
 
   // --- Daily Notes ---
   const addNote = useCallback(async (note: string, date: Date) => {
-    if (!sessionUser) throw new Error('User not authenticated');
-    const { data, error } = await supabase.from('daily_notes').insert([{ note, date: date.toISOString().slice(0,10), user_id: sessionUser.id }]).select().single();
+    if (!session?.user) throw new Error('User not authenticated');
+    const { data, error } = await supabase.from('daily_notes').insert([{ note, date: date.toISOString().slice(0,10), user_id: session.user.id }]).select().single();
     if (error) throw error;
     if (mutateDailyNotes) {
       await mutateDailyNotes((prev: any[] = []) => [data, ...prev], false);
     }
-  }, [supabase, mutateDailyNotes, sessionUser]);
+  }, [supabase, mutateDailyNotes, session]);
 
   const updateNote = useCallback(async (id: string, note: string) => {
     const { data, error } = await supabase.from('daily_notes').update({ note }).eq('id', id).select().single();
@@ -376,7 +393,7 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
   <TasksContext.Provider value={{ ...initialTasksState, tasks: tasksData, allUsers: allUsersData, loading: !!projectsLoading || !!tasksLoading, addTask, updateTask, deleteTask, getTasksByProject, getTasksByStatus, setDraggedTask, fetchTasks: fetchProjects, setTasks, setTasksLoading } as any}>
         <DailyNotesContext.Provider value={dailyNotesContextValue as any}>
           <UserStoriesContext.Provider value={{ ...initialUserStoriesState, stories: userStoriesData } as any}>
-            <GoogleCalendarProvider session={null}>{children}</GoogleCalendarProvider>
+            <GoogleCalendarProvider session={session ?? null}>{children}</GoogleCalendarProvider>
           </UserStoriesContext.Provider>
         </DailyNotesContext.Provider>
       </TasksContext.Provider>
