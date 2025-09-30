@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import type { Task } from '@/lib/types';
@@ -187,7 +185,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
                 )}
             </div>
 
-            {task.assignees && task.assignees.length > 0 && (
+            {Array.isArray(task.assignees) && task.assignees.length > 0 && (
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
