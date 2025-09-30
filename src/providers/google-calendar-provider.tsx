@@ -19,6 +19,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
   const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
   // Use localSession so the provider works even when parent passes `null`
   const [localSession, setLocalSession] = useState<Session | null>(session ?? null);
+  const [isLoading, setIsLoading] = useState(!session); // If no session is passed, we are loading
 
   useEffect(() => {
     const storedCalendarId = (globalThis as any).localStorage?.getItem('selectedGoogleCalendarId');
@@ -34,10 +35,16 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
       if (session) return; // prop already provided
       try {
         const { data } = await supabase.auth.getSession();
-        if (mounted) setLocalSession(data.session ?? null);
+        if (mounted) {
+          setLocalSession(data.session ?? null);
+        }
       } catch (e) {
         // ignore - localSession stays null
         console.debug('Could not load client session for GoogleCalendarProvider', e);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     })();
     return () => { mounted = false; };
@@ -136,6 +143,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
     const value = {
     session: localSession,
     providerToken: localSession?.provider_token || session?.provider_token || null,
+    isLoading,
     setProviderToken: () => {}, 
     setSession: () => {},
     getCalendarList,

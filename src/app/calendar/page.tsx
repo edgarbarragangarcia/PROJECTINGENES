@@ -47,7 +47,7 @@ export default function CalendarPage() {
   const { tasks, allUsers } = useTasks();
   const { getNotesByDate } = useDailyNotes();
   const { toast } = useToast();
-  const { getCalendarEvents, getCalendarList, selectCalendar, selectedCalendarId } = useGoogleCalendar();
+  const { getCalendarEvents, getCalendarList, selectCalendar, selectedCalendarId, isLoading: isGoogleCalendarLoading } = useGoogleCalendar();
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -209,7 +209,7 @@ export default function CalendarPage() {
                 </SelectContent>
               </Select>
             ) : (
-              <Button onClick={handleGoogleSync} disabled={isSyncing}>
+              <Button onClick={handleGoogleSync} disabled={isSyncing || isGoogleCalendarLoading}>
                 <GoogleCalendarIcon />
                 {isSyncing ? 'Sincronizando...' : 'Sincronizar con Google'}
               </Button>

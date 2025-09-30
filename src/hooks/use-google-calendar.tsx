@@ -18,6 +18,7 @@ export const initialGoogleCalendarState: GoogleCalendarState = {
 // --- CONTEXT ---
 
 export interface GoogleCalendarContextType extends GoogleCalendarState {
+  isLoading: boolean;
   setProviderToken: (token: string | null) => void;
   setSession: (session: Session | null) => void;
   getCalendarList: () => Promise<any>;
@@ -27,7 +28,18 @@ export interface GoogleCalendarContextType extends GoogleCalendarState {
   selectCalendar: (calendarId: string) => void;
 }
 
-export const GoogleCalendarContext = createContext<GoogleCalendarContextType | undefined>(undefined);
+export const GoogleCalendarContext = createContext<GoogleCalendarContextType>({
+  session: null,
+  providerToken: null,
+  isLoading: true,
+  setProviderToken: () => {},
+  setSession: () => {},
+  getCalendarList: async () => {},
+  getCalendarEvents: async () => {},
+  createCalendarEvent: async () => {},
+  selectedCalendarId: null,
+  selectCalendar: () => {},
+});
 
 // --- HOOK ---
 
