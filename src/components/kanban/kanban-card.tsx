@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { MoreHorizontal, CalendarIcon, Trash2, Edit, Paperclip } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '../task/priority-icon';
 import { format } from 'date-fns';
@@ -49,35 +50,35 @@ export function KanbanCard({ task }: KanbanCardProps) {
     return user?.full_name || email;
   }
 
-  const getStatusColors = () => {
+  const getStatusColorClass = () => {
     switch (task.status) {
       case 'In Progress':
-        return 'border-orange-500/50 bg-orange-500/10';
+        return 'border-l-4 border-orange-500 bg-orange-500/10';
       case 'Done':
-        return 'border-green-500/50 bg-green-500/10';
+        return 'border-l-4 border-green-500 bg-green-500/10';
       case 'Stopper':
-        return 'border-red-500/50 bg-red-500/10';
+        return 'border-l-4 border-red-500 bg-red-500/10';
       default:
-        return 'border-transparent';
+        return 'border-l-4 border-transparent';
     }
   }
 
   return (
     <>
-      <Card className={cn("group hover:shadow-md transition-shadow", getStatusColors())}>
+      <Card className={cn("group hover:shadow-lg transition-shadow duration-200 ease-in-out", getStatusColorClass())}>
         <CardHeader className="p-3">
           {task.image_url && (
             <div className="relative h-32 w-full mb-2">
               <Image src={task.image_url} alt={task.title} layout="fill" objectFit="cover" className="rounded-t-lg" />
             </div>
           )}
-          <div className="flex justify-between items-start">
-            <CardTitle className="text-base font-medium line-clamp-2">{task.title}</CardTitle>
+          <div className="flex justify-between items-start gap-2">
+            <CardTitle className="text-sm font-semibold leading-snug">{task.title}</CardTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="p-1 rounded-md hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="icon" className="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   <MoreHorizontal className="size-4" />
-                </button>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setIsFormOpen(true)}><Edit className='size-4 mr-2'/>Editar</DropdownMenuItem>
@@ -103,27 +104,31 @@ export function KanbanCard({ task }: KanbanCardProps) {
           </div>
         </CardHeader>
         <CardContent className="p-3 pt-0">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <PriorityIcon priority={task.priority} />
-            <span>{task.priority}</span>
-          </div>
           {task.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>}
-          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+          
+          <div className="flex items-center gap-4 mt-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <PriorityIcon priority={task.priority} />
+              <span>{task.priority}</span>
+            </div>
+            {task.dueDate && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <CalendarIcon className="size-3.5" />
+                <span>{format(new Date(task.dueDate), 'MMM d', { locale: es })}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-dashed">
              <div className="flex items-center gap-2">
-                {task.dueDate && (
-                  <div className="flex items-center gap-1">
-                    <CalendarIcon className="size-3.5" />
-                    <span>{format(new Date(task.dueDate), 'MMM d', { locale: es })}</span>
-                  </div>
-                )}
                 {task.subtasks && task.subtasks.length > 0 && (
-                    <div className="flex items-center gap-1" title={`${task.subtasks.filter(st => st.is_completed).length} de ${task.subtasks.length} subtareas completadas`}>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${task.subtasks.filter(st => st.is_completed).length} de ${task.subtasks.length} subtareas completadas`}>
                        <svg className='size-3.5' viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5.75 11.75L2.25 8.25L3.31 7.19L5.75 9.63L12.69 2.69L13.75 3.75L5.75 11.75Z"></path></svg>
                        <span>{`${task.subtasks.filter(st => st.is_completed).length}/${task.subtasks.length}`}</span>
                     </div>
                 )}
                 {task.image_url && (
-                    <Paperclip className="size-3.5" />
+                    <Paperclip className="size-3.5 text-muted-foreground" />
                 )}
             </div>
 
