@@ -1,4 +1,3 @@
-
 'use client';
 
 import { PageHeader } from '../layout/page-header';
@@ -34,6 +33,7 @@ export default function ProjectsPage() {
   const { tasks, allUsers } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<ProjectWithProgress | undefined>();
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedCreator, setSelectedCreator] = useState('all');
@@ -52,19 +52,30 @@ export default function ProjectsPage() {
 
 
   const filteredProjects = useMemo(() => {
-    const src = projects || [];
-    if (isAdmin && selectedCreator !== 'all') {
-       return src.filter(p => p && p.creator_email === selectedCreator);
+    let userProjects = projects || [];
+
+    if (!isAdmin && currentUserEmail) {
+      const userTasks = tasks.filter(task => task.assignees?.includes(currentUserEmail));
+      const assignedProjectIds = new Set(userTasks.map(task => task.project_id));
+      
+      userProjects = projects.filter(p => 
+        p.creator_email === currentUserEmail || assignedProjectIds.has(p.id)
+      );
     }
-    return src;
-  }, [projects, selectedCreator, isAdmin]);
+    
+    if (isAdmin && selectedCreator !== 'all') {
+       return userProjects.filter(p => p && p.creator_email === selectedCreator);
+    }
+    return userProjects;
+  }, [projects, tasks, selectedCreator, isAdmin, currentUserEmail]);
   
   const projectsToShow = (filteredProjects || []).filter(p => p && selectedProjects.includes(p.id));
 
   useEffect(() => {
-    const checkAdmin = async () => {
+    const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        setCurrentUserEmail(user.email || null);
         const currentUserProfile = allUsers.find(u => u.id === user.id);
         if (currentUserProfile?.role === 'admin') {
           setIsAdmin(true);
@@ -72,7 +83,7 @@ export default function ProjectsPage() {
       }
     };
     if (allUsers.length > 0) {
-      checkAdmin();
+      checkUser();
     }
   }, [supabase.auth, allUsers]);
 
@@ -513,4 +524,3 @@ export default function ProjectsPage() {
   );
 }
 
-    
