@@ -14,24 +14,61 @@ export function useProjects(user: User | null) {
   return useSWR(
     user ? createKey('projects', { userId: user.id }) : null,
     async () => {
+      if (!user) return [];
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', user!.id)
+        .eq('id', user.id)
         .single();
 
       const isAdmin = profile?.role === 'admin';
-      let query = supabase.from('projects').select('*');
       
-      if (!isAdmin) {
-        query = query.eq('user_id', user!.id);
+      if (isAdmin) {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data as Project[];
       }
 
-      const { data, error } = await query
-        .order('created_at', { ascending: false });
+      // Fetch projects created by the user
+      const { data: createdProjects, error: createdError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', user.id);
+      if (createdError) throw createdError;
 
-      if (error) throw error;
-      return data as Project[];
+      // Fetch tasks where the user is an assignee
+      const userEmail = user.email || '';
+      const { data: assignedTasks, error: assignedError } = await supabase
+        .from('tasks')
+        .select('project_id')
+        .contains('assignees', [userEmail]);
+      if (assignedError) throw assignedError;
+
+      const assignedProjectIds = [...new Set(assignedTasks?.map(t => t.project_id) || [])];
+
+      if (assignedProjectIds.length === 0) {
+        return createdProjects as Project[];
+      }
+
+      // Fetch projects where the user is assigned to a task
+      const { data: assignedProjects, error: assignedProjectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .in('id', assignedProjectIds);
+      if (assignedProjectsError) throw assignedProjectsError;
+
+      // Combine and deduplicate projects
+      const allProjects = [...(createdProjects || []), ...(assignedProjects || [])];
+      const uniqueProjects = Array.from(new Map(allProjects.map(p => [p.id, p])).values());
+      
+      // Sort by creation date
+      uniqueProjects.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      return uniqueProjects as Project[];
     },
     {
       revalidateOnFocus: false,

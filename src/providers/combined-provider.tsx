@@ -10,341 +10,240 @@ import { UserStoriesContext, initialUserStoriesState } from '@/hooks/use-user-st
 import { GoogleCalendarProvider } from './google-calendar-provider';
 
 import { createClient } from '@/lib/supabase/client';
-import { Project } from '@/lib/types';
-import {
-  useProjects as useProjectsSWR,
-  useTasks as useTasksSWR,
-  useDailyNotes as useDailyNotesSWR,
-  useUserStories as useUserStoriesSWR,
-  useAllUsers as useAllUsersSWR,
-} from '@/lib/use-data-hooks';
+import type { Project, Task, DailyNote, UserStory, Profile, ProjectWithProgress, Status, User } from '@/lib/types';
 
+// This provider combines all the data contexts into one to avoid nested providers
+// and centralize data fetching logic.
 export function CombinedProvider({ children }: { children: ReactNode }) {
   const supabase = createClient();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
+  // States for each data type
+  const [projectsState, setProjectsState] = useState(initialProjectsState);
+  const [tasksState, setTasksState] = useState(initialTasksState);
+  const [dailyNotesState, setDailyNotesState] = useState(initialDailyNotesState);
+  const [userStoriesState, setUserStoriesState] = useState(initialUserStoriesState);
+
+  // --- AUTHENTICATION ---
   useEffect(() => {
     let mounted = true;
-
     async function getInitialSession() {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (mounted) setSession(data.session ?? null);
-      } catch (e) {
-        if (mounted) setSession(null);
-      }
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setSession(data.session ?? null);
     }
-
     getInitialSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (mounted) {
-          setSession(session);
-        }
-      }
-    );
-
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (mounted) setSession(session);
+    });
     return () => {
       mounted = false;
       authListener?.subscription.unsubscribe();
     };
   }, [supabase]);
 
-  const user = session ? session.user : null;
-  const {
-    data: projectsData = [],
-    error: projectsError,
-    isLoading: projectsLoading,
-    mutate: mutateProjects,
-  } = useProjectsSWR(user);
+  const user = session?.user ?? null;
 
-  const { data: tasksData = [], mutate: mutateTasks, error: tasksError, isLoading: tasksLoading } = useTasksSWR(user);
-  const { data: dailyNotesData = [], mutate: mutateDailyNotes } = useDailyNotesSWR(user);
-  const { data: userStoriesData = [] } = useUserStoriesSWR(user);
-  const { data: allUsersData = [] } = useAllUsersSWR();
+  // --- DATA FETCHING ---
+  const refreshAllData = useCallback(async () => {
+    if (!user) return;
 
-  const [localLoading, setLocalLoading] = useState(false);
+    setProjectsState(s => ({ ...s, loading: true }));
+    setTasksState(s => ({ ...s, loading: true }));
+    setDailyNotesState(s => ({ ...s, loading: true }));
+    setUserStoriesState(s => ({ ...s, loading: true }));
 
+    // Fetch all data in parallel
+    const [projectsRes, tasksRes, dailyNotesRes, userStoriesRes, allUsersRes] = await Promise.all([
+      supabase.from('projects').select('*'),
+      supabase.from('tasks').select('*'),
+      supabase.from('daily_notes').select('*').eq('user_id', user.id),
+      supabase.from('user_stories').select('*').eq('user_id', user.id),
+      supabase.from('profiles').select('*'),
+    ]);
+
+    const projectsWithProgress = (projectsRes.data || []).map(p => {
+        const projTasks = (tasksRes.data || []).filter(t => t.project_id === p.id);
+        const total = projTasks.length;
+        const completed = projTasks.filter(t => t.status === 'Done').length;
+        return { ...p, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
+    });
+
+    // Update states with fetched data
+    setProjectsState({ loading: false, error: projectsRes.error, projects: projectsWithProgress });
+    setTasksState({ loading: false, error: tasksRes.error, tasks: tasksRes.data || [], allUsers: allUsersRes.data || [], draggedTask: null });
+    setDailyNotesState({ loading: false, error: dailyNotesRes.error, notes: dailyNotesRes.data || [] });
+    setUserStoriesState({ loading: false, error: userStoriesRes.error, userStories: userStoriesRes.data || [] });
+
+  }, [user, supabase]);
+
+  useEffect(() => {
+    refreshAllData();
+  }, [user, refreshAllData]);
+
+
+  // --- PROJECTS CONTEXT ---
   const addProject = useCallback(async (projectData: any) => {
-    const { data, error } = await supabase.from('projects').insert([projectData]).select().single();
+    if (!user) throw new Error("User not authenticated");
+    const { data, error } = await supabase.from('projects').insert([{ ...projectData, user_id: user.id, creator_email: user.email, creator_name: user.user_metadata.full_name || user.email }]).select().single();
     if (error) throw error;
-    if (mutateProjects) {
-      await mutateProjects((prev: any[] = []) => [data, ...prev], false);
-    }
-  }, [supabase, mutateProjects]);
+    await refreshAllData();
+    return data;
+  }, [supabase, user, refreshAllData]);
 
   const updateProject = useCallback(async (id: string, updates: any) => {
     const { data, error } = await supabase.from('projects').update(updates).eq('id', id).select().single();
     if (error) throw error;
-    if (mutateProjects) {
-      await mutateProjects((prev: any[] = []) => prev.map(p => (p.id === id ? data : p)), false);
-    }
-  }, [supabase, mutateProjects]);
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
 
   const deleteProject = useCallback(async (id: string) => {
-    const { data, error } = await supabase.from('projects').delete().eq('id', id).select().single();
+    const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) throw error;
-    if (mutateProjects) {
-      await mutateProjects((prev: any[] = []) => prev.filter(p => p.id !== id), false);
-    }
-  }, [supabase, mutateProjects]);
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
 
-  const fetchProjects = useCallback(async (user: any) => {
-    if (mutateProjects) return mutateProjects();
-  }, [mutateProjects]);
-
-  const setProjects = useCallback(async (projects: Project[]) => {
-    if (mutateProjects) return mutateProjects(projects as any, false);
-  }, [mutateProjects]);
-
-  const setProjectsLoading = useCallback((loading: boolean) => {
-    setLocalLoading(loading);
-  }, []);
-
-  const projectsWithProgress = useMemo(() => {
-    const projectsArr: any[] = (projectsData || []) as any[];
-    const tasksArr: any[] = (tasksData || []) as any[];
-    return projectsArr.map(p => {
-      const projTasks = tasksArr.filter(t => t.project_id === p.id || t.projectId === p.id);
-      const total = projTasks.length;
-      const completed = projTasks.filter(t => (t.status || '').toString() === 'Done').length;
-      const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-      return { ...p, progress };
-    });
-  }, [projectsData, tasksData]);
-
-  const projectsContextValue = {
-    projects: (projectsWithProgress as any[]),
-    loading: !!projectsLoading || localLoading,
-    error: projectsError ?? null,
+  const projectsContextValue = useMemo(() => ({
+    ...projectsState,
     addProject,
     updateProject,
     deleteProject,
-    fetchProjects,
-    setProjects,
-    setProjectsLoading,
-  } as any;
+    fetchProjects: refreshAllData,
+    setProjects: (projects: ProjectWithProgress[]) => setProjectsState(s => ({ ...s, projects })),
+    setProjectsLoading: (loading: boolean) => setProjectsState(s => ({ ...s, loading })),
+    setProjectsError: (error: Error | null) => setProjectsState(s => ({ ...s, error })),
+  }), [projectsState, addProject, updateProject, deleteProject, refreshAllData]);
 
+
+  // --- TASKS CONTEXT ---
   const addTask = useCallback(async (taskData: any) => {
-    let payload: any = { ...taskData };
-    const subtasksPayload = payload.subtasks || [];
-    delete payload.subtasks;
-
-    if (taskData.imageFile) {
-      try {
-        const file = taskData.imageFile as File;
-        const filePath = `tasks/${Date.now()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage.from('public').upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('public').getPublicUrl(filePath);
-        payload.image_url = urlData.publicUrl;
-      } catch (e) {
-        console.warn('Image upload failed', e);
-      }
-      delete payload.imageFile;
-      delete payload.onUploadProgress;
-    }
-
-    if (!payload.assignees) payload.assignees = [];
-
-    const dbPayload: any = {
-      title: payload.title,
-      description: payload.description ?? null,
-      status: payload.status,
-      priority: payload.priority,
-      project_id: payload.project_id,
-      assignees: payload.assignees,
-      image_url: payload.image_url ?? null,
-      creator_email: payload.creator_email ?? null,
-      start_date: payload.startDate ? new Date(payload.startDate).toISOString() : null,
-      due_date: payload.dueDate ? (payload.dueDate instanceof Date ? payload.dueDate.toISOString().slice(0,10) : new Date(payload.dueDate).toISOString().slice(0,10)) : null,
-    };
-
-    Object.keys(dbPayload).forEach(k => { if (dbPayload[k] === undefined) dbPayload[k] = null; });
-
-    try {
-      const { statuses, priorities } = await import('@/lib/types');
-      if (!statuses.includes(payload.status)) {
-        throw new Error(`Invalid status: ${payload.status}`);
-      }
-      if (!priorities.includes(payload.priority)) {
-        throw new Error(`Invalid priority: ${payload.priority}`);
-      }
-    } catch (e) {
-      if ((e as Error).message.startsWith('Invalid')) throw e;
-    }
-
-    if (!dbPayload.project_id) {
-      throw new Error('project_id is required');
-    }
-    const { data: projectRow, error: projectError } = await supabase.from('projects').select('id').eq('id', dbPayload.project_id).single();
-    if (projectError || !projectRow) {
-      console.error('Project not found or permission denied', { projectId: dbPayload.project_id, projectError });
-      throw new Error('Invalid project_id or insufficient permissions to access the project');
-    }
-
-    let createdTask: any = null;
-    try {
-      const { data: taskRow, error } = await supabase.from('tasks').insert([dbPayload]).select().single();
-      if (error) {
-        console.error('Failed to insert task', { dbPayload, errorMessage: error.message, errorDetails: error.details, errorHint: (error as any).hint || null, error });
-        throw error;
-      }
-      createdTask = taskRow;
-    } catch (e: any) {
-      throw e;
-    }
-
-    if (subtasksPayload && Array.isArray(subtasksPayload) && subtasksPayload.length > 0) {
-      try {
-        const rows = subtasksPayload.map((st: any) => ({ ...st, task_id: createdTask.id }));
-        const { error: stError } = await supabase.from('subtasks').insert(rows).select();
-        if (stError) {
-          console.error('Failed to insert subtasks', { rows, stError });
-          throw stError;
-        }
-      } catch (e: any) {
-        throw e;
-      }
-    }
-
-    const { data: fullTask, error: fetchError } = await supabase.from('tasks').select('*, subtasks(*)').eq('id', createdTask.id).single();
-    if (fetchError) {
-      console.warn('Could not fetch full task after create', { id: createdTask.id, fetchError });
-      if (mutateTasks) await mutateTasks((prev: any[] = []) => [createdTask, ...prev], false);
-      return createdTask;
-    }
-
-    if (mutateTasks) {
-      await mutateTasks((prev: any[] = []) => [fullTask, ...prev], false);
-    }
-    return fullTask;
-  }, [supabase, mutateTasks]);
+    if (!user) throw new Error("User not authenticated");
+    const { data, error } = await supabase.from('tasks').insert([{ ...taskData, user_id: user.id }]).select().single();
+    if (error) throw error;
+    await refreshAllData();
+    return data;
+  }, [supabase, user, refreshAllData]);
 
   const updateTask = useCallback(async (id: string, updates: any) => {
-    let payload = { ...updates };
-    if (updates.imageFile) {
-      try {
-        const file = updates.imageFile as File;
-        const filePath = `tasks/${Date.now()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage.from('public').upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('public').getPublicUrl(filePath);
-        payload.image_url = urlData.publicUrl;
-      } catch (e) {
-        console.warn('Image upload failed', e);
-      }
-      delete payload.imageFile;
-      delete payload.onUploadProgress;
-    }
-    const dbUpdates: any = { ...payload };
-    if (payload.startDate) {
-      dbUpdates.start_date = payload.startDate instanceof Date ? payload.startDate.toISOString() : new Date(payload.startDate).toISOString();
-      delete dbUpdates.startDate;
-    }
-    if (payload.dueDate) {
-      dbUpdates.due_date = payload.dueDate instanceof Date ? payload.dueDate.toISOString().slice(0,10) : new Date(payload.dueDate).toISOString().slice(0,10);
-      delete dbUpdates.dueDate;
-    }
-    if (dbUpdates.assignees === undefined) dbUpdates.assignees = payload.assignees ?? [];
-
-    if ('subtasks' in dbUpdates) delete dbUpdates.subtasks;
-    if ('imageFile' in dbUpdates) delete dbUpdates.imageFile;
-    if ('onUploadProgress' in dbUpdates) delete dbUpdates.onUploadProgress;
-    Object.keys(dbUpdates).forEach(k => { if (dbUpdates[k] === undefined) dbUpdates[k] = null; });
-
-    try {
-      const { data, error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).select('*, subtasks(*)').single();
-      if (error) {
-        console.error('Failed to update task', { id, dbUpdates, errorMessage: error.message, errorDetails: error.details, errorHint: (error as any).hint || null, error });
-        throw error;
-      }
-      if (mutateTasks) {
-        await mutateTasks((prev: any[] = []) => prev.map(t => (t.id === id ? data : t)), false);
-      }
-      return data;
-    } catch (e) {
-      throw e;
-    }
-  }, [supabase, mutateTasks]);
+    const { data, error } = await supabase.from('tasks').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
 
   const deleteTask = useCallback(async (id: string) => {
-    const { data, error } = await supabase.from('tasks').delete().eq('id', id).select().single();
+    const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
-    if (mutateTasks) {
-      await mutateTasks((prev: any[] = []) => prev.filter(t => t.id !== id), false);
-    }
-  }, [supabase, mutateTasks]);
-
-  const getTasksByStatus = useCallback((status: any, projectId?: string) => {
-    if (!tasksData) return [];
-    return (tasksData as any[]).filter(t => t.status === status && (projectId ? t.project_id === projectId : true));
-  }, [tasksData]);
-
-  const getTasksByProject = useCallback((projectId: string) => {
-    if (!tasksData) return [];
-    return (tasksData as any[]).filter(t => t.project_id === projectId);
-  }, [tasksData]);
-
-  const setDraggedTask = useCallback((id: string | null) => {
-  }, []);
-
-  const setTasks = useCallback(async (tasks: any[]) => {
-    if (mutateTasks) return mutateTasks(tasks as any, false);
-  }, [mutateTasks]);
-
-  const setTasksLoading = useCallback((loading: boolean) => {
-  }, []);
-
-  const addNote = useCallback(async (note: string, date: Date) => {
-    if (!session?.user) throw new Error('User not authenticated');
-    const { data, error } = await supabase.from('daily_notes').insert([{ note, date: date.toISOString().slice(0,10), user_id: session.user.id }]).select().single();
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
+  
+  const updateUserRole = useCallback(async (userId: string, role: 'admin' | 'user') => {
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
     if (error) throw error;
-    if (mutateDailyNotes) {
-      await mutateDailyNotes((prev: any[] = []) => [data, ...prev], false);
-    }
-  }, [supabase, mutateDailyNotes, session]);
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
 
-  const updateNote = useCallback(async (id: string, note: string) => {
-    const { data, error } = await supabase.from('daily_notes').update({ note }).eq('id', id).select().single();
+  const tasksContextValue = useMemo(() => ({
+    ...tasksState,
+    addTask,
+    updateTask,
+    deleteTask,
+    getTasksByStatus: (status: Status, projectId?: string) => {
+      let filtered = tasksState.tasks;
+      if (projectId) filtered = filtered.filter(t => t.project_id === projectId);
+      return filtered.filter(t => t.status === status);
+    },
+    getTasksByProject: (projectId: string) => tasksState.tasks.filter(t => t.project_id === projectId),
+    setDraggedTask: (id: string | null) => setTasksState(s => ({ ...s, draggedTask: id })),
+    fetchTasks: async (user: User) => { await refreshAllData(); return tasksState.tasks; },
+    setTasks: (tasks: Task[]) => setTasksState(s => ({ ...s, tasks })),
+    setTasksLoading: (loading: boolean) => setTasksState(s => ({ ...s, loading })),
+    fetchAllUsers: async () => { await refreshAllData() },
+    updateUserRole,
+    refreshAllData,
+  }), [tasksState, addTask, updateTask, deleteTask, updateUserRole, refreshAllData]);
+
+
+  // --- DAILY NOTES CONTEXT ---
+  const addNote = useCallback(async (noteData: any) => {
+    if (!user) throw new Error("User not authenticated");
+    const { data, error } = await supabase.from('daily_notes').insert([{ ...noteData, user_id: user.id }]).select().single();
     if (error) throw error;
-    if (mutateDailyNotes) {
-      await mutateDailyNotes((prev: any[] = []) => prev.map(n => n.id === id ? data : n), false);
-    }
-  }, [supabase, mutateDailyNotes]);
+    await refreshAllData();
+    return data;
+  }, [supabase, user, refreshAllData]);
+
+  const updateNote = useCallback(async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('daily_notes').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
 
   const deleteNote = useCallback(async (id: string) => {
     const { error } = await supabase.from('daily_notes').delete().eq('id', id);
     if (error) throw error;
-    if (mutateDailyNotes) {
-      await mutateDailyNotes((prev: any[] = []) => prev.filter(n => n.id !== id), false);
-    }
-  }, [supabase, mutateDailyNotes]);
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
 
-  const getNotesByDate = useCallback((date: Date) => {
-    const dateString = date.toISOString().slice(0, 10);
-    return (dailyNotesData as any[]).filter(note => note.date === dateString);
-  }, [dailyNotesData]);
-
-  const dailyNotesContextValue = {
-    ...initialDailyNotesState,
-    notes: dailyNotesData,
-    loading: !dailyNotesData,
+  const dailyNotesContextValue = useMemo(() => ({
+    ...dailyNotesState,
     addNote,
     updateNote,
     deleteNote,
-    getNotesByDate,
-    fetchDailyNotes: async () => {},
-    setDailyNotes: () => {},
-    setDailyNotesLoading: () => {},
-  };
+    getNotesByDate: (date: Date) => dailyNotesState.notes.filter((n: DailyNote) => n.date === date.toISOString().split('T')[0]),
+    fetchDailyNotes: refreshAllData,
+    setDailyNotes: (notes: DailyNote[]) => setDailyNotesState(s => ({ ...s, notes })),
+    setDailyNotesLoading: (loading: boolean) => setDailyNotesState(s => ({ ...s, loading })),
+  }), [dailyNotesState, addNote, updateNote, deleteNote, refreshAllData]);
+
+
+  // --- USER STORIES CONTEXT ---
+  const addUserStory = useCallback(async (storyData: any) => {
+    if (!user) throw new Error("User not authenticated");
+    const { data, error } = await supabase.from('user_stories').insert([{ ...storyData, user_id: user.id }]).select().single();
+    if (error) throw error;
+    await refreshAllData();
+    return data;
+  }, [supabase, user, refreshAllData]);
+
+  const updateUserStory = useCallback(async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('user_stories').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
+
+  const deleteUserStory = useCallback(async (id: string) => {
+    const { error } = await supabase.from('user_stories').delete().eq('id', id);
+    if (error) throw error;
+    await refreshAllData();
+  }, [supabase, refreshAllData]);
+
+  const userStoriesContextValue = useMemo(() => ({
+    ...userStoriesState,
+    addUserStory,
+    updateUserStory,
+    deleteUserStory,
+    fetchUserStories: refreshAllData,
+    setUserStories: (userStories: UserStory[]) => setUserStoriesState(s => ({ ...s, userStories })),
+    setUserStoriesLoading: (loading: boolean) => setUserStoriesState(s => ({ ...s, loading })),
+    setUserStoriesError: (error: Error | null) => setUserStoriesState(s => ({ ...s, error })),
+  }), [userStoriesState, addUserStory, updateUserStory, deleteUserStory, refreshAllData]);
+
+
+  // --- COMBINED CONTEXT VALUE ---
+  const combinedContextValue = useMemo(() => ({
+    projects: projectsContextValue,
+    tasks: tasksContextValue,
+    dailyNotes: dailyNotesContextValue,
+    userStories: userStoriesContextValue,
+    session,
+    supabase,
+  }), [projectsContextValue, tasksContextValue, dailyNotesContextValue, userStoriesContextValue, session]);
+
 
   return (
     <ProjectsContext.Provider value={projectsContextValue}>
-      <TasksContext.Provider value={{ ...initialTasksState, tasks: tasksData, allUsers: allUsersData, loading: !!projectsLoading || !!tasksLoading, addTask, updateTask, deleteTask, getTasksByProject, getTasksByStatus, setDraggedTask, fetchTasks: fetchProjects, setTasks, setTasksLoading } as any}>
-        <DailyNotesContext.Provider value={dailyNotesContextValue as any}>
-          <UserStoriesContext.Provider value={{ ...initialUserStoriesState, stories: userStoriesData } as any}>
+      <TasksContext.Provider value={tasksContextValue}>
+        <DailyNotesContext.Provider value={dailyNotesContextValue}>
+          <UserStoriesContext.Provider value={userStoriesContextValue as any}>
             <GoogleCalendarProvider session={session ?? null}>{children}</GoogleCalendarProvider>
           </UserStoriesContext.Provider>
         </DailyNotesContext.Provider>
