@@ -50,6 +50,7 @@
     "@serwist/precaching": "^9.2.1",
     "@serwist/routing": "^9.2.1",
     "@serwist/sw": "^9.2.1",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.5.0",
     "@supabase/supabase-js": "^2.45.0",
     "class-variance-authority": "^0.7.1",

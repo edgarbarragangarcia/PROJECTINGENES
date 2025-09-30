@@ -1,10 +1,11 @@
-
 'use client';
 
 import { 
   GoogleCalendarContext,
 } from '@/hooks/use-google-calendar';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Session } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 import { type ReactNode } from 'react';
 
 interface GoogleCalendarProviderProps {
@@ -13,6 +14,19 @@ interface GoogleCalendarProviderProps {
 }
 
 export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProviderProps) => {
+  const supabase = createClientComponentClient();
+  const router = useRouter();
+
+  const handleGoogleApiError = async (response: Response) => {
+    if (response.status === 401) {
+      await supabase.auth.signOut();
+      router.push('/login');
+      throw new Error("Tu sesión de Google ha expirado. Por favor, inicia sesión de nuevo.");
+    }
+    const errorData = await response.json();
+    console.error('Google API Error:', errorData);
+    throw new Error(errorData.error.message || 'Ocurrió un error con la API de Google.');
+  };
 
   const getCalendarList = async () => {
     const providerToken = session?.provider_token;
@@ -27,9 +41,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Google API Error:', errorData);
-      throw new Error(errorData.error.message || 'No se pudieron obtener los calendarios de Google.');
+      return handleGoogleApiError(response);
     }
     
     return response.json();
@@ -48,9 +60,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
     });
 
      if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Google API Error:', errorData);
-      throw new Error(errorData.error.message || 'No se pudieron obtener los eventos del calendario.');
+      return handleGoogleApiError(response);
     }
     
     return response.json();
