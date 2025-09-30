@@ -249,7 +249,8 @@ export function TaskFormDialog({
       const submissionData: any = {
         ...data,
         subtasks: currentSubtasks,
-        assignees: data.assignees || [],
+        // If assignees array is empty, send null to Supabase, otherwise send the array.
+        assignees: data.assignees && data.assignees.length > 0 ? data.assignees : null,
       };
       
       if (imageFile) {

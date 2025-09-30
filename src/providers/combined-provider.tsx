@@ -221,11 +221,7 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
     addUserStory,
     updateUserStory,
     deleteUserStory,
-    fetchUserStories: refreshAllData,
-    setUserStories: (userStories: UserStory[]) => setUserStoriesState(s => ({ ...s, userStories })),
-    setUserStoriesLoading: (loading: boolean) => setUserStoriesState(s => ({ ...s, loading })),
-    setUserStoriesError: (error: Error | null) => setUserStoriesState(s => ({ ...s, error })),
-  }), [userStoriesState, addUserStory, updateUserStory, deleteUserStory, refreshAllData]);
+  }), [userStoriesState, addUserStory, updateUserStory, deleteUserStory]);
 
 
   // --- COMBINED CONTEXT VALUE ---
@@ -242,7 +238,7 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
   return (
     <ProjectsContext.Provider value={projectsContextValue}>
       <TasksContext.Provider value={tasksContextValue}>
-        <DailyNotesContext.Provider value={dailyNotesContextValue}>
+        <DailyNotesContext.Provider value={dailyNotesContextValue as any}>
           <UserStoriesContext.Provider value={userStoriesContextValue as any}>
             <GoogleCalendarProvider session={session ?? null}>{children}</GoogleCalendarProvider>
           </UserStoriesContext.Provider>
