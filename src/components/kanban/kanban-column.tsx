@@ -1,11 +1,12 @@
 'use client';
 
 import type { Status, Task } from '@/lib/types';
-import { KanbanCard } from './kanban-card';
 import { useTasks } from '@/hooks/use-tasks';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { Droppable, Draggable } from '@hello-pangea/dnd';
+import { KanbanCard } from './kanban-card';
 
 interface KanbanColumnProps {
   status: Status;
@@ -13,28 +14,6 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
-  const { updateTask, draggedTask, setDraggedTask } = useTasks();
-  const [isOver, setIsOver] = useState(false);
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (draggedTask) {
-      updateTask(draggedTask, { status });
-      setDraggedTask(null);
-    }
-    setIsOver(false);
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsOver(true);
-  };
-  
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsOver(false);
-  };
-  
   const getEmptyStateClass = () => {
     switch(status) {
       case 'In Progress':
@@ -47,35 +26,44 @@ export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
   }
 
   return (
-    <div
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      className={cn(
-        'h-full flex-shrink-0 rounded-lg bg-secondary/50 flex flex-col transition-colors',
-        isOver && 'bg-primary/20'
-      )}
-    >
-      <div className="p-3 border-b sticky top-0 bg-secondary/50 rounded-t-lg z-10">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          {status}
-          <span className="text-xs text-muted-foreground bg-background rounded-full px-2 py-0.5">
-            {tasks.length}
-          </span>
-        </h3>
-      </div>
-      <ScrollArea className="flex-1" style={{height: 'calc(100vh - 300px)'}}>
-        <div className="p-2 flex flex-col gap-2">
-          {tasks.map((task) => (
-            <KanbanCard key={task.id} task={task} />
-          ))}
-           {tasks.length === 0 && (
-            <div className={cn("flex items-center justify-center h-24 text-sm border-2 border-dashed rounded-lg m-2", getEmptyStateClass())}>
-              No hay tareas en este estado.
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+    <div className="flex flex-col">
+      <h3 className="text-lg font-semibold mb-4 capitalize flex items-center gap-2">
+        {status} <span className='text-sm text-muted-foreground bg-muted/50 rounded-full px-2 py-0.5'>{tasks.length}</span>
+      </h3>
+      <Droppable droppableId={status}>
+        {(provided, snapshot) => (
+          <ScrollArea 
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={cn(
+              "h-[calc(100vh-250px)] rounded-lg p-2 transition-colors",
+              snapshot.isDraggingOver ? "bg-muted/80" : "bg-muted/40"
+            )}
+          >
+            {tasks.length > 0 ? (
+              tasks.map((task, index) => (
+                <Draggable key={task.id} draggableId={task.id} index={index}>
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      className="mb-2"
+                    >
+                      <KanbanCard task={task} />
+                    </div>
+                  )}
+                </Draggable>
+              ))
+            ) : (
+              <div className={cn("flex justify-center items-center h-full rounded-lg border-2 border-dashed", getEmptyStateClass())}>
+                <p className="text-sm">No hay tareas en este estado.</p>
+              </div>
+            )}
+            {provided.placeholder}
+          </ScrollArea>
+        )}
+      </Droppable>
     </div>
   );
 }

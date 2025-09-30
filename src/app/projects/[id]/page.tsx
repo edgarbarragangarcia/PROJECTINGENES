@@ -15,11 +15,13 @@ import { TaskFormDialog } from '@/components/task/task-form-dialog';
 import { GanttChart } from '@/components/project/gantt-chart';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { DragDropContext, DropResult } from '@hello-pangea/dnd';
+import type { Task } from '@/lib/types';
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const { projects } = useProjects();
-  const { getTasksByProject } = useTasks();
+  const { getTasksByProject, updateTask } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('board');
   const [dayWidth, setDayWidth] = useState(40);
@@ -29,6 +31,26 @@ export default function ProjectDetailPage() {
   const projectTasks = useMemo(() => {
     return getTasksByProject(params.id);
   }, [params.id, getTasksByProject]);
+
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+
+    if (!destination) {
+      return;
+    }
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const task = projectTasks.find(t => t.id === draggableId);
+    if (task) {
+      updateTask(task.id, { status: destination.droppableId as Task['status'] });
+    }
+  };
 
   if (!project) {
     return (
@@ -71,7 +93,9 @@ export default function ProjectDetailPage() {
             </TabsList>
           </div>
           <TabsContent value="board" className="flex-1 mt-0 overflow-y-auto">
+            <DragDropContext onDragEnd={handleDragEnd}>
               <KanbanBoard projectId={project.id} />
+            </DragDropContext>
           </TabsContent>
           <TabsContent value="table" className="flex-1 overflow-auto mt-0">
               <TaskTable tasks={projectTasks} />
