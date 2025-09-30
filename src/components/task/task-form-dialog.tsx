@@ -47,6 +47,7 @@ import Image from 'next/image';
 import { Progress } from '../ui/progress';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '../ui/command';
 import { Badge } from '../ui/badge';
+import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 
 const translatedPriorities = {
   'Low': 'Baja',
@@ -100,6 +101,7 @@ export function TaskFormDialog({
   const { addTask, updateTask, allUsers } = useTasks();
   const { projects } = useProjects();
   const { toast } = useToast();
+  const { createCalendarEvent, selectedCalendarId } = useGoogleCalendar();
   const [subtaskInput, setSubtaskInput] = useState('');
   const [currentSubtasks, setCurrentSubtasks] = useState<{id?: string, title: string, is_completed: boolean}[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -266,6 +268,36 @@ export function TaskFormDialog({
         });
       } else {
         const created = await addTask(submissionData);
+
+        // Create event in Google Calendar if a calendar is selected and dates are provided
+        if (selectedCalendarId && (data.startDate || data.dueDate)) {
+          try {
+            const event = {
+              summary: data.title,
+              description: data.description || '',
+              start: {
+                dateTime: data.startDate ? data.startDate.toISOString() : data.dueDate?.toISOString(),
+                timeZone: 'America/Bogota', // Or use a dynamic timezone
+              },
+              end: {
+                dateTime: data.dueDate ? data.dueDate.toISOString() : data.startDate?.toISOString(),
+                timeZone: 'America/Bogota',
+              },
+            };
+            await createCalendarEvent(selectedCalendarId, event);
+            toast({
+              title: 'Evento Creado en Google Calendar',
+              description: `"${data.title}" ha sido añadido a tu calendario.`,
+            });
+          } catch (error: any) {
+            toast({
+              variant: 'destructive',
+              title: 'Error al crear evento en Google Calendar',
+              description: error.message,
+            });
+          }
+        }
+
         toast({ 
           title: 'Tarea Creada', 
           description: `"${data.title}" ha sido añadida a tu tablero (id: ${created.id}).`

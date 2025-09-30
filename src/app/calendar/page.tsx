@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -17,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { DailySummaryDialog } from '@/components/note/daily-summary-dialog';
 import { createClient } from '@/lib/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const GoogleCalendarIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="size-4 mr-2" viewBox="0 0 24 24">
@@ -47,11 +47,13 @@ export default function CalendarPage() {
   const { tasks, allUsers } = useTasks();
   const { getNotesByDate } = useDailyNotes();
   const { toast } = useToast();
-  const { getCalendarEvents } = useGoogleCalendar();
+  const { getCalendarEvents, getCalendarList, selectCalendar, selectedCalendarId } = useGoogleCalendar();
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [googleEvents, setGoogleEvents] = useState<any[]>([]);
+  const [googleCalendars, setGoogleCalendars] = useState<any[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
   const supabase = createClient();
   
@@ -96,6 +98,29 @@ export default function CalendarPage() {
     return { daysInGrid, monthStart, monthEnd, weeks };
   }, [currentDate]);
 
+  useEffect(() => {
+    if (!monthStart || !monthEnd || !selectedCalendarId) return;
+    
+    const fetchEvents = async () => {
+      try {
+        setIsSyncing(true);
+        const events = await getCalendarEvents(selectedCalendarId, monthStart.toISOString(), monthEnd.toISOString());
+        setGoogleEvents(events.items || []);
+      } catch (error: any) {
+        console.error(error);
+        toast({
+          variant: 'destructive',
+          title: "Error al cargar eventos",
+          description: error.message,
+        });
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    fetchEvents();
+  }, [monthStart, monthEnd, selectedCalendarId, getCalendarEvents, toast]);
+
   const handleNextMonth = () => currentDate && setCurrentDate(addMonths(currentDate, 1));
   const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
   
@@ -134,51 +159,75 @@ export default function CalendarPage() {
     setEditingTask(task);
   };
   
-  const handleGoogleConnect = async () => {
-    if (!monthStart || !monthEnd) return;
+  const handleGoogleSync = async () => {
     try {
-      const events = await getCalendarEvents('primary', monthStart.toISOString(), monthEnd.toISOString());
-      setGoogleEvents(events.items || []);
+      setIsSyncing(true);
+      const calendars = await getCalendarList();
+      setGoogleCalendars(calendars.items || []);
+      if (calendars.items && calendars.items.length > 0 && !selectedCalendarId) {
+        // Select the primary calendar by default
+        const primaryCalendar = calendars.items.find((cal: any) => cal.primary) || calendars.items[0];
+        selectCalendar(primaryCalendar.id);
+      }
       toast({
         title: "Sincronización Exitosa",
-        description: "Se han cargado los eventos de tu calendario principal de Google.",
+        description: "Se ha obtenido tu lista de calendarios de Google.",
       });
     } catch (error: any) {
       console.error(error);
       toast({
         variant: 'destructive',
         title: "Error de Sincronización",
-        description: error.message || "No se pudieron obtener los eventos de Google Calendar.",
+        description: error.message,
       });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
-  useEffect(() => {
-    if (googleEvents.length > 0 && monthStart && monthEnd) {
-      handleGoogleConnect();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate]);
-
-  if (!currentDate || !monthStart) {
-    return <div className="flex-1 flex items-center justify-center">Cargando calendario...</div>
-  }
+  const handleCalendarChange = (calendarId: string) => {
+    selectCalendar(calendarId);
+    setGoogleEvents([]); // Clear old events
+  };
 
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
         <PageHeader title="Calendario">
           <div className='flex items-center gap-2'>
-              <Button variant="outline" size="sm" onClick={handleGoogleConnect}>
-                  <GoogleCalendarIcon />
-                  Sincronizar Calendarios
+            {googleCalendars.length > 0 ? (
+              <Select onValueChange={handleCalendarChange} value={selectedCalendarId || ''}>
+                <SelectTrigger className="w-[280px]">
+                  <SelectValue placeholder="Selecciona un calendario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {googleCalendars.map((cal) => (
+                    <SelectItem key={cal.id} value={cal.id}>
+                      {cal.summary}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Button onClick={handleGoogleSync} disabled={isSyncing}>
+                <GoogleCalendarIcon />
+                {isSyncing ? 'Sincronizando...' : 'Sincronizar con Google'}
               </Button>
-              <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft/></Button>
-              <h2 className='text-xl font-headline w-48 text-center capitalize'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
-              <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight/></Button>
+            )}
           </div>
         </PageHeader>
-        <div className="flex-1 overflow-auto p-4 md:px-8 lg:px-12">
+        <div className="flex flex-col flex-1 p-4 overflow-auto">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={!currentDate}>
+                <ChevronLeft className="size-4" />
+              </Button>
+              {currentDate && <h2 className='text-xl font-headline w-48 text-center capitalize'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>}
+              <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={!currentDate}>
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
           <div className="grid grid-cols-7 border-t border-l max-w-7xl mx-auto">
             {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
                 <div key={day} className="p-2 border-b border-r text-center font-semibold text-sm bg-muted/50">{day}</div>
@@ -192,10 +241,11 @@ export default function CalendarPage() {
 
                   return (
                     <div 
-                      key={day.toISOString()} 
-                      className={cn("relative border-b border-r p-1.5 h-40 flex flex-col group cursor-pointer hover:bg-muted/50",
-                        !isSameMonth(day, currentDate) && 'bg-muted/30 text-muted-foreground',
-                        isSameDay(day, new Date()) && 'bg-blue-50 dark:bg-blue-950'
+                      key={day.toString()} 
+                      className={cn(
+                        "h-32 flex flex-col border border-border/20 p-2 overflow-hidden",
+                        currentDate && !isSameMonth(day, currentDate) && 'bg-muted/30 text-muted-foreground',
+                        isSameDay(day, new Date()) && 'bg-primary/10'
                       )}
                       onClick={() => setSelectedDate(day)}
                     >

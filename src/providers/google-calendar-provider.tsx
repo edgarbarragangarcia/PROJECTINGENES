@@ -6,7 +6,7 @@ import {
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { type ReactNode } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 
 interface GoogleCalendarProviderProps {
     children: ReactNode;
@@ -16,6 +16,19 @@ interface GoogleCalendarProviderProps {
 export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProviderProps) => {
   const supabase = createClientComponentClient();
   const router = useRouter();
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedCalendarId = (globalThis as any).localStorage?.getItem('selectedGoogleCalendarId');
+    if (storedCalendarId) {
+      setSelectedCalendarId(JSON.parse(storedCalendarId));
+    }
+  }, []);
+
+  const selectCalendar = (calendarId: string) => {
+    setSelectedCalendarId(calendarId);
+    (globalThis as any).localStorage?.setItem('selectedGoogleCalendarId', JSON.stringify(calendarId));
+  };
 
   const handleGoogleApiError = async (response: Response) => {
     if (response.status === 401) {
@@ -48,6 +61,13 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
   };
 
   const getCalendarEvents = async (calendarId: string, timeMin: string, timeMax: string) => {
+    const cacheKey = `google-calendar-events-${calendarId}-${timeMin}-${timeMax}`;
+    const cachedEvents = (globalThis as any).localStorage?.getItem(cacheKey);
+
+    if (cachedEvents) {
+      return JSON.parse(cachedEvents);
+    }
+
     const providerToken = session?.provider_token;
     if (!providerToken) {
       throw new Error("No estás autenticado con Google o el token ha expirado. Por favor, inicia sesión de nuevo.");
@@ -63,8 +83,32 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
       return handleGoogleApiError(response);
     }
     
-    return response.json();
+    const events = await response.json();
+    (globalThis as any).localStorage?.setItem(cacheKey, JSON.stringify(events));
+    return events;
   }
+
+  const createCalendarEvent = async (calendarId: string, event: any) => {
+    const providerToken = session?.provider_token;
+    if (!providerToken) {
+      throw new Error("No estás autenticado con Google o el token ha expirado. Por favor, inicia sesión de nuevo.");
+    }
+
+    const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${providerToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    });
+
+    if (!response.ok) {
+      return handleGoogleApiError(response);
+    }
+
+    return response.json();
+  };
 
   const value = {
     session,
@@ -73,6 +117,9 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
     setSession: () => {},
     getCalendarList,
     getCalendarEvents,
+    selectedCalendarId,
+    selectCalendar,
+    createCalendarEvent,
   };
 
   return (
