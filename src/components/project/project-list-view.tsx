@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import type { ProjectWithProgress, Task } from '@/lib/types';
@@ -243,7 +241,7 @@ export function ProjectListView({ projects, tasks, onEdit, onDelete, selectedPro
                             <TableCell><Badge variant='outline'>{task.status}</Badge></TableCell>
                             <TableCell>{task.priority}</TableCell>
                             <TableCell>{task.dueDate ? format(new Date(task.dueDate), 'dd MMM yyyy', {locale: es}) : 'N/A'}</TableCell>
-                            <TableCell>{task.assignees?.join(', ') || 'N/A'}</TableCell>
+                            <TableCell>{Array.isArray(task.assignees) ? task.assignees.join(', ') : task.assignees || 'N/A'}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
