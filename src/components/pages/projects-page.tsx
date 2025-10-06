@@ -203,7 +203,7 @@ export default function ProjectsPage() {
                     t.title || 'N/A',
                     t.description || 'N/A',
                     subtasksText,
-                    t.assignees?.join(', ') || 'N/A',
+                    Array.isArray(t.assignees) ? t.assignees.join(', ') : 'N/A',
                     t.status || 'N/A',
                     t.priority || 'N/A',
                     t.startDate ? format(new Date(t.startDate), 'dd/MM/yy') : 'N/A',
