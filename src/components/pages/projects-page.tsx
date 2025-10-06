@@ -73,7 +73,18 @@ export default function ProjectsPage() {
     return userProjects;
   }, [projects, tasks, selectedCreator, isAdmin, currentUserEmail]);
   
+  // Proyectos para mostrar en la UI (basado en selección)
   const projectsToShow = (filteredProjects || []).filter(p => p && selectedProjects.includes(p.id));
+
+  // Proyectos disponibles para exportar (todos los filtrados)
+  const projectsToExport = useMemo(() => {
+    if (selectedProjects.length === 0) {
+      // Si no hay proyectos seleccionados, exportar todos los filtrados
+      return filteredProjects;
+    }
+    // Si hay proyectos seleccionados, exportar solo esos
+    return filteredProjects.filter(p => p && selectedProjects.includes(p.id));
+  }, [filteredProjects, selectedProjects]);
 
   useEffect(() => {
     console.log('Checking user session...');
@@ -140,7 +151,15 @@ export default function ProjectsPage() {
     
     yPos += 15;
     
-  const projectsToExport = (filteredProjects || []).filter(p => p && selectedProjects.includes(p.id));
+  // Si no hay proyectos seleccionados o filtrados, mostrar mensaje
+    if (projectsToExport.length === 0) {
+      toast({
+        title: "No hay proyectos para exportar",
+        description: "Selecciona al menos un proyecto o asegúrate de que haya proyectos disponibles.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     for (const project of projectsToExport) {
         if (yPos > 150) { 
