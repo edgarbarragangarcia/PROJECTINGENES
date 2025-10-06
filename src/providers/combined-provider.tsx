@@ -10,7 +10,7 @@ import { UserStoriesContext, initialUserStoriesState } from '@/hooks/use-user-st
 import { GoogleCalendarProvider } from './google-calendar-provider';
 
 import { createClient } from '@/lib/supabase/client';
-import type { Project, Task, DailyNote, UserStory, Profile, ProjectWithProgress, Status, User } from '@/lib/types';
+import type { Project, Task, DailyNote, UserStory, Profile, ProjectWithProgress, Status, User } from '@/types';
 
 // This provider combines all the data contexts into one to avoid nested providers
 // and centralize data fetching logic.

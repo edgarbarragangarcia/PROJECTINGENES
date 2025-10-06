@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useDailyNotes } from '@/hooks/use-daily-notes';
-import type { DailyNote } from '@/lib/types';
+import type { DailyNote } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';

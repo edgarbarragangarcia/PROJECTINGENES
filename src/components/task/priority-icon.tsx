@@ -1,4 +1,4 @@
-import type { Priority } from '@/lib/types';
+import type { Priority } from '@/types';
 import { ArrowDown, ArrowUp, Minus, type LucideProps } from 'lucide-react';
 import React from 'react';
 

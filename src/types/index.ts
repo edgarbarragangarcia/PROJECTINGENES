@@ -1,1 +1,2 @@
-export * from '../lib/types';
+// Re-export all domain types for easy access
+export * from './domain';

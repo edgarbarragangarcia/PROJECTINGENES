@@ -7,7 +7,7 @@ import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Task, Status, DailyNote } from '@/lib/types';
+import { Task, Status, DailyNote } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -17,8 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { DailySummaryDialog } from '../note/daily-summary-dialog';
 import { createClient } from '@/lib/supabase/client';
-import { adminEmails } from '@/providers/combined-provider';
-
 const GoogleCalendarIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="size-4 mr-2" viewBox="0 0 24 24">
     <path fill="#4285F4" d="M21 12.2c0-.67-.06-1.31-.17-1.94H12.2v3.67h5.02a4.34 4.34 0 0 1-1.88 2.86v2.39h3.07c1.79-1.65 2.82-4.08 2.82-6.98z"/>
@@ -62,7 +60,8 @@ export function CalendarPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
             setCurrentUserEmail(user.email || null);
-            setIsAdmin(adminEmails.includes(user.email || ''));
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+            setIsAdmin(profile?.role === 'admin');
         }
     };
     checkUser();

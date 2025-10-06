@@ -1,6 +1,6 @@
 'use client';
 
-import type { Task } from '@/lib/types';
+import type { Task } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { MoreHorizontal, CalendarIcon, Trash2, Edit, Paperclip } from 'lucide-react';

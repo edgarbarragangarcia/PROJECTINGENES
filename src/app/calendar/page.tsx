@@ -6,7 +6,7 @@ import { useTasks } from '@/hooks/use-tasks';
 import { useState, useMemo, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth, subDays, addDays, isWithinInterval, startOfDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Task, Status, DailyNote, Profile } from '@/lib/types';
+import { Task, Status, DailyNote, Profile } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';

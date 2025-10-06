@@ -1,6 +1,6 @@
 'use client';
 
-import type { Status, Task } from '@/lib/types';
+import type { Status, Task } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';

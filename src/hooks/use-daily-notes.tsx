@@ -1,6 +1,6 @@
 'use client';
 
-import type { DailyNote, User } from '@/lib/types';
+import type { DailyNote, User } from '@/types';
 import { createContext, useContext } from 'react';
 
 // --- STATE ---

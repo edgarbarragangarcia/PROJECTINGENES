@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import type { Task, Status, User, Profile } from '@/lib/types';
+import type { Task, Status, User, Profile } from '@/types';
 import React, { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from 'react';
 
 // --- STATE ---

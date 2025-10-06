@@ -1,6 +1,6 @@
 'use client';
 
-import type { ProjectWithProgress, Task } from '@/lib/types';
+import type { ProjectWithProgress, Task } from '@/types';
 import {
   Table,
   TableBody,

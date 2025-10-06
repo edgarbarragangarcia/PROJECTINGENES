@@ -1,7 +1,7 @@
  'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { statuses, type ProjectWithProgress, type Task, type Profile, type Status } from '@/lib/types';
+import { statuses, type ProjectWithProgress, type Task, type Profile, type Status } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '@/components/task/priority-icon';

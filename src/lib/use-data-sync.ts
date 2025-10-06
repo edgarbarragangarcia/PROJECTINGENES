@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
-import { Task, Project, DailyNote, UserStory } from '@/lib/types';
+import { Task, Project, DailyNote, UserStory } from '@/types';
 
 interface SyncState {
   lastSynced: number;

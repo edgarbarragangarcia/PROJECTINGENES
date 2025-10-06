@@ -1,7 +1,7 @@
 'use client';
 
 import { PageHeader } from '../layout/page-header';
-import type { Project, ProjectWithProgress, Task } from '@/lib/types';
+import type { Project, ProjectWithProgress, Task } from '@/types';
 import { Button } from '../ui/button';
 import { MoreVertical, PlusCircle, Trash2, Edit, FileDown, LayoutGrid, List } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';

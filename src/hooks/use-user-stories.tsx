@@ -1,6 +1,6 @@
 'use client';
 
-import type { UserStory, User } from '@/lib/types';
+import type { UserStory, User } from '@/types';
 import { createContext, useContext } from 'react';
 
 // --- STATE ---

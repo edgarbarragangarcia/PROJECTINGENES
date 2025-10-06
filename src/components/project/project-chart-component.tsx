@@ -4,13 +4,14 @@
 import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis, Cell } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
-import type { ProjectWithProgress, Task } from '@/lib/types';
+import type { ProjectWithProgress, Task } from '@/types';
 import { BarChartHorizontal } from 'lucide-react';
 import { useMemo } from 'react';
 
 const chartConfig = {
   tasks: {
     label: "Tareas",
+    color: "hsl(var(--foreground))",
   },
   Todo: {
     label: "Por Hacer",
@@ -32,7 +33,7 @@ const chartConfig = {
       label: "Stopper",
       color: "hsl(var(--chart-5))",
   }
-} satisfies ChartConfig;
+} as const;
 
 interface ProjectChartComponentProps {
   project: ProjectWithProgress;

@@ -3,7 +3,7 @@
 
 import { useTasks } from '@/hooks/use-tasks';
 import { KanbanColumn } from './kanban-column';
-import { statuses } from '@/lib/types';
+import { statuses } from '@/types';
 
 interface KanbanBoardProps {
   projectId?: string;

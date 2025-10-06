@@ -16,7 +16,7 @@ import { GanttChart } from '@/components/project/gantt-chart';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
-import type { Task } from '@/lib/types';
+import type { Task } from '@/types';
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();

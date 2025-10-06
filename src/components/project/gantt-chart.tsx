@@ -1,7 +1,7 @@
 
 'use client'
 
-import type { Status, Task } from '@/lib/types';
+import type { Status, Task } from '@/types';
 import { useMemo, useRef, UIEvent, useState, useEffect } from 'react';
 import { format, differenceInDays, startOfDay, addDays, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';

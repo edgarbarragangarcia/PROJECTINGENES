@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import type { Project, ProjectWithProgress, User } from '@/lib/types';
+import type { Project, ProjectWithProgress, User } from '@/types';
 import React, { createContext, useContext, type ReactNode } from 'react';
 
 // --- STATE & REDUCER ---

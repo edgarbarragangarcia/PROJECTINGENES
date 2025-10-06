@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useDailyNotes } from '@/hooks/use-daily-notes';
-import type { DailyNote } from '@/lib/types';
+import type { DailyNote } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {

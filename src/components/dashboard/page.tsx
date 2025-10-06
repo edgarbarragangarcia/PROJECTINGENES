@@ -2,7 +2,8 @@
 'use client';
 
 import { PageHeader } from '../layout/page-header';
-import type { ProjectWithProgress, Task, Profile, User } from '@/lib/types';
+import { AppLayout } from '../layout/app-layout';
+import type { ProjectWithProgress, Task, Profile, User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
@@ -21,9 +22,15 @@ import { createClient } from '@/lib/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
 
-const chartConfig = {
+type ChartStatus = {
+  label: string;
+  color: string;
+};
+
+const chartConfig: Record<string, ChartStatus> = {
   tasks: {
     label: "Tareas",
+    color: 'hsl(var(--foreground))',
   },
   Todo: {
     label: "Por Hacer",

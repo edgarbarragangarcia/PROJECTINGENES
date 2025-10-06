@@ -23,7 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useTasks } from '@/hooks/use-tasks';
-import { type Task, priorities, statuses } from '@/lib/types';
+import { type Task, priorities, statuses } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
