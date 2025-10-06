@@ -197,8 +197,8 @@ export default function CalendarPage() {
           <div className='flex items-center gap-2'>
             {googleCalendars.length > 0 ? (
               <Select onValueChange={handleCalendarChange} value={selectedCalendarId || ''}>
-                <SelectTrigger className="w-[280px]">
-                  <SelectValue placeholder="Selecciona un calendario" />
+                <SelectTrigger className="w-[200px] sm:w-[280px]">
+                  <SelectValue placeholder="Selecciona calendario" />
                 </SelectTrigger>
                 <SelectContent>
                   {googleCalendars.map((cal) => (
@@ -209,28 +209,37 @@ export default function CalendarPage() {
                 </SelectContent>
               </Select>
             ) : (
-              <Button onClick={handleGoogleSync} disabled={isSyncing || isGoogleCalendarLoading}>
+              <Button onClick={handleGoogleSync} disabled={isSyncing || isGoogleCalendarLoading} size="sm" className="sm:text-base">
                 <GoogleCalendarIcon />
-                {isGoogleCalendarLoading ? 'Cargando...' : (isSyncing ? 'Sincronizando...' : 'Sincronizar con Google')}
+                <span className="hidden sm:inline">
+                  {isGoogleCalendarLoading ? 'Cargando...' : (isSyncing ? 'Sincronizando...' : 'Sincronizar con Google')}
+                </span>
+                <span className="sm:hidden">
+                  {isGoogleCalendarLoading ? 'Cargando...' : (isSyncing ? 'Sincronizando...' : 'Sync')}
+                </span>
               </Button>
             )}
           </div>
         </PageHeader>
-        <div className="flex flex-col flex-1 p-4 overflow-auto">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={!currentDate}>
-                <ChevronLeft className="size-4" />
-              </Button>
-              {currentDate && <h2 className='text-xl font-headline w-48 text-center capitalize'>{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>}
-              <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={!currentDate}>
-                <ChevronRight className="size-4" />
-              </Button>
+                <div className="flex flex-col flex-1 p-2 sm:p-4 overflow-auto">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2 mb-4">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handlePrevMonth}>
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleNextMonth}>
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold capitalize">
+                {currentDate && format(currentDate, 'MMMM yyyy', { locale: es })}
+              </h2>
             </div>
           </div>
-          <div className="grid grid-cols-7 border-t border-l max-w-7xl mx-auto">
-            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
-                <div key={day} className="p-2 border-b border-r text-center font-semibold text-sm bg-muted/50">{day}</div>
+          <div className="grid grid-cols-7 gap-px bg-muted rounded-lg overflow-hidden border text-sm sm:text-base">
+            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
+                <div key={day} className="p-1 sm:p-2 border-b border-r text-center font-semibold text-xs sm:text-sm bg-muted/50">{day}</div>
             ))}
             {weeks.map((week, weekIndex) => week.map((day) => {
                   const dayTasks = getTasksForDay(day);
@@ -243,7 +252,7 @@ export default function CalendarPage() {
                     <div 
                       key={day.toString()} 
                       className={cn(
-                        "h-32 flex flex-col border border-border/20 p-2 overflow-hidden",
+                        "h-24 sm:h-32 flex flex-col border border-border/20 p-1 sm:p-2 overflow-hidden",
                         currentDate && !isSameMonth(day, currentDate) && 'bg-muted/30 text-muted-foreground',
                         isSameDay(day, new Date()) && 'bg-primary/10'
                       )}
