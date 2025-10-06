@@ -40,6 +40,8 @@ export default function ProjectsPage() {
   const { toast } = useToast();
   const supabase = createClient();
 
+  console.log('Component Rendered. Initial loading state:', loading);
+
   const creators = useMemo(() => {
     const creatorMap = new Map<string, string>();
     (projects || []).forEach(p => {
@@ -52,6 +54,7 @@ export default function ProjectsPage() {
 
 
   const filteredProjects = useMemo(() => {
+    console.log(`%cFiltering projects... (Input projects: ${projects.length}, Current user: ${currentUserEmail})`, 'color: blue');
     let userProjects = projects || [];
 
     if (!isAdmin && currentUserEmail) {
@@ -66,20 +69,26 @@ export default function ProjectsPage() {
     if (isAdmin && selectedCreator !== 'all') {
        return userProjects.filter(p => p && p.creator_email === selectedCreator);
     }
+    console.log(`%cFiltering finished. Output projects: ${userProjects.length}`, 'color: green');
     return userProjects;
   }, [projects, tasks, selectedCreator, isAdmin, currentUserEmail]);
   
   const projectsToShow = (filteredProjects || []).filter(p => p && selectedProjects.includes(p.id));
 
   useEffect(() => {
+    console.log('Checking user session...');
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        console.log('User found:', user.email);
         setCurrentUserEmail(user.email || null);
         const currentUserProfile = allUsers.find(u => u.id === user.id);
         if (currentUserProfile?.role === 'admin') {
           setIsAdmin(true);
         }
+      } else {
+        console.error('User NOT found. Session might be invalid.');
+        setCurrentUserEmail(null); // Explicitly set to null if no user
       }
     };
     if (allUsers.length > 0) {
@@ -306,6 +315,7 @@ export default function ProjectsPage() {
                         src={project.image_url || `https://picsum.photos/400/225?random=${project.id}`}
                         alt={project.name}
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-cover rounded-t-lg"
                         data-ai-hint="project image"
                      />
@@ -374,7 +384,12 @@ export default function ProjectsPage() {
   );
 
   const renderContent = () => {
-    if (loading && projects.length === 0) {
+    // Show loading skeleton if projects are loading OR if we are not an admin and don't know the current user's email yet.
+    const isStillLoading = loading || (!isAdmin && !currentUserEmail);
+    console.log('Render logic check. isStillLoading:', isStillLoading);
+
+    if (isStillLoading && projects.length === 0) {
+      console.log('Rendering: Loading Skeleton');
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -394,7 +409,8 @@ export default function ProjectsPage() {
       );
     }
 
-    if (!loading && projects.length === 0) {
+    if (!isStillLoading && filteredProjects.length === 0) {
+      console.log('Rendering: No Projects Message');
       return (
         <div className="flex items-center justify-center h-full">
             <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
@@ -411,6 +427,7 @@ export default function ProjectsPage() {
       );
     }
 
+    console.log('Rendering: Project List');
     const allSelected = selectedProjects.length === filteredProjects.length && filteredProjects.length > 0;
 
     return (
