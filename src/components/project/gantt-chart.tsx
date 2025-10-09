@@ -11,8 +11,19 @@ interface GanttChartProps {
 
 const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
   const ganttContainer = useRef<HTMLDivElement>(null);
-  const { tasks } = useTasks();
+  const { tasks, allUsers } = useTasks();
   const { projects } = useProjects();
+
+  const getInitials = (name: string | undefined | null, email: string | undefined | null): string => {
+    if (name) {
+      const names = name.split(' ');
+      return names.map(n => n[0]).join('').toUpperCase();
+    }
+    if (email) {
+      return email.substring(0, 2).toUpperCase();
+    }
+    return '';
+  };
 
   useEffect(() => {
     if (ganttContainer.current) {
@@ -30,6 +41,21 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
         { name: 'start_date', label: 'Start time', align: 'center' },
         { name: 'duration', label: 'Duration', align: 'center' },
       ];
+
+      // Template for task text to include assignee initials
+      gantt.templates.task_text = (start, end, task) => {
+        const taskData = tasks.find(t => t.id === task.id);
+        let initialsEl = '';
+        if (taskData?.assignees && taskData.assignees.length > 0) {
+          const firstAssigneeEmail = taskData.assignees[0];
+          const user = allUsers.find(u => u.email === firstAssigneeEmail);
+          const initials = getInitials(user?.full_name, user?.email);
+          if (initials) {
+            initialsEl = `<div class="gantt_task_initials">${initials}</div>`;
+          }
+        }
+        return `${task.text} ${initialsEl}`;
+      };
 
       // Apply dark theme
       gantt.config.layout = {
@@ -66,7 +92,8 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
             text: task.title,
             start_date: startDate.toISOString().slice(0, 10),
             duration: duration > 0 ? duration : 1,
-            progress: 0, // You can calculate this based on task status if needed
+            progress: 0,
+            assignees: task.assignees, // Pass assignees to gantt task object
           };
         });
 
@@ -94,7 +121,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
     return () => {
       gantt.clearAll();
     };
-  }, [tasks, projects, projectId]);
+  }, [tasks, projects, projectId, allUsers]);
 
   return (
     <>
@@ -117,9 +144,32 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
         .gantt_task .gantt_task_content {
           background-color: #3b82f6; /* A vibrant blue for tasks */
           color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 10px;
+        }
+        .gantt_task_initials {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background-color: rgba(255, 255, 255, 0.3);
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: bold;
+          flex-shrink: 0;
+          margin-left: 8px;
         }
         .gantt_task_line.gantt_project {
-            background-color: #60a5fa; /* A lighter vibrant blue for projects */
+            background-color: #a3e635; /* Pastel green for projects */
+        }
+        /* Add rounded corners to both tasks and projects */
+        .gantt_task_line, .gantt_task_content {
+            border-radius: 5px;
+            overflow: hidden; /* Ensures content respects the rounded corners */
         }
         .gantt_grid_row, .gantt_timeline_cell {
             background-color: #f0f9ff; /* Solid pastel blue background */
