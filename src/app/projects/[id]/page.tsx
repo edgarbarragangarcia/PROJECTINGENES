@@ -12,7 +12,7 @@ import { TaskTable } from '@/components/task/task-table';
 import { Kanban, ListTodo, PlusCircle, BarChartHorizontal, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TaskFormDialog } from '@/components/task/task-form-dialog';
-import { GanttChart } from '@/components/project/gantt-chart';
+import GanttChart from '@/components/project/gantt-chart';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
@@ -100,8 +100,20 @@ export default function ProjectDetailPage() {
           <TabsContent value="table" className="flex-1 overflow-auto mt-0">
               <TaskTable tasks={projectTasks} />
           </TabsContent>
-          <TabsContent value="gantt" className="flex-1 overflow-auto mt-0">
-              <GanttChart tasks={projectTasks} dayWidth={dayWidth} />
+          <TabsContent value="gantt">
+              <div className="my-4">
+                <Label htmlFor="day-width">Ancho de Día: {dayWidth}px</Label>
+                <Slider
+                  id="day-width"
+                  min={20}
+                  max={200}
+                  step={10}
+                  value={[dayWidth]}
+                  onValueChange={(value) => setDayWidth(value[0])}
+                  className="w-64"
+                />
+              </div>
+              <GanttChart projectId={project.id} />
           </TabsContent>
         </Tabs>
       </div>
