@@ -33,7 +33,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
       gantt.config.date_scale = '%d %M';
       gantt.config.subscales = [{ unit: 'month', step: 1, date: '%F %Y' }];
       gantt.config.scale_height = 50;
-      gantt.config.readonly = true; // Make it non-editable for now
+      gantt.config.task_height = 32; // Increase task bar height
 
       // Columns configuration
       gantt.config.columns = [
@@ -125,68 +125,73 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
 
   return (
     <>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
       <style>{`
-        /* Pastel Blue Theme */
+        /* Modern Theme Overrides */
         .gantt_container {
-          background-color: #f0f9ff; /* Pastel Blue Background */
-          color: #0f172a; /* Dark Slate Text for contrast */
+          font-family: 'Inter', sans-serif;
+        }
+        .gantt_task .gantt_task_content {
+          /* Using a gradient for a more modern feel */
+          background-image: linear-gradient(45deg, #3b82f6, #60a5fa);
+          color: #ffffff;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          transition: all 0.2s ease-in-out;
+        }
+        .gantt_task_line:hover .gantt_task_content {
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          transform: translateY(-2px);
+        }
+        .gantt_task_line.gantt_project {
+            background-image: linear-gradient(45deg, #a3e635, #bef264);
+        }
+        .gantt_task_line, .gantt_task_content {
+            border-radius: 8px; /* Slightly more rounded */
+            border: none; /* Remove border for a cleaner look */
+        }
+        .gantt_task_progress {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .gantt_grid_header {
+          background-color: #f0f9ff; /* Lighter header */
+          border-bottom: 2px solid #dbeafe;
+        }
+        .gantt_scale_cell {
+            color: #334155;
+            background-color: #f0f9ff;
+        }
+        .gantt_task_initials {
+          background-color: rgba(0, 0, 0, 0.1);
+          font-weight: 500;
+        }
+        /* Combine with previous styles */
+        .gantt_container {
+          background-color: #f0f9ff;
+          color: #0f172a;
         }
         .gantt_grid, .gantt_timeline {
           background-color: #f0f9ff;
         }
         .gantt_grid_header, .gantt_task, .gantt_grid_row, .gantt_timeline_cell, .gantt_marker {
-          border-color: #e2e8f0; /* Light Gray Border */
+          border-color: #e2e8f0;
         }
         .gantt_grid_header {
-          background-color: #dbeafe; /* Slightly darker pastel blue for header */
-          color: #1e293b; /* Dark Slate Text */
-        }
-        .gantt_task .gantt_task_content {
-          background-color: #3b82f6; /* A vibrant blue for tasks */
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 10px;
-        }
-        .gantt_task_initials {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background-color: rgba(255, 255, 255, 0.3);
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          font-weight: bold;
-          flex-shrink: 0;
-          margin-left: 8px;
-        }
-        .gantt_task_line.gantt_project {
-            background-color: #a3e635; /* Pastel green for projects */
-        }
-        /* Add rounded corners to both tasks and projects */
-        .gantt_task_line, .gantt_task_content {
-            border-radius: 5px;
-            overflow: hidden; /* Ensures content respects the rounded corners */
+          color: #1e293b;
         }
         .gantt_grid_row, .gantt_timeline_cell {
-            background-color: #f0f9ff; /* Solid pastel blue background */
+            background-color: #f0f9ff;
         }
         .gantt_grid_data .gantt_cell {
-            color: #0f172a; /* Dark Slate Text */
+            color: #0f172a;
         }
         .gantt_task_row, .gantt_grid_data {
-            border-bottom: 1px solid #e2e8f0; /* Light Gray Border */
+            border-bottom: 1px solid #e2e8f0;
         }
         .gantt_timeline {
-            border-top: 1px solid #e2e8f0; /* Light Gray Border */
+            border-top: 1px solid #e2e8f0;
         }
         .gantt_scale_cell {
-            color: #334155; /* Medium Slate Text */
-            background-color: #dbeafe; /* Match header */
-            border-right: 1px solid #e2e8f0; /* Light Gray Border */
+            border-right: 1px solid #e2e8f0;
         }
       `}</style>
       <div ref={ganttContainer} style={{ width: '100%', height: '500px' }}></div>
