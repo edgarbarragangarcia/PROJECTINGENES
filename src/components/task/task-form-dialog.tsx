@@ -138,8 +138,8 @@ export function TaskFormDialog({
         description: taskToEdit.description || '',
         status: taskToEdit.status,
         priority: taskToEdit.priority,
-        startDate: taskToEdit.startDate ? new Date(taskToEdit.startDate) : undefined,
-        dueDate: taskToEdit.dueDate ? new Date(taskToEdit.dueDate) : undefined,
+        startDate: taskToEdit.start_date ? new Date(taskToEdit.start_date) : undefined,
+        dueDate: taskToEdit.due_date ? new Date(taskToEdit.due_date) : undefined,
         project_id: taskToEdit.project_id,
         assignees: taskToEdit.assignees || [],
         subtasks: taskToEdit.subtasks || [],
@@ -248,22 +248,18 @@ export function TaskFormDialog({
         return;
       }
       
-      // Clean up subtasks to only include necessary fields for the DB
-      const cleanSubtasks = currentSubtasks.map(({ title, is_completed }) => ({
-        title,
-        is_completed,
-      }));
-
+      // Build a clean submission object with correct snake_case properties
       const submissionData: any = {
-        ...data,
-        due_date: data.dueDate, // Manual mapping
-        start_date: data.startDate, // Manual mapping
-        subtasks: cleanSubtasks,
+        title: data.title,
+        description: data.description,
+        status: data.status,
+        priority: data.priority,
+        project_id: data.project_id,
         assignees: data.assignees && data.assignees.length > 0 ? data.assignees : null,
+        subtasks: data.subtasks,
+        start_date: data.startDate, // Map from form's camelCase to DB's snake_case
+        due_date: data.dueDate,     // Map from form's camelCase to DB's snake_case
       };
-      // Remove the old camelCase properties
-      delete submissionData.dueDate;
-      delete submissionData.startDate;
       
       if (imageFile) {
         submissionData.imageFile = imageFile;

@@ -1,217 +1,147 @@
-
-'use client'
-
-import type { Status, Task } from '@/types';
-import { useMemo, useRef, UIEvent, useState, useEffect } from 'react';
-import { format, differenceInDays, startOfDay, addDays, eachDayOfInterval } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+'use client';
+import React, { useEffect, useRef } from 'react';
+import { gantt } from 'dhtmlx-gantt';
+import 'dhtmlx-gantt/codebase/dhtmlxgantt.css';
+import { useTasks } from '@/hooks/use-tasks';
+import { useProjects } from '@/hooks/use-projects';
 
 interface GanttChartProps {
-  tasks: Task[];
-  dayWidth?: number;
+  projectId: string;
 }
 
-const statusColors: { [key in Status]: { bg: string, border: string } } = {
-  'Backlog': { bg: 'bg-amber-400/70', border: 'border-amber-600' },
-  'Todo': { bg: 'bg-sky-400/70', border: 'border-sky-600' },
-  'In Progress': { bg: 'bg-orange-400/70', border: 'border-orange-600' },
-  'Done': { bg: 'bg-green-400/70', border: 'border-green-600' },
-  'Stopper': { bg: 'bg-red-400/70', border: 'border-red-600' },
-};
+const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
+  const ganttContainer = useRef<HTMLDivElement>(null);
+  const { tasks } = useTasks();
+  const { projects } = useProjects();
 
-const ROW_HEIGHT = 40; // px
-
-export function GanttChart({ tasks, dayWidth = 40 }: GanttChartProps) {
-  const leftPanelRef = useRef<HTMLDivElement>(null);
-  const timelineContainerRef = useRef<HTMLDivElement>(null);
-  const [localDayWidth, setLocalDayWidth] = useState(dayWidth);
-  
-  const handleVerticalScroll = (e: UIEvent<HTMLDivElement>) => {
-    if (leftPanelRef.current) {
-      // e.currentTarget is the scrollable timeline container
-      (leftPanelRef.current as any).scrollTop = (e.currentTarget as any).scrollTop;
-    }
-  };
-
-  const { chartData, totalDays, timelineDays, months } = useMemo(() => {
-    const tasksWithDates = tasks
-      .filter(t => t.dueDate)
-      .map(t => ({
-        ...t,
-        startDate: t.startDate || new Date(t.created_at),
-        dueDate: new Date(t.dueDate!), // Make sure dueDate is a Date object
-      }))
-      .sort((a,b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
-
-    if (tasksWithDates.length === 0) {
-      return { chartData: [], totalDays: 0, timelineDays: [], months: [] };
-    }
-
-    const allDates = tasksWithDates.flatMap(t => [startOfDay(new Date(t.startDate!)).getTime(), startOfDay(new Date(t.dueDate!)).getTime()]);
-
-    const minDate = startOfDay(new Date(Math.min(...allDates)));
-    const maxDate = startOfDay(new Date(Math.max(...allDates)));
-
-    const projectStartDate = addDays(minDate, -2);
-    const projectEndDate = addDays(maxDate, 5);
-
-    const totalDays = differenceInDays(projectEndDate, projectStartDate) + 1;
-    const timelineDays = eachDayOfInterval({ start: projectStartDate, end: projectEndDate });
-
-    const data = tasksWithDates.map(task => {
-      const taskStart = startOfDay(new Date(task.startDate!));
-      const taskEnd = startOfDay(new Date(task.dueDate!));
-      
-      // Handle cases where start date might be after due date
-      const validTaskStart = taskStart.getTime() > taskEnd.getTime() ? taskEnd : taskStart;
-      const validTaskEnd = taskStart.getTime() > taskEnd.getTime() ? taskStart : taskEnd;
-
-      const startDayIndex = differenceInDays(validTaskStart, projectStartDate);
-      const duration = differenceInDays(validTaskEnd, validTaskStart) + 1;
-
-      return {
-        ...task,
-        gantt: {
-          start: startDayIndex,
-          duration,
-        }
-      };
-    });
-
-    const months = timelineDays.reduce((acc, day) => {
-        const monthKey = format(day, 'MMMM yyyy', { locale: es });
-        if (!acc[monthKey]) {
-            acc[monthKey] = 0;
-        }
-        acc[monthKey]++;
-        return acc;
-    }, {} as Record<string, number>);
-
-    return { chartData: data, totalDays, timelineDays, months };
-  }, [tasks]);
-
-  // Responsive day width: reduce width on narrow viewports for better mobile UX
   useEffect(() => {
-    const update = () => {
-      try {
-        const w = typeof globalThis !== 'undefined' && (globalThis as any).innerWidth ? (globalThis as any).innerWidth : 1024;
-        if (w < 480) {
-          setLocalDayWidth(Math.max(18, Math.floor(dayWidth * 0.45)));
-        } else if (w < 768) {
-          setLocalDayWidth(Math.max(22, Math.floor(dayWidth * 0.65)));
-        } else {
-          setLocalDayWidth(dayWidth);
-        }
-      } catch (e) {
-        setLocalDayWidth(dayWidth);
-      }
-    };
-    update();
-    if (typeof globalThis !== 'undefined' && (globalThis as any).addEventListener) {
-      (globalThis as any).addEventListener('resize', update);
-      return () => (globalThis as any).removeEventListener('resize', update);
-    }
-    return;
-  }, [dayWidth]);
+    if (ganttContainer.current) {
+      // Basic configuration
+      gantt.config.date_format = '%Y-%m-%d %H:%i';
+      gantt.config.scale_unit = 'day';
+      gantt.config.date_scale = '%d %M';
+      gantt.config.subscales = [{ unit: 'month', step: 1, date: '%F %Y' }];
+      gantt.config.scale_height = 50;
+      gantt.config.readonly = true; // Make it non-editable for now
 
-  if (!tasks.length || chartData.length === 0) {
-    return <div className="flex items-center justify-center h-full text-muted-foreground p-4">No hay tareas con fechas de inicio y fin para mostrar.</div>;
-  }
+      // Columns configuration
+      gantt.config.columns = [
+        { name: 'text', label: 'Task name', tree: true, width: '*' },
+        { name: 'start_date', label: 'Start time', align: 'center' },
+        { name: 'duration', label: 'Duration', align: 'center' },
+      ];
+
+      // Apply dark theme
+      gantt.config.layout = {
+        css: 'gantt_container',
+        rows: [
+          {
+            cols: [
+              { view: 'grid', scrollX: 'gridScroll', scrollable: true, scrollY: 'scrollVer' },
+              { resizer: true, width: 1 },
+              { view: 'timeline', scrollX: 'scrollHor', scrollable: true, scrollY: 'scrollVer' },
+              { view: 'scrollbar', id: 'scrollVer' },
+            ],
+          },
+          { view: 'scrollbar', id: 'scrollHor' },
+        ],
+      };
+      gantt.templates.grid_header_class = () => 'gantt_grid_header';
+      gantt.templates.task_class = () => 'gantt_task';
+      gantt.templates.grid_row_class = () => 'gantt_grid_row';
+      gantt.templates.timeline_cell_class = () => 'gantt_timeline_cell';
+      gantt.templates.marker_class = () => 'gantt_marker';
+
+      gantt.init(ganttContainer.current);
+
+      const project = projects.find(p => p.id === projectId);
+      const projectTasks = tasks
+        .filter(task => task.project_id === projectId && task.start_date && task.due_date)
+        .map(task => {
+          const startDate = new Date(task.start_date!);
+          const endDate = new Date(task.due_date!);
+          const duration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+          return {
+            id: task.id,
+            text: task.title,
+            start_date: startDate.toISOString().slice(0, 10),
+            duration: duration > 0 ? duration : 1,
+            progress: 0, // You can calculate this based on task status if needed
+          };
+        });
+
+      const ganttData = {
+        data: [
+          // Add the project itself as a root task
+          ...(project ? [{
+            id: project.id,
+            text: project.name,
+            start_date: projectTasks.length > 0 ? projectTasks[0].start_date : new Date().toISOString().slice(0, 10),
+            duration: 1,
+            progress: 0,
+            open: true,
+            type: gantt.config.types.project,
+          }] : []),
+          // Add tasks as children
+          ...projectTasks.map(t => ({ ...t, parent: projectId })),
+        ],
+        links: [],
+      };
+
+      gantt.parse(ganttData);
+    }
+
+    return () => {
+      gantt.clearAll();
+    };
+  }, [tasks, projects, projectId]);
 
   return (
-    <div className="flex h-full w-full border-t flex-col md:flex-row">
-      {/* Left Panel: Task Details (responsive) */}
-      <div className="w-56 md:w-[450px] border-r flex-shrink-0 bg-card flex flex-col">
-        <div className="h-[60px] flex-shrink-0 flex items-center p-2 border-b font-semibold bg-muted/50 sticky top-0 z-20">
-          <div className="w-full md:w-[200px] px-2 truncate">Nombre de la tarea</div>
-          <div className="hidden md:block w-[100px] px-2">Responsable</div>
-          <div className="hidden md:block w-[75px] px-2">Inicio</div>
-          <div className="hidden md:block w-[75px] px-2">Fin</div>
-        </div>
-        <div 
-          ref={leftPanelRef} 
-          className="flex-1 overflow-y-auto"
-        >
-          {chartData.map((task) => (
-            <div key={task.id} className="flex items-center border-b" style={{ height: `${ROW_HEIGHT}px` }}>
-              <div className="w-full md:w-[200px] px-2 text-sm truncate" title={task.title}>{task.title}</div>
-              <div className="hidden md:block w-[100px] px-2 text-sm text-muted-foreground truncate" title={task.assignees?.join(', ')}>{task.assignees?.join(', ') || 'N/A'}</div>
-              <div className="hidden md:block w-[75px] px-2 text-sm text-muted-foreground">{task.startDate ? format(new Date(task.startDate!), 'dd/MM') : 'N/A'}</div>
-              <div className="hidden md:block w-[75px] px-2 text-sm text-muted-foreground">{task.dueDate ? format(new Date(task.dueDate!), 'dd/MM') : 'N/A'}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right Panel: Timeline */}
-      <ScrollArea 
-        className="flex-1 overflow-auto scrolling-touch" 
-        onScroll={handleVerticalScroll}
-        ref={timelineContainerRef}
-      >
-        <div className="h-full relative" style={{ width: totalDays * localDayWidth }}>
-          {/* Timeline Header */}
-          <div className="sticky top-0 z-10 bg-card">
-            <div className="flex h-[30px] border-b">
-              {Object.entries(months).map(([month, dayCount]) => (
-                <div key={month} className="flex items-center justify-center border-r" style={{ width: dayCount * localDayWidth }}>
-                  <span className="text-sm font-medium capitalize">{month}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex h-[30px] border-b">
-              {timelineDays.map((day, index) => (
-                <div key={index} className="flex items-center justify-center border-r flex-shrink-0" style={{ width: localDayWidth }}>
-                  <span className="text-xs text-muted-foreground">{format(day, 'd')}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          <div className="relative" style={{ height: chartData.length * ROW_HEIGHT }}>
-            {/* Grid Background */}
-            <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${totalDays}, ${localDayWidth}px)` }}>
-              {timelineDays.map((_, index) => (
-                <div key={`grid-v-${index}`} className="border-r h-full"></div>
-              ))}
-            </div>
-            <div className="absolute inset-0 grid" style={{ gridTemplateRows: `repeat(${chartData.length}, ${ROW_HEIGHT}px)` }}>
-              {chartData.map((task) => (
-                <div key={`grid-h-${task.id}`} className="border-b w-full"></div>
-              ))}
-            </div>
-
-            {/* Task Bars */}
-            <div className="absolute inset-0">
-                {chartData.map((task, index) => (
-                    <div 
-                        key={task.id} 
-                        className="absolute h-[30px] rounded flex items-center px-2 border"
-                        title={`${task.title} | ${task.startDate ? format(new Date(task.startDate), 'dd/MM/yy') : ''} - ${task.dueDate ? format(new Date(task.dueDate), 'dd/MM/yy') : ''}`}
-                        style={{
-                            top: `${index * ROW_HEIGHT + 5}px`,
-                            left: `${task.gantt.start * localDayWidth + 2}px`,
-                            width: `${task.gantt.duration * localDayWidth - 4}px`,
-                        }}
-                    >
-                       <div className={cn(
-                            "absolute inset-0 rounded opacity-70",
-                            statusColors[task.status].bg
-                        )}></div>
-                        <div className={cn(
-                            "absolute inset-0 rounded border-2",
-                            statusColors[task.status].border
-                        )}></div>
-                        <span className="relative text-xs font-medium text-black/90 truncate z-10">{task.title}</span>
-                    </div>
-                ))}
-            </div>
-          </div>
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
-    </div>
+    <>
+      <style>{`
+        /* Pastel Blue Theme */
+        .gantt_container {
+          background-color: #f0f9ff; /* Pastel Blue Background */
+          color: #0f172a; /* Dark Slate Text for contrast */
+        }
+        .gantt_grid, .gantt_timeline {
+          background-color: #f0f9ff;
+        }
+        .gantt_grid_header, .gantt_task, .gantt_grid_row, .gantt_timeline_cell, .gantt_marker {
+          border-color: #e2e8f0; /* Light Gray Border */
+        }
+        .gantt_grid_header {
+          background-color: #dbeafe; /* Slightly darker pastel blue for header */
+          color: #1e293b; /* Dark Slate Text */
+        }
+        .gantt_task .gantt_task_content {
+          background-color: #3b82f6; /* A vibrant blue for tasks */
+          color: #ffffff;
+        }
+        .gantt_task_line.gantt_project {
+            background-color: #60a5fa; /* A lighter vibrant blue for projects */
+        }
+        .gantt_grid_row, .gantt_timeline_cell {
+            background-color: #f0f9ff; /* Solid pastel blue background */
+        }
+        .gantt_grid_data .gantt_cell {
+            color: #0f172a; /* Dark Slate Text */
+        }
+        .gantt_task_row, .gantt_grid_data {
+            border-bottom: 1px solid #e2e8f0; /* Light Gray Border */
+        }
+        .gantt_timeline {
+            border-top: 1px solid #e2e8f0; /* Light Gray Border */
+        }
+        .gantt_scale_cell {
+            color: #334155; /* Medium Slate Text */
+            background-color: #dbeafe; /* Match header */
+            border-right: 1px solid #e2e8f0; /* Light Gray Border */
+        }
+      `}</style>
+      <div ref={ganttContainer} style={{ width: '100%', height: '500px' }}></div>
+    </>
   );
-}
+};
+
+export default GanttChart;
