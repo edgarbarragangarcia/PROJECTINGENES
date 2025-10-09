@@ -33,6 +33,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
       gantt.config.date_scale = '%d %M';
       gantt.config.subscales = [{ unit: 'month', step: 1, date: '%F %Y' }];
       gantt.config.scale_height = 50;
+      gantt.config.row_height = 44; // Set row height to accommodate taller tasks
       gantt.config.task_height = 32; // Increase task bar height
 
       // Columns configuration
@@ -57,6 +58,14 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
         return `${task.text} ${initialsEl}`;
       };
 
+      // Assign different CSS classes to tasks and projects
+      gantt.templates.task_class = (start, end, task) => {
+        if (task.type === gantt.config.types.project) {
+          return 'gantt_project_task';
+        }
+        return 'gantt_default_task';
+      };
+
       // Apply dark theme
       gantt.config.layout = {
         css: 'gantt_container',
@@ -73,7 +82,6 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
         ],
       };
       gantt.templates.grid_header_class = () => 'gantt_grid_header';
-      gantt.templates.task_class = () => 'gantt_task';
       gantt.templates.grid_row_class = () => 'gantt_grid_row';
       gantt.templates.timeline_cell_class = () => 'gantt_timeline_cell';
       gantt.templates.marker_class = () => 'gantt_marker';
@@ -131,19 +139,23 @@ const GanttChart: React.FC<GanttChartProps> = ({ projectId }) => {
         .gantt_container {
           font-family: 'Inter', sans-serif;
         }
-        .gantt_task .gantt_task_content {
-          /* Using a gradient for a more modern feel */
-          background-image: linear-gradient(45deg, #3b82f6, #60a5fa);
+        /* Default Task Style (Violet) */
+        .gantt_default_task .gantt_task_content {
+          background-image: linear-gradient(45deg, #8b5cf6, #a78bfa);
           color: #ffffff;
+        }
+        /* Project Task Style (Green) */
+        .gantt_project_task .gantt_task_content {
+          background-image: linear-gradient(45deg, #a3e635, #bef264);
+          color: #3f6212; /* Darker text for better contrast on green */
+        }
+        .gantt_task_line .gantt_task_content {
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
           transition: all 0.2s ease-in-out;
         }
         .gantt_task_line:hover .gantt_task_content {
           box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
           transform: translateY(-2px);
-        }
-        .gantt_task_line.gantt_project {
-            background-image: linear-gradient(45deg, #a3e635, #bef264);
         }
         .gantt_task_line, .gantt_task_content {
             border-radius: 8px; /* Slightly more rounded */
