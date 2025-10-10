@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { statuses, type ProjectWithProgress, type Task, type Profile, type Status } from '@/types';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '@/components/task/priority-icon';
 import { cn } from '@/lib/utils';
 import { TaskFormDialog } from '@/components/task/task-form-dialog';
-import { CheckCircle, SlidersHorizontal } from 'lucide-react';
+import { CheckCircle, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
 import { useTasks } from '@/hooks/use-tasks';
 import { useToast } from '@/hooks/use-toast';
@@ -116,7 +116,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         const fetchMobileData = async () => {
             setLoadingMobileData(true);
             setMobileFetchError(null);
-                try {
+            try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
                     if (mounted) {
@@ -129,10 +129,10 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
 
                 // Admin: fetch everything
                 if (currentUserProfile?.role === 'admin') {
-                    const { data: allTasks } = await supabase.from('tasks').select('*, subtasks(*)').order('created_at', { ascending: false });
+                    const { data: allTasks } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
                     const { data: allProjects } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
                     if (!mounted) return;
-                    setMobileTasks((allTasks || []) as Task[]);
+                    setMobileTasks((allTasks || []).map(normalizeTask));
                     setMobileProjects((allProjects || []) as ProjectWithProgress[]);
                     setFetchedMobileData(true);
                     return;
@@ -142,7 +142,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                 const userEmail = user.email || '';
                 const { data: tasksData, error: tasksError } = await supabase
                     .from('tasks')
-                    .select('*, subtasks(*)')
+                    .select('*') // Simplified select to avoid relationship ambiguity
                     .or(`user_id.eq.${user.id},assignees.cs.["${userEmail}"]`)
                     .order('created_at', { ascending: false });
 
@@ -159,21 +159,8 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                 // Fetch projects owned by user
                 const { data: ownedProjects } = await supabase.from('projects').select('*').eq('user_id', user.id);
 
-                // Try RPC to get projects user has access to (handles RLS)
-                let rpcProjects: any[] = [];
-                try {
-                    const { data: rpcData, error: rpcError } = await supabase.rpc('get_projects_for_user', {
-                        p_user_id: user.id,
-                        p_user_email: user.email || ''
-                    });
-                    if (rpcError) {
-                        console.debug('RPC get_projects_for_user error:', rpcError);
-                    } else if (rpcData) {
-                        rpcProjects = rpcData as any[];
-                    }
-                } catch (e) {
-                    console.debug('RPC call failed', e);
-                }
+                // Temporarily disable failing RPC call
+                const rpcProjects: any[] = [];
 
                 // Fetch projects related to tasks (by projectIds)
                 let relatedProjects: any[] = [];
@@ -182,14 +169,14 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                     relatedProjects = projData || [];
                 }
 
-                const combinedProjects = [...(ownedProjects || []), ...(rpcProjects || []), ...relatedProjects];
+                const combinedProjects = [...(ownedProjects || []), ...rpcProjects, ...relatedProjects];
                 // unique by id
                 const uniqueProjectsMap: Record<string, any> = {};
                 combinedProjects.forEach(p => { if (p && p.id) uniqueProjectsMap[p.id] = p; });
                 const uniqueProjects = Object.values(uniqueProjectsMap) as ProjectWithProgress[];
 
                 if (!mounted) return;
-                setMobileTasks(tasksList.map(t => normalizeTask(t)));
+                setMobileTasks(tasksList.map(normalizeTask));
                 setMobileProjects(uniqueProjects);
                 setFetchedMobileData(true);
             } catch (e: any) {
@@ -205,30 +192,17 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
 
         // Subscribe to auth changes so mobile view refetches automatically after sign-in/sign-out
         const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-            try {
-                if (event === 'SIGNED_IN') {
-                    // Re-fetch data for the newly signed-in user
-                    fetchMobileData();
-                }
-                if (event === 'SIGNED_OUT') {
-                    // Clear mobile data on sign-out
-                    if (mounted) {
-                        setMobileTasks([]);
-                        setMobileProjects([]);
-                        setFetchedMobileData(true);
-                    }
-                }
-            } catch (e) {
-                console.error('Error handling auth state change in MyTasksMobile', e);
+            if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+                fetchMobileData();
             }
         });
 
         return () => {
             mounted = false;
-            try { authListener?.subscription?.unsubscribe(); } catch (e) {}
+            authListener?.subscription?.unsubscribe();
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUserProfile]);
+
     const [selectedUserId, setSelectedUserId] = useState<string>('all');
     const [filterType, setFilterType] = useState<'assignee' | 'creator'>('assignee');
     const [groupBy, setGroupBy] = useState<'project' | 'status'>('project');
@@ -298,206 +272,163 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         return grouped;
     }, [filteredTasks]);
 
-    const projectIdsWithTasks = Object.keys(tasksByProject);
-    const statusKeys = useMemo(() => statuses.filter(s => tasksByStatus[s]?.length > 0), [tasksByStatus]);
-
-    const showDebugPanel = false;
-
-    const handleTaskCheck = async (task: Task, isChecked: boolean) => {
-        const newStatus = isChecked ? 'Done' : 'Todo';
+    const handleStatusChange = async (task: Task, newStatus: Status) => {
         try {
             await updateTask(task.id, { status: newStatus });
-            toast({
-                title: `Tarea ${isChecked ? 'Completada' : 'Pendiente'}`,
-                description: `"${task.title}" ha sido actualizada.`
-            })
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Error al actualizar',
-                description: error.message,
-            });
+            setMobileTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+            toast({ title: 'Estado actualizado', description: `La tarea "${task.title}" ahora está ${newStatus}.` });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar la tarea.' });
         }
     };
 
-    const renderTaskItem = (task: Task) => {
-        const project = displayProjects.find(p => p.id === (task.project_id || (task as any).projectId));
-        const creator = allUsers.find(u => u.id === task.user_id);
+    if (loadingMobileData) {
         return (
-            <div
-                key={task.id}
-                className="p-3 rounded-lg border bg-card"
-            >
-                <div className="flex items-start gap-3">
-                    <Checkbox
-                        id={`task-check-${task.id}`}
-                        className='mt-1'
-                        checked={task.status === 'Done'}
-                        onCheckedChange={(checked) => handleTaskCheck(task, !!checked)}
-                    />
-                    <div className='flex-1'>
-                        <label 
-                            htmlFor={`task-check-${task.id}`} 
-                            className={cn("font-medium cursor-pointer", task.status === 'Done' && 'line-through text-muted-foreground')}
-                            onClick={(e) => { e.preventDefault(); setEditingTask(task); }}
-                        >
-                            {task.title}
-                        </label>
-                        <div className="text-xs text-muted-foreground mt-1 space-y-1">
-                            <p>Proyecto: {project?.name || 'Tareas sin proyecto'}</p>
-                            <p>Creada por: {creator?.full_name || 'Desconocido'}</p>
-                            <p>Asignado a: {formatAssignees(task.assignees)}</p>
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                            <Badge variant="outline" className={cn(getStatusBadgeClass(task.status))}>
-                                {task.status}
-                            </Badge>
-                            <Badge variant={getPriorityBadgeVariant(task.priority)} className="flex items-center gap-1.5 w-fit">
-                                <PriorityIcon priority={task.priority} className="size-3" />
-                                {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
-                            </Badge>
-                        </div>
-                    </div>
-                </div>
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
             </div>
-        )
-    };
-
-    if (displayTasks.length === 0 && isAdmin) {
-        return (
-            <div className="flex flex-col items-center justify-center text-center p-8 h-full">
-                <CheckCircle className="size-12 text-green-500 mb-4"/>
-                <p className="font-semibold text-lg">¡Todo en orden!</p>
-                <p className="text-sm text-muted-foreground">No hay tareas en el sistema.</p>
-            </div>
-        )
+        );
     }
 
-    if (filteredTasks.length === 0 && !isAdmin) {
+    if (mobileFetchError) {
         return (
-             <div className="flex flex-col items-center justify-center text-center p-8 h-full">
-                <CheckCircle className="size-12 text-green-500 mb-4"/>
-                <p className="font-semibold text-lg">¡Todo en orden!</p>
-                <p className="text-sm text-muted-foreground">No tienes tareas asignadas por el momento.</p>
+            <div className="text-center py-10 px-4">
+                <p className="text-red-500">Error al cargar los datos: {mobileFetchError}</p>
             </div>
-        )
+        );
     }
+
+    const hasTasks = filteredTasks.length > 0;
 
     return (
-        <>
-           {/* debug panel removed */}
-           {(isAdmin || (tasks && tasks.length > 0)) && (
-             <div className="p-4 border-b space-y-4">
-                <div className="flex items-center gap-2 font-semibold">
-                    <SlidersHorizontal className="size-5"/>
-                    <Label>Filtros y Agrupación</Label>
-                </div>
-                
-                <div className='space-y-2'>
-                    <Label className='text-sm font-medium'>Agrupar por</Label>
-                     <RadioGroup defaultValue="project" value={groupBy} onValueChange={(value: 'project' | 'status') => setGroupBy(value)} className="flex gap-4">
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="project" id="r-project" />
-                            <Label htmlFor="r-project">Proyecto</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="status" id="r-status" />
-                            <Label htmlFor="r-status">Estado</Label>
-                        </div>
-                    </RadioGroup>
-                </div>
-
-                {isAdmin && (
-                    <div className='space-y-2'>
-                         <Label className='text-sm font-medium'>Filtrar por</Label>
-                        <RadioGroup defaultValue="assignee" value={filterType} onValueChange={(value: 'assignee' | 'creator') => setFilterType(value)} className="flex gap-4">
+        <div className="p-4 space-y-4">
+            {isAdmin && (
+                <div className="p-4 bg-card rounded-lg shadow space-y-4">
+                    <h3 className="font-bold text-lg">Filtros de Administrador</h3>
+                    <div className="space-y-2">
+                        <Label>Filtrar por</Label>
+                        <RadioGroup value={filterType} onValueChange={(value) => setFilterType(value as any)}>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="assignee" id="r-assignee" />
-                                <Label htmlFor="r-assignee">Asignado a</Label>
+                                <RadioGroupItem value="assignee" id="assignee" />
+                                <Label htmlFor="assignee">Responsable</Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="creator" id="r-creator" />
-                                <Label htmlFor="r-creator">Creado por</Label>
+                                <RadioGroupItem value="creator" id="creator" />
+                                <Label htmlFor="creator">Creador</Label>
                             </div>
                         </RadioGroup>
-
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="user-select">Usuario</Label>
                         <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Filtrar por usuario..." />
+                            <SelectTrigger id="user-select">
+                                <SelectValue placeholder="Seleccionar usuario" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos los usuarios</SelectItem>
                                 {allUsers.map(user => (
-                                    <SelectItem key={user.id} value={user.id!}>
-                                        {user.full_name || user.email}
-                                    </SelectItem>
+                                    <SelectItem key={user.id} value={user.id}>{user.full_name || user.email}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
-                )}
-            </div>
-           )}
+                </div>
+            )}
 
-            <div className="flex-1 overflow-auto p-4">
-                {filteredTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center text-center p-8 h-full">
-                        <p className="font-semibold text-lg">No hay tareas</p>
-                        <p className="text-sm text-muted-foreground">No se encontraron tareas para los filtros aplicados.</p>
-                    </div>
+            <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Mis Tareas</h2>
+                <div className="flex items-center gap-2">
+                    <Label>Agrupar por:</Label>
+                    <Select value={groupBy} onValueChange={(value) => setGroupBy(value as any)}>
+                        <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="project">Proyecto</SelectItem>
+                            <SelectItem value="status">Estado</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            <Accordion type="multiple" className="w-full">
+                {groupBy === 'project' ? (
+                    Object.entries(tasksByProject).map(([projectId, tasks], index) => {
+                        const project = displayProjects.find(p => p.id === projectId);
+                        const itemClass = index % 2 === 0 ? 'bg-card' : 'bg-muted/50';
+                        return (
+                            <AccordionItem value={projectId} key={projectId} className={cn(itemClass, "border-b-0 rounded-lg mb-2 shadow-sm")}>
+                                <AccordionTrigger className="px-4 py-3 group">
+                                    <span className="flex-1 text-left font-semibold">{project?.name || 'Tareas sin proyecto'}</span>
+                                    <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </AccordionTrigger>
+                                <AccordionContent className="px-4 pb-3">
+                                    <div className="space-y-2">
+                                        {tasks.map(task => (
+                                            <div key={task.id} className="p-3 bg-background rounded-lg shadow-sm" onClick={() => setEditingTask(task)}>
+                                                <div className="flex justify-between items-start">
+                                                    <span className="font-semibold">{task.title}</span>
+                                                    <Badge className={cn("text-xs", getStatusBadgeClass(task.status))}>{task.status}</Badge>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                                                <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                                                    <div className="flex items-center gap-1">
+                                                        <PriorityIcon priority={task.priority} />
+                                                        <span>{task.priority}</span>
+                                                    </div>
+                                                    <span>Responsable: {formatAssignees(task.assignees)}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        );
+                    })
                 ) : (
-                    <Accordion key={groupBy} type="multiple" defaultValue={groupBy === 'project' ? projectIdsWithTasks : statusKeys} className="w-full">
-                        {groupBy === 'project' && projectIdsWithTasks.map(projectId => {
-                            const project = displayProjects.find(p => p.id === projectId);
-                            const projectTasks = tasksByProject[projectId];
-                            
-                            return (
-                                <AccordionItem value={projectId} key={projectId}>
-                                    <AccordionTrigger className="font-semibold text-lg">
-                                        <div className="flex items-center gap-3">
-                                            <span>{project?.name || 'Tareas sin proyecto'}</span>
-                                            <Badge variant="outline">{projectTasks.length}</Badge>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="space-y-3">
-                                            {projectTasks.map(renderTaskItem)}
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            )
-                        })}
-
-                        {groupBy === 'status' && statusKeys.map(status => {
-                             const statusTasks = tasksByStatus[status as Status];
-                             return (
-                                <AccordionItem value={status} key={status}>
-                                     <AccordionTrigger className="font-semibold text-lg">
-                                         <div className="flex items-center gap-3">
-                                             <Badge variant="outline" className={cn(getStatusBadgeClass(status as Status), 'text-base')}>{status}</Badge>
-                                             <Badge variant="outline">{statusTasks.length}</Badge>
-                                         </div>
-                                     </AccordionTrigger>
-                                     <AccordionContent>
-                                         <div className="space-y-3">
-                                             {statusTasks.map(renderTaskItem)}
-                                         </div>
-                                     </AccordionContent>
-                                 </AccordionItem>
-                             )
-                        })}
-                    </Accordion>
+                    statuses.map(status => (
+                        tasksByStatus[status] && tasksByStatus[status].length > 0 && (
+                            <AccordionItem value={status} key={status}>
+                                <AccordionTrigger>{status}</AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="space-y-2">
+                                        {tasksByStatus[status].map(task => (
+                                            <div key={task.id} className="p-3 bg-card rounded-lg shadow-sm" onClick={() => setEditingTask(task)}>
+                                                <div className="flex justify-between items-start">
+                                                    <span className="font-semibold">{task.title}</span>
+                                                    <Badge variant={getPriorityBadgeVariant(task.priority)}>{task.priority}</Badge>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                                                <div className="text-xs text-muted-foreground mt-2">
+                                                    Proyecto: {displayProjects.find(p => p.id === task.project_id)?.name || 'N/A'}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                    ))
                 )}
-            </div>
+            </Accordion>
+
+            {!hasTasks && (
+                 <div className="text-center py-10">
+                    <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
+                    <h3 className="mt-2 text-lg font-medium">¡Todo en orden!</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        No tienes tareas asignadas por el momento.
+                    </p>
+                </div>
+            )}
 
             {editingTask && (
                 <TaskFormDialog
                     open={!!editingTask}
-                    onOpenChange={(isOpen) => !isOpen && setEditingTask(null)}
+                    onOpenChange={(open) => !open && setEditingTask(null)}
                     taskToEdit={editingTask}
-                    projectId={editingTask.project_id || editingTask.projectId}
                 />
             )}
-        </>
-    )
+        </div>
+    );
 }
