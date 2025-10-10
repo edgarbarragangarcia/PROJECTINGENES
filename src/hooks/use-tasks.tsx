@@ -85,6 +85,8 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchTasks = async (user: User) => {
     setLoading(true);
+    // Remove the problematic relationship query. The 'subtasks' jsonb column
+    // is still fetched with '*', which is what's likely used.
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
