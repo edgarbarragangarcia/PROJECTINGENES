@@ -123,7 +123,7 @@ export default function LoginPage() {
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${location.origin}/auth/callback`,
+                    redirectTo: 'https://ytljrvcjstbuhrdothhf.supabase.co/auth/v1/callback',
                     queryParams: {
                         access_type: 'offline',
                         prompt: 'consent',
@@ -134,8 +134,11 @@ export default function LoginPage() {
             
             if (error) {
                 console.error('Error al iniciar sesión con Google:', error);
-                setError(error.message);
+                setError(`Error: ${error.message}`);
+                return;
             }
+
+            console.log('Autenticación iniciada correctamente:', data);
         } catch (err) {
             console.error('Error inesperado:', err);
             setError('Ocurrió un error al intentar iniciar sesión con Google');
