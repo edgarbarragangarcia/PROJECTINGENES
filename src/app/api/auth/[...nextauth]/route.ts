@@ -7,11 +7,16 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get('code');
 
   if (code) {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    
+    // Pass the Next.js cookies helper directly so Supabase can persist cookies.
+    const supabase = createRouteHandlerClient({ cookies });
+
     // Exchange the code for a session
-    await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error('[api/auth] exchangeCodeForSession error:', error);
+    } else {
+      console.debug('[api/auth] session created:', data?.session);
+    }
   }
 
   // URL to redirect to after sign in process completes

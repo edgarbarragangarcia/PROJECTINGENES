@@ -19,14 +19,17 @@ export async function GET(request: Request) {
   }
 
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    
+    // Pass the Next.js cookies helper directly to the Supabase route handler client
+    // so it can persist the authentication cookies correctly.
+    const supabase = createRouteHandlerClient({ cookies })
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
     if (error) {
       console.error('Error al intercambiar código por sesión:', error)
       return NextResponse.redirect(new URL('/login', requestUrl.origin))
     }
+
+    console.debug('[auth/callback] session created:', data?.session)
 
     return NextResponse.redirect(new URL('/dashboard', requestUrl.origin))
   } catch (err) {
