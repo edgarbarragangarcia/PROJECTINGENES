@@ -15,6 +15,7 @@ import { TaskFormDialog } from '@/components/task/task-form-dialog';
 import GanttChart from '@/components/project/gantt-chart';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import type { Task } from '@/types';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
@@ -22,6 +23,7 @@ export default function ProjectDetailPage() {
   const { getTasksByProject, updateTask } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('board');
+  const isMobile = useIsMobile();
 
   const project = projects.find((p) => p.id === params.id);
 
@@ -73,7 +75,7 @@ export default function ProjectDetailPage() {
             <TabsList>
               <TabsTrigger value="board"><Kanban className='size-4 mr-2'/>Tablero</TabsTrigger>
               <TabsTrigger value="table"><ListTodo className='size-4 mr-2'/>Tabla</TabsTrigger>
-              <TabsTrigger value="gantt"><BarChartHorizontal className='size-4 mr-2'/>Gantt</TabsTrigger>
+              {!isMobile && <TabsTrigger value="gantt"><BarChartHorizontal className='size-4 mr-2'/>Gantt</TabsTrigger>}
             </TabsList>
             <TabsContent value="board" className="flex-1 mt-0 overflow-y-auto">
               <DragDropContext onDragEnd={handleDragEnd}>
@@ -83,9 +85,11 @@ export default function ProjectDetailPage() {
             <TabsContent value="table" className="flex-1 overflow-auto mt-0">
                 <TaskTable tasks={projectTasks} />
             </TabsContent>
-            <TabsContent value="gantt">
-                <GanttChart projectId={project.id} />
-            </TabsContent>
+            {!isMobile && (
+              <TabsContent value="gantt">
+                  <GanttChart projectId={project.id} />
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>

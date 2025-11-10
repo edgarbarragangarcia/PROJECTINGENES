@@ -20,9 +20,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useEffect, useState, useMemo } from 'react';
 import { useTasks } from '@/hooks/use-tasks';
 import { InstallPWAButton } from '../pwa/install-pwa-button';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
-const menuItems = [
+const baseMenuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: BarChart3, admin: false },
     { href: '/projects', label: 'Proyectos', icon: ListChecks, admin: false },
     { href: '/calendar', label: 'Calendario', icon: CalendarClock, admin: false },
@@ -46,6 +47,14 @@ export function Navbar() {
   const [loading, setLoading] = useState(true);
   const { allUsers } = useTasks();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  const menuItems = useMemo(() => {
+    if (isMobile) {
+      return baseMenuItems.filter(item => item.label !== 'Gantt');
+    }
+    return baseMenuItems;
+  }, [isMobile]);
 
   useEffect(() => {
     const fetchUserAndProfile = async () => {
