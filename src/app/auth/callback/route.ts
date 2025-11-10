@@ -29,9 +29,16 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/login', requestUrl.origin))
     }
 
-    console.debug('[auth/callback] session created:', data?.session)
+  console.debug('[auth/callback] session created:', data?.session)
 
-    return NextResponse.redirect(new URL('/dashboard', requestUrl.origin))
+  // For debugging: set a temporary non-httpOnly cookie so you can inspect
+  // whether this route is returning Set-Cookie headers in the response.
+  const redirectUrl = new URL('/dashboard', requestUrl.origin);
+  const response = NextResponse.redirect(redirectUrl);
+  // Non-sensitive debug cookie (visible in DevTools) to confirm Set-Cookie
+  response.cookies.set({ name: 'auth_debug', value: '1', path: '/', httpOnly: false });
+
+  return response
   } catch (err) {
     console.error('Error inesperado:', err)
     return NextResponse.redirect(new URL('/login', requestUrl.origin))
