@@ -119,13 +119,27 @@ export default function LoginPage() {
 
     const handleGoogleSignIn = async () => {
         setError(null);
-        await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: `${location.origin}/auth/callback`,
-                scopes: 'https://www.googleapis.com/auth/calendar',
-            },
-        });
+        try {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${location.origin}/auth/callback`,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    },
+                    scopes: 'https://www.googleapis.com/auth/calendar',
+                },
+            });
+            
+            if (error) {
+                console.error('Error al iniciar sesión con Google:', error);
+                setError(error.message);
+            }
+        } catch (err) {
+            console.error('Error inesperado:', err);
+            setError('Ocurrió un error al intentar iniciar sesión con Google');
+        }
     };
 
     return (
