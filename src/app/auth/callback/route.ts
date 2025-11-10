@@ -8,6 +8,13 @@ export async function GET(request: Request) {
   const error = requestUrl.searchParams.get('error')
   const error_description = requestUrl.searchParams.get('error_description')
   
+  console.debug('[auth/callback] Starting auth callback with:', { 
+    code: code ? 'present' : 'missing',
+    error,
+    error_description,
+    url: request.url
+  })
+  
   if (error) {
     console.error('Error en autenticación:', error, error_description)
     return NextResponse.redirect(new URL('/login', requestUrl.origin))
@@ -19,9 +26,20 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Pass the Next.js cookies helper directly to the Supabase route handler client
-    // so it can persist the authentication cookies correctly.
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ 
+      cookies: () => cookieStore 
+    }, {
+      cookies: {
+        name: 'sb-auth-token',
+        lifetime: 60 * 60 * 24 * 7, // 1 week
+        domain: 'localhost',
+        path: '/',
+        sameSite: 'lax'
+      }
+    })
+    
+    console.debug('[auth/callback] Exchanging code for session...')
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {

@@ -2,11 +2,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
+  // Create an initial response object
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
+
+  // Debug logging
+  console.debug('[middleware] Processing request for:', request.nextUrl.pathname);
+  console.debug('[middleware] Current cookies:', Array.from(request.cookies.entries()));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,21 +19,38 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return request.cookies.get(name)?.value;
+          const cookie = request.cookies.get(name);
+          console.debug('[middleware] Reading cookie:', name, !!cookie);
+          return cookie?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
+          console.debug('[middleware] Setting cookie:', name, options);
           request.cookies.set({ name, value, ...options });
           response = NextResponse.next({
             request: { headers: request.headers },
           });
-          response.cookies.set({ name, value, ...options });
+          response.cookies.set({ 
+            name, 
+            value, 
+            ...options,
+            // Ensure cookies are set with proper attributes
+            path: options.path || '/',
+            sameSite: options.sameSite || 'lax',
+            secure: options.secure !== false
+          });
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options });
+          console.debug('[middleware] Removing cookie:', name);
           response = NextResponse.next({
             request: { headers: request.headers },
           });
-          response.cookies.set({ name, value: '', ...options });
+          response.cookies.set({ 
+            name, 
+            value: '', 
+            ...options,
+            path: options.path || '/',
+            expires: new Date(0)
+          });
         },
       },
     }
