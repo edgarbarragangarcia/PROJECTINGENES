@@ -123,13 +123,12 @@ export default function LoginPage() {
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: 'https://ytljrvcjstbuhrdothhf.supabase.co/auth/v1/callback',
+                    redirectTo: `${location.origin}/auth/callback`,
                     queryParams: {
                         access_type: 'offline',
-                        prompt: 'consent',
-                    },
-                    scopes: 'https://www.googleapis.com/auth/calendar',
-                },
+                        prompt: 'consent'
+                    }
+                }
             });
             
             if (error) {
