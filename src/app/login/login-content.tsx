@@ -46,10 +46,27 @@ export default function LoginContent() {
         checkSession();
     }, [router, supabase]);
 
-    // Check for error in URL params
+    // Check for error in URL params and handle implicit flow
     useEffect(() => {
         const errorParam = searchParams.get('error');
         const detailsParam = searchParams.get('details');
+        
+        // Check if there's a token in the URL hash (implicit flow)
+        const urlHash = (globalThis as any).location?.hash || '';
+        if (urlHash && urlHash.includes('access_token')) {
+            console.log('[login] 🎯 Token found in URL hash - implicit flow detected');
+            // The Supabase client with detectSessionInUrl will handle this
+            // Just wait a moment for it to process
+            setTimeout(() => {
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    if (session) {
+                        console.log('[login] ✅ Session created from implicit flow token');
+                        router.replace('/dashboard');
+                    }
+                });
+            }, 100);
+        }
+        
         if (errorParam) {
             const errorMessages: Record<string, string> = {
                 'no_code': 'No se recibió código de autenticación',
@@ -61,7 +78,7 @@ export default function LoginContent() {
             setError(fullMessage);
             console.error('[login] Error from callback:', { error: errorParam, details: detailsParam });
         }
-    }, [searchParams]);
+    }, [searchParams, router, supabase]);
 
     const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
