@@ -108,19 +108,28 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      console.log('🔵 Iniciando Google OAuth...');
+      console.log('📍 Redirect URL:', `/auth/callback`);
+      const origin = typeof (global as any).window !== 'undefined' ? (global as any).window.location.origin : 'server';
+      console.log('🌐 Origin:', origin);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: '/auth/callback',
+          redirectTo: `${origin}/auth/callback`,
         },
       });
 
       if (error) {
-        setError(error.message);
+        console.error('❌ OAuth Error:', error);
+        setError(`OAuth Error: ${error.message}`);
         setIsLoading(false);
+      } else {
+        console.log('✅ OAuth redirect initiated');
       }
     } catch (err) {
-      setError('Error al iniciar sesión con Google');
+      console.error('❌ Exception:', err);
+      setError(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setIsLoading(false);
     }
   };
