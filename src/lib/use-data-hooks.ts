@@ -14,17 +14,43 @@ export function useProjects(user: User | null) {
   const fetcher = async () => {
     if (!user) return [];
 
-    const { data, error } = await supabase.rpc('get_projects_for_user', {
-      p_user_id: user.id,
-      p_user_email: user.email || ''
-    });
+    try {
+      // Primero obtén el rol del usuario
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
 
-    if (error) {
-      console.error('[useProjects] Error fetching projects:', error);
-      throw error;
+      if (profileError) {
+        console.warn('[useProjects] Error fetching profile:', profileError);
+      }
+
+      const isAdmin = profile?.role === 'admin';
+      
+      let query = supabase.from('projects').select('*');
+      
+      // Si NO es admin, solo mostrar proyectos del usuario
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+        console.log('[useProjects] Usuario role "user", consultando solo sus proyectos (user_id:', user.id, ')');
+      } else {
+        console.log('[useProjects] Usuario role "admin", consultando todos los proyectos');
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[useProjects] Error fetching projects:', error);
+        throw error;
+      }
+
+      console.log('[useProjects] Proyectos obtenidos:', data?.length || 0);
+      return data || [];
+    } catch (err) {
+      console.error('[useProjects] Excepción:', err);
+      throw err;
     }
-
-    return data || [];
   };
 
   return useSWR<Project[]>(
