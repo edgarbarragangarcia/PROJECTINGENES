@@ -10,16 +10,17 @@ declare let self: ServiceWorkerGlobalScope & {
   __SW_MANIFEST: Array<PrecacheEntry>
 }
 
-// Enable navigation preload if it's supported
-// Use self.registration.active to check if the worker is active before enabling
+// Install event: Skip waiting so the new SW takes over immediately
 self.addEventListener('install', () => {
   self.skipWaiting()
 })
 
-self.addEventListener('activate', () => {
+// Activate event: Claim all clients and enable navigation preload
+self.addEventListener('activate', (event) => {
   self.clients.claim()
-  if (self.registration.navigationPreload) {
-    self.registration.navigationPreload.enable()
+  // Enable navigation preload safely
+  if ('navigationPreload' in self.registration) {
+    event.waitUntil(self.registration.navigationPreload.enable())
   }
 })
 
@@ -43,9 +44,20 @@ const hasAppShell = Array.isArray(precache) && precache.some((entry: any) => ent
 if (hasAppShell) {
   handler = createHandlerBoundToURL(appShellUrl)
 } else {
-  // Fallback: route navigation requests to network so we don't throw.
+  // Fallback: route navigation requests to network with preload support
   handler = {
-    handle: async ({ request }: { request: Request }) => {
+    handle: async ({ event, request }: { event: FetchEvent; request: Request }) => {
+      // Try to use navigation preload if available
+      try {
+        const preloadResponse = event.preloadResponse
+        if (preloadResponse) {
+          return await preloadResponse
+        }
+      } catch (e) {
+        console.debug('[SW] Navigation preload not available:', e)
+      }
+
+      // Fall back to network
       try {
         return await fetch(request)
       } catch (e) {

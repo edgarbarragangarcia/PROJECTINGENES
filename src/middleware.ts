@@ -9,6 +9,8 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
   // Debug logging
   console.debug('[middleware] Processing request for:', request.nextUrl.pathname);
   console.debug('[middleware] Cookies present:', request.cookies.getAll().length > 0);
@@ -24,7 +26,7 @@ export async function middleware(request: NextRequest) {
           return cookie?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          console.debug('[middleware] Setting cookie:', name, options);
+          console.debug('[middleware] Setting cookie:', name, { value: value.substring(0, 20) + '...', ...options });
           request.cookies.set({ name, value, ...options });
           response = NextResponse.next({
             request: { headers: request.headers },
@@ -35,8 +37,9 @@ export async function middleware(request: NextRequest) {
             ...options,
             // Ensure cookies are set with proper attributes
             path: options.path || '/',
-            sameSite: options.sameSite || 'lax',
-            secure: options.secure !== false
+            sameSite: isDevelopment ? 'lax' : (options.sameSite as 'lax' | 'strict' | 'none' || 'lax'),
+            secure: isDevelopment ? false : true, // Allow non-secure in development
+            httpOnly: true,
           });
         },
         remove(name: string, options: CookieOptions) {
@@ -49,7 +52,9 @@ export async function middleware(request: NextRequest) {
             value: '', 
             ...options,
             path: options.path || '/',
-            expires: new Date(0)
+            expires: new Date(0),
+            sameSite: isDevelopment ? 'lax' : (options.sameSite as 'lax' | 'strict' | 'none' || 'lax'),
+            secure: isDevelopment ? false : true,
           });
         },
       },
@@ -64,16 +69,24 @@ export async function middleware(request: NextRequest) {
   }
 
   // IMPORTANT: refreshing the session is crucial for server-side auth to work correctly.
-  const { data: { user } } = await supabase.auth.getUser();
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-  // if the user is not logged in and not on a public path, redirect to login
-  if (!user) {
+    // if the user is not logged in and not on a public path, redirect to login
+    if (!user) {
+      console.debug('[middleware] No user found, redirecting to login');
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    console.debug('[middleware] User authenticated:', user.email);
+
+    // if the user is logged in and on the login page, redirect to dashboard
+    if (user && request.nextUrl.pathname === '/login') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  } catch (error) {
+    console.error('[middleware] Auth check error:', error);
     return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // if the user is logged in and on the login page, redirect to dashboard
-  if (user && request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return response;

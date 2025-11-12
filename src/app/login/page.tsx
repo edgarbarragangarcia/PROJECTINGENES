@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Zap, DownloadCloud, CheckCircle } from "lucide-react";
 import Link from "next/link";
@@ -63,19 +63,39 @@ export default function LoginPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [registerSuccess, setRegisterSuccess] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
     const supabase = createClient();
     
     // Redirige al dashboard si ya hay una sesión activa.
     useEffect(() => {
         const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                router.replace('/dashboard');
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    console.log('[login] Session found, redirecting to dashboard');
+                    router.replace('/dashboard');
+                }
+            } catch (err) {
+                console.error('[login] Error checking session:', err);
             }
         };
         checkSession();
     }, [router, supabase]);
+
+    // Check for error in URL params
+    useEffect(() => {
+        const errorParam = searchParams.get('error');
+        if (errorParam) {
+            const errorMessages: Record<string, string> = {
+                'no_code': 'No se recibió código de autenticación',
+                'exchange_failed': 'Error al intercambiar código',
+                'no_session': 'No se pudo crear la sesión',
+            };
+            setError(errorMessages[errorParam] || `Error: ${errorParam}`);
+        }
+    }, [searchParams]);
 
 
     const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -119,7 +139,11 @@ export default function LoginPage() {
 
     const handleGoogleSignIn = async () => {
         setError(null);
+        setIsLoading(true);
         try {
+            console.log('[login] 🔵 Starting Google OAuth flow...');
+            console.log('[login] Redirect URL:', `${location.origin}/auth/callback`);
+            
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
@@ -132,15 +156,17 @@ export default function LoginPage() {
             });
             
             if (error) {
-                console.error('Error al iniciar sesión con Google:', error);
+                console.error('❌ [login] Error al iniciar sesión con Google:', error);
                 setError(`Error: ${error.message}`);
+                setIsLoading(false);
                 return;
             }
 
-            console.log('Autenticación iniciada correctamente:', data);
+            console.log('✅ [login] OAuth iniciado, esperando redirección...');
         } catch (err) {
-            console.error('Error inesperado:', err);
+            console.error('❌ [login] Error inesperado:', err);
             setError('Ocurrió un error al intentar iniciar sesión con Google');
+            setIsLoading(false);
         }
     };
 
@@ -163,9 +189,14 @@ export default function LoginPage() {
                         </div>
                     )}
 
-                    <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
+                    <Button 
+                        variant="outline" 
+                        className="w-full" 
+                        onClick={handleGoogleSignIn}
+                        disabled={isLoading}
+                    >
                         <GoogleIcon />
-                        Continuar con Google
+                        {isLoading ? 'Redirigiendo a Google...' : 'Continuar con Google'}
                     </Button>
 
                     <div className="relative my-6">
