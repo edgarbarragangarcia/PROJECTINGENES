@@ -8,9 +8,9 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        // Use PKCE flow for security
-        // The code verifier is stored in the browser automatically
-        flowType: 'pkce',
+        // Use Implicit flow - simpler for OAuth with Google
+        // Access token is returned directly in the URL fragment
+        flowType: 'implicit',
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
