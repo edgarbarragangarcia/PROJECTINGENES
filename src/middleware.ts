@@ -56,13 +56,18 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  const publicPaths = ['/login', '/auth/callback', '/auth/auth-code-error'];
+
+  // Allow public paths and auth callbacks to pass through without auth check
+  if (publicPaths.includes(request.nextUrl.pathname)) {
+    return response;
+  }
+
   // IMPORTANT: refreshing the session is crucial for server-side auth to work correctly.
   const { data: { user } } = await supabase.auth.getUser();
 
-  const publicPaths = ['/login', '/auth/callback', '/auth/auth-code-error'];
-
   // if the user is not logged in and not on a public path, redirect to login
-  if (!user && !publicPaths.includes(request.nextUrl.pathname)) {
+  if (!user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -84,7 +89,9 @@ export const config = {
      * - favicon.ico (favicon file)
      * - manifest.json (PWA manifest)
      * - icons/ (PWA icons)
+     * - sw.js (Service Worker)
+     * - workbox (Workbox files)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons/).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons/|sw\\.js|workbox).*)',
   ],
 };
