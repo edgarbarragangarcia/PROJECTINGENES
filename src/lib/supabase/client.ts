@@ -8,14 +8,14 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        // Use implicit flow for OAuth callbacks
-        // PKCE requires code_verifier which gets lost in OAuth redirects
-        flowType: 'implicit',
+        // Use PKCE flow for security
+        // The code verifier is stored in the browser automatically
+        flowType: 'pkce',
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
         storageKey: 'sb-auth-token',
-        debug: true
+        debug: false
       }
     }
   );

@@ -8,32 +8,24 @@ export async function GET(request: Request) {
   const error = requestUrl.searchParams.get('error')
   const error_description = requestUrl.searchParams.get('error_description')
   
-  console.log('[auth/callback] 🔐 Starting auth callback with:', { 
-    code: code ? `✓ present (${code.substring(0, 20)}...)` : '✗ missing',
-    error: error || 'none',
-    error_description: error_description || 'none',
-    url: requestUrl.toString().substring(0, 100),
-  })
+  console.log('[auth/callback] 🔐 OAuth Callback Started')
+  console.log('[auth/callback] Code present:', !!code)
+  console.log('[auth/callback] Error:', error || 'none')
   
+  // Handle OAuth errors from provider
   if (error) {
-    console.error('❌ [auth/callback] Error en autenticación:', error, error_description)
-    return NextResponse.redirect(new URL('/login?error=' + encodeURIComponent(error), requestUrl.origin))
+    console.error('[auth/callback] ❌ OAuth Error:', error, error_description)
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(error)}&description=${encodeURIComponent(error_description || '')}`, requestUrl.origin)
+    )
   }
 
-  // Check for access_token in URL (implicit flow)
-  const accessToken = requestUrl.hash ? new URLSearchParams(requestUrl.hash.substring(1)).get('access_token') : null
-  if (accessToken) {
-    console.log('[auth/callback] 🎯 Found access_token in URL (implicit flow)')
-    // Implicit flow: token is in URL, redirect to dashboard and let client handle it
-    const redirectUrl = new URL('/dashboard', requestUrl.origin)
-    const response = NextResponse.redirect(redirectUrl)
-    console.log('[auth/callback] ✅ Redirecting to dashboard with implicit flow')
-    return response
-  }
-
+  // Handle missing code
   if (!code) {
-    console.error('❌ [auth/callback] No se recibió código de autenticación ni token')
-    return NextResponse.redirect(new URL('/login?error=no_code', requestUrl.origin))
+    console.error('[auth/callback] ❌ No authorization code received')
+    return NextResponse.redirect(
+      new URL('/login?error=no_code', requestUrl.origin)
+    )
   }
 
   try {
@@ -42,45 +34,44 @@ export async function GET(request: Request) {
       cookies: () => cookieStore 
     })
     
-    console.log('[auth/callback] 🔄 Attempting to exchange code for session...')
+    console.log('[auth/callback] 🔄 Exchanging code for session...')
+    
+    // Exchange the code for a session
+    // The code_verifier is automatically handled by Supabase library
+    // It retrieves it from browser storage (set by signInWithOAuth)
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (exchangeError) {
-      console.error('❌ [auth/callback] Error al intercambiar código por sesión:')
-      console.error('  Message:', exchangeError.message)
-      console.error('  Status:', (exchangeError as any).status)
-      console.error('  Code:', (exchangeError as any).code)
+      console.error('[auth/callback] ❌ Code exchange failed:', exchangeError.message)
       
-      // Check if this is a code+verifier issue (PKCE problem)
-      if (exchangeError.message.includes('code_verifier') || exchangeError.message.includes('code verifier')) {
-        console.error('  Root cause: PKCE code_verifier missing - falling back to implicit flow')
-        const redirectUrl = new URL('/dashboard', requestUrl.origin)
-        return NextResponse.redirect(redirectUrl)
-      }
-      
-      return NextResponse.redirect(new URL('/login?error=exchange_failed&details=' + encodeURIComponent(exchangeError.message), requestUrl.origin))
+      // Redirect to login with error message
+      return NextResponse.redirect(
+        new URL(`/login?error=exchange_failed&details=${encodeURIComponent(exchangeError.message)}`, requestUrl.origin)
+      )
     }
 
     if (!data?.session) {
-      console.error('❌ [auth/callback] No session returned from exchange')
-      return NextResponse.redirect(new URL('/login?error=no_session', requestUrl.origin))
+      console.error('[auth/callback] ❌ No session in exchange response')
+      return NextResponse.redirect(
+        new URL('/login?error=no_session', requestUrl.origin)
+      )
     }
 
-    console.log('✅ [auth/callback] Sesión creada exitosamente:', {
-      user: data.session.user.email,
-      expiresAt: data.session.expires_at
-    })
+    // Session successfully created!
+    console.log('[auth/callback] ✅ Session created successfully')
+    console.log('[auth/callback] User:', data.session.user.email)
 
-    // Create response and redirect to dashboard
-    const redirectUrl = new URL('/dashboard', requestUrl.origin)
-    const response = NextResponse.redirect(redirectUrl)
-    
-    console.log('[auth/callback] ✅ Redirecting to dashboard')
+    // Redirect to dashboard
+    const dashboardUrl = new URL('/dashboard', requestUrl.origin)
+    const response = NextResponse.redirect(dashboardUrl)
 
     return response
+    
   } catch (err) {
-    console.error('❌ [auth/callback] Error inesperado:', err)
-    const errorMessage = err instanceof Error ? err.message : 'unknown_error'
-    return NextResponse.redirect(new URL('/login?error=' + encodeURIComponent(errorMessage), requestUrl.origin))
+    console.error('[auth/callback] ❌ Unexpected error:', err)
+    const message = err instanceof Error ? err.message : 'unknown_error'
+    return NextResponse.redirect(
+      new URL(`/login?error=callback_error&details=${encodeURIComponent(message)}`, requestUrl.origin)
+    )
   }
 }

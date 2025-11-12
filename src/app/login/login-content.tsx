@@ -46,39 +46,25 @@ export default function LoginContent() {
         checkSession();
     }, [router, supabase]);
 
-    // Check for error in URL params and handle implicit flow
+    // Check for error in URL params
     useEffect(() => {
         const errorParam = searchParams.get('error');
         const detailsParam = searchParams.get('details');
         
-        // Check if there's a token in the URL hash (implicit flow)
-        const urlHash = (globalThis as any).location?.hash || '';
-        if (urlHash && urlHash.includes('access_token')) {
-            console.log('[login] 🎯 Token found in URL hash - implicit flow detected');
-            // The Supabase client with detectSessionInUrl will handle this
-            // Just wait a moment for it to process
-            setTimeout(() => {
-                supabase.auth.getSession().then(({ data: { session } }) => {
-                    if (session) {
-                        console.log('[login] ✅ Session created from implicit flow token');
-                        router.replace('/dashboard');
-                    }
-                });
-            }, 100);
-        }
-        
         if (errorParam) {
+            console.log('[login] Error from OAuth callback:', errorParam);
             const errorMessages: Record<string, string> = {
                 'no_code': 'No se recibió código de autenticación',
                 'exchange_failed': 'Error al intercambiar código',
                 'no_session': 'No se pudo crear la sesión',
+                'callback_error': 'Error en el callback',
+                'access_denied': 'Acceso denegado por Google',
             };
             const baseMessage = errorMessages[errorParam] || `Error: ${errorParam}`;
-            const fullMessage = detailsParam ? `${baseMessage} (${detailsParam})` : baseMessage;
+            const fullMessage = detailsParam ? `${baseMessage}` : baseMessage;
             setError(fullMessage);
-            console.error('[login] Error from callback:', { error: errorParam, details: detailsParam });
         }
-    }, [searchParams, router, supabase]);
+    }, [searchParams]);
 
     const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
