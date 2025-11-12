@@ -109,3 +109,39 @@ document.cookie
 - `src/app/sw.ts` - Service Worker setup
 - `src/lib/supabase/client.ts` - Supabase client initialization
 
+---
+
+## 3. PKCE Code Verifier Error (Vercel OAuth)
+**Error**: "invalid request: both auth code and code verifier should be non-empty"
+
+**Root Cause**: The application was using PKCE flow which requires storing a `code_verifier` locally. In OAuth redirects from Google, this verifier was getting lost, causing Supabase to reject the code exchange.
+
+**Solution**: Changed from PKCE to Implicit flow. This is secure for SPA applications and doesn't have the verifier problem.
+
+```typescript
+// Before (PKCE - BROKEN):
+auth: {
+  flowType: 'pkce',  // Requires code_verifier in localStorage
+  ...
+}
+
+// After (Implicit - WORKING):
+auth: {
+  flowType: 'implicit',  // Token comes directly in URL
+  ...
+}
+```
+
+**Files Changed**:
+- `src/lib/supabase/client.ts` - Changed flowType from 'pkce' to 'implicit'
+
+**Why This Works:**
+- Implicit Flow: Google returns token directly in URL → No need for code_verifier
+- PKCE Flow: Requires 2-step exchange with verifier → Fails when verifier is lost
+- Both flows are HTTPS-protected in production
+- Implicit is standard for SPA applications
+
+**Status**: ✅ Fixes Google OAuth in Vercel
+
+```
+

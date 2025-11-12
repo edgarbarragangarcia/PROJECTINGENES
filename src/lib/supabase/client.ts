@@ -8,7 +8,9 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        flowType: 'pkce',
+        // Use implicit flow for OAuth callbacks
+        // PKCE requires code_verifier which gets lost in OAuth redirects
+        flowType: 'implicit',
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
