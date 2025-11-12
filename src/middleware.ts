@@ -13,96 +13,126 @@ export async function middleware(request: NextRequest) {
 
   // Debug logging
   console.debug('[middleware] Processing request for:', request.nextUrl.pathname);
-  console.debug('[middleware] Cookies present:', request.cookies.getAll().length > 0);
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          const cookie = request.cookies.get(name);
-          console.debug('[middleware] Reading cookie:', name, !!cookie);
-          return cookie?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          console.debug('[middleware] Setting cookie:', name, { value: value.substring(0, 20) + '...', ...options });
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          response.cookies.set({ 
-            name, 
-            value, 
-            ...options,
-            // Ensure cookies are set with proper attributes
-            path: options.path || '/',
-            sameSite: isDevelopment ? 'lax' : (options.sameSite as 'lax' | 'strict' | 'none' || 'lax'),
-            secure: isDevelopment ? false : true, // Allow non-secure in development
-            httpOnly: true,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          console.debug('[middleware] Removing cookie:', name);
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          response.cookies.set({ 
-            name, 
-            value: '', 
-            ...options,
-            path: options.path || '/',
-            expires: new Date(0),
-            sameSite: isDevelopment ? 'lax' : (options.sameSite as 'lax' | 'strict' | 'none' || 'lax'),
-            secure: isDevelopment ? false : true,
-          });
-        },
-      },
-    }
-  );
-
+  
   const publicPaths = ['/login', '/auth/callback', '/auth/auth-code-error'];
 
   // Allow public paths and auth callbacks to pass through without auth check
   if (publicPaths.includes(request.nextUrl.pathname)) {
+    console.debug('[middleware] Public path, allowing without auth check');
     return response;
   }
 
-  // IMPORTANT: refreshing the session is crucial for server-side auth to work correctly.
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
+  // Try to get the auth token from cookies
+  const authTokenCookie = request.cookies.get('sb-ytljrvcjstbuhrdothhf-auth-token');
+  const hasAuthToken = !!authTokenCookie?.value;
+  
+  console.debug('[middleware] Auth token present:', hasAuthToken);
 
-    // if the user is not logged in and not on a public path, decide how to handle it.
-    // In development we observed that client-side sessions are persisted to localStorage
-    // and the server middleware can't read them (no cookies). To avoid blocking the
-    // client redirect flow after sign-in, allow HTML navigations to proceed so the
-    // client can read the session and redirect. For non-HTML requests (API/fetch),
-    // keep the server-side redirect.
-    if (!user) {
+  // If there's no auth token, allow HTML navigations (client will handle auth)
+  // but redirect non-HTML requests to login
+  if (!hasAuthToken) {
+    const accept = request.headers.get('accept') || '';
+    const isHtmlNavigation = accept.includes('text/html');
+
+    if (isHtmlNavigation) {
+      console.debug('[middleware] No auth token, but allowing HTML navigation for client-side auth');
+      return response;
+    }
+
+    console.debug('[middleware] No auth token, redirecting non-HTML request to login');
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // If we have a token, try to validate it with Supabase
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            const cookie = request.cookies.get(name);
+            return cookie?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            request.cookies.set({ name, value, ...options });
+            response = NextResponse.next({
+              request: { headers: request.headers },
+            });
+            response.cookies.set({ 
+              name, 
+              value, 
+              ...options,
+              path: options.path || '/',
+              sameSite: isDevelopment ? 'lax' : (options.sameSite as 'lax' | 'strict' | 'none' || 'lax'),
+              secure: isDevelopment ? false : true,
+              httpOnly: true,
+            });
+          },
+          remove(name: string, options: CookieOptions) {
+            console.debug('[middleware] Removing invalid cookie:', name);
+            response = NextResponse.next({
+              request: { headers: request.headers },
+            });
+            response.cookies.set({ 
+              name, 
+              value: '', 
+              ...options,
+              path: options.path || '/',
+              expires: new Date(0),
+              sameSite: isDevelopment ? 'lax' : (options.sameSite as 'lax' | 'strict' | 'none' || 'lax'),
+              secure: isDevelopment ? false : true,
+            });
+          },
+        },
+      }
+    );
+
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error) {
+      console.debug('[middleware] Auth validation error (non-critical):', error.message);
+      // Don't fail on validation errors - let the client handle it
+      return response;
+    }
+
+    if (user) {
+      console.debug('[middleware] User authenticated:', user.email);
+      
+      // if the user is logged in and on the login page, redirect to dashboard
+      if (request.nextUrl.pathname === '/login') {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
+      
+      return response;
+    } else {
+      console.debug('[middleware] No user found even with auth token');
+      
+      // Check if it's HTML navigation
       const accept = request.headers.get('accept') || '';
       const isHtmlNavigation = accept.includes('text/html');
 
       if (isHtmlNavigation) {
-        console.debug('[middleware] No user found, but allowing HTML navigation so client can handle auth');
+        console.debug('[middleware] HTML navigation without valid user, allowing client to handle');
         return response;
       }
 
-      console.debug('[middleware] No user found, redirecting to login (non-HTML request)');
       return NextResponse.redirect(new URL('/login', request.url));
-    }
-
-    console.debug('[middleware] User authenticated:', user.email);
-
-    // if the user is logged in and on the login page, redirect to dashboard
-    if (user && request.nextUrl.pathname === '/login') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   } catch (error) {
     console.error('[middleware] Auth check error:', error);
+    
+    // For non-critical errors, allow HTML navigations through
+    const accept = request.headers.get('accept') || '';
+    const isHtmlNavigation = accept.includes('text/html');
+
+    if (isHtmlNavigation) {
+      console.debug('[middleware] Error during auth check, allowing HTML navigation');
+      return response;
+    }
+
     return NextResponse.redirect(new URL('/login', request.url));
   }
-
-  return response;
 }
 
 export const config = {
