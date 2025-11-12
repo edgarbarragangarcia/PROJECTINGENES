@@ -8,14 +8,13 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        // Use Implicit flow - simpler for OAuth with Google
-        // Access token is returned directly in the URL fragment
-        flowType: 'implicit',
+        // Use PKCE flow for security
+        flowType: 'pkce',
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
         storageKey: 'sb-auth-token',
-        debug: false
+        debug: true  // Enable debug logging
       }
     }
   );
