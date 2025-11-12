@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
 
   // Debug logging
   console.debug('[middleware] Processing request for:', request.nextUrl.pathname);
-  console.debug('[middleware] Current cookies:', Array.from(request.cookies.entries()));
+  console.debug('[middleware] Cookies present:', request.cookies.getAll().length > 0);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

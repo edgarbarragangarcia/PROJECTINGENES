@@ -27,30 +27,39 @@ export async function GET(request: Request) {
 
   try {
     const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ 
-      cookies: () => cookieStore 
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore }, {
+      cookieOptions: {
+        name: 'sb-auth-token',
+        lifetime: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        sameSite: 'lax'
+      }
     })
     
     console.debug('[auth/callback] Exchanging code for session...')
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
+    
     if (error) {
-      console.error('Error al intercambiar código por sesión:', error)
+      console.error('[auth/callback] Error exchanging code:', error)
       return NextResponse.redirect(new URL('/login', requestUrl.origin))
     }
 
-  console.debug('[auth/callback] session created:', data?.session)
+    console.debug('[auth/callback] Session created successfully')
+    
+    // Create response with redirect
+    const response = NextResponse.redirect(new URL('/dashboard', requestUrl.origin))
+    
+    // Add a debug cookie to verify cookie setting works
+    response.cookies.set('auth_debug', 'success', {
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: false // So we can see it in the browser
+    })
 
-  // For debugging: set a temporary non-httpOnly cookie so you can inspect
-  // whether this route is returning Set-Cookie headers in the response.
-  const redirectUrl = new URL('/dashboard', requestUrl.origin);
-  const response = NextResponse.redirect(redirectUrl);
-  // Non-sensitive debug cookie (visible in DevTools) to confirm Set-Cookie
-  response.cookies.set({ name: 'auth_debug', value: '1', path: '/', httpOnly: false });
-
-  return response
+    return response
   } catch (err) {
-    console.error('Error inesperado:', err)
+    console.error('[auth/callback] Unexpected error:', err)
     return NextResponse.redirect(new URL('/login', requestUrl.origin))
   }
 }
