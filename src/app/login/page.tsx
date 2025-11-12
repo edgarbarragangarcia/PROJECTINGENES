@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { isTestUser, validateTestUserPassword, generateTestSession } from '@/lib/test-users';
+import { TEST_USERS } from '@/lib/test-users';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,6 +44,53 @@ export default function LoginPage() {
 
     try {
       console.log('🔐 Iniciando login con:', email);
+      
+      // Check if it's a test user first (local/offline testing)
+      if (isTestUser(email)) {
+        console.log('🧪 Test user detected, using local session simulation');
+        if (!validateTestUserPassword(email, password)) {
+          console.error('❌ Test user password incorrect');
+          setError('Contraseña incorrecta para usuario de prueba');
+          setIsLoading(false);
+          return;
+        }
+
+        // Generate a fake session
+        const fakeSession = generateTestSession(email);
+        console.log('✅ Test session generated:', fakeSession.user.email);
+
+        // Store in localStorage via Supabase client
+        const supabaseTest = createClient();
+        if (typeof (globalThis as any).localStorage !== 'undefined') {
+          (globalThis as any).localStorage.setItem(
+            'sb-auth-token',
+            JSON.stringify(fakeSession)
+          );
+          console.log('✅ Test session stored in localStorage');
+        }
+
+        // Send session to server to set httpOnly cookie
+        try {
+          await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session: fakeSession }),
+          });
+          console.log('✅ Test session cookie set on server');
+        } catch (e) {
+          console.warn('⚠️ Could not set test session cookie on server:', e);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log('Redirecting to dashboard...');
+        router.push('/dashboard');
+        setTimeout(() => {
+          router.replace('/dashboard');
+        }, 1000);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -57,8 +106,19 @@ export default function LoginPage() {
       console.log('✅ Sign in successful');
       console.log('Session:', data.session?.user.email);
       
-      // Agregar pequeño delay para asegurar que la sesión se persista
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Send real Supabase session to server to set httpOnly cookie
+      try {
+        await fetch('/api/auth/set-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session: data.session }),
+        });
+        console.log('✅ Real session cookie set on server');
+      } catch (e) {
+        console.warn('⚠️ Could not set session cookie on server:', e);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       console.log('Redirecting to dashboard...');
       router.push('/dashboard');
@@ -193,6 +253,13 @@ export default function LoginPage() {
           {message && (
             <div className="mb-4 p-4 rounded-lg bg-green-100 text-green-800 border border-green-300">
               {message}
+            </div>
+          )}
+
+          {/* Test Users Info (Dev Only) */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-2 rounded-lg text-xs mb-4">
+              <strong>🧪 Test users:</strong> {Object.values(TEST_USERS).map(u => `${u.email}/${u.password}`).join(', ')}
             </div>
           )}
 
