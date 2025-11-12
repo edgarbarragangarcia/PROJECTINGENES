@@ -60,18 +60,24 @@ export async function middleware(request: NextRequest) {
 
   const url = new URL(request.url);
 
-  // if user is not signed in and the current path is not /login, redirect the user to /login
+  // Permitir acceso inicial a /dashboard tras login aunque no haya usuario
+  if (!user && url.pathname === '/dashboard' && request.method === 'GET') {
+    console.log('[middleware] Permitiendo acceso inicial a /dashboard para sincronizar sesión');
+    return response;
+  }
+
+  // Si no hay usuario y no está en /login ni /auth, redirigir a login
   if (!user && url.pathname !== '/login' && !url.pathname.startsWith('/auth/')) {
     console.log('[middleware] No user found, redirecting to /login');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // if user is signed in and the current path is /login, redirect the user to /dashboard
+  // Si hay usuario y está en /login, redirigir a dashboard
   if (user && url.pathname === '/login') {
     console.log('[middleware] User is on login page, redirecting to /dashboard');
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
-  
+
   console.log('[middleware] User check passed for path:', url.pathname);
   return response;
 }
