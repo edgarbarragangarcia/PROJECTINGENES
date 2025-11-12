@@ -64,6 +64,52 @@ export default function LoginContent() {
         }
     }, [searchParams]);
 
+    // Handle OAuth callback code in URL
+    useEffect(() => {
+        const handleOAuthCallback = async () => {
+            const code = searchParams.get('code');
+            
+            if (!code) return;
+            
+            console.log('[login] 🔐 Detected OAuth callback code, processing...');
+            setIsLoading(true);
+            
+            try {
+                // Wait a moment for Supabase to process the code
+                // The detectSessionInUrl setting will handle the exchange
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Check if session was created
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (session) {
+                    console.log('[login] ✅ Session created from OAuth callback');
+                    router.push('/dashboard');
+                } else {
+                    console.log('[login] ⚠️ No session yet, waiting more...');
+                    // Wait more and try again
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const { data: { session: session2 } } = await supabase.auth.getSession();
+                    
+                    if (session2) {
+                        console.log('[login] ✅ Session created (second attempt)');
+                        router.push('/dashboard');
+                    } else {
+                        console.error('[login] ❌ Failed to create session from OAuth code');
+                        setError('❌ No se pudo completar la autenticación. Por favor intenta de nuevo.');
+                    }
+                }
+            } catch (err) {
+                console.error('[login] Error processing OAuth callback:', err);
+                setError('❌ Error procesando autenticación');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        
+        handleOAuthCallback();
+    }, [searchParams, supabase, router]);
+
     const handleSignIn = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError(null);
