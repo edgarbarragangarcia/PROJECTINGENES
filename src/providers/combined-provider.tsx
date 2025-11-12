@@ -8,6 +8,7 @@ import { TasksContext, initialTasksState } from '@/hooks/use-tasks';
 import { DailyNotesContext, initialDailyNotesState } from '@/hooks/use-daily-notes';
 import { UserStoriesContext, initialUserStoriesState } from '@/hooks/use-user-stories';
 import { GoogleCalendarProvider } from './google-calendar-provider';
+import { AuthSyncProvider } from './auth-sync-provider';
 
 import { createClient } from '@/lib/supabase/client';
 import type { Project, Task, DailyNote, UserStory, Profile, ProjectWithProgress, Status, User } from '@/types';
@@ -240,6 +241,7 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
       <TasksContext.Provider value={tasksContextValue}>
         <DailyNotesContext.Provider value={dailyNotesContextValue as any}>
           <UserStoriesContext.Provider value={userStoriesContextValue as any}>
+            <AuthSyncProvider />
             <GoogleCalendarProvider session={session ?? null}>{children}</GoogleCalendarProvider>
           </UserStoriesContext.Provider>
         </DailyNotesContext.Provider>
