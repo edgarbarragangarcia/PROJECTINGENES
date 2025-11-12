@@ -3,9 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useEffect, useState, FormEvent, ChangeEvent } from "react";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -36,11 +35,11 @@ export default function LoginContent() {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session) {
-                    console.log('[login] Session found, redirecting to dashboard');
+                    console.log('[login] ✅ Session found, redirecting to dashboard');
                     router.replace('/dashboard');
                 }
             } catch (err) {
-                console.error('[login] Error checking session:', err);
+                console.error('[login] ❌ Error checking session:', err);
             }
         };
         checkSession();
@@ -52,56 +51,88 @@ export default function LoginContent() {
         const detailsParam = searchParams.get('details');
         
         if (errorParam) {
-            console.log('[login] Error from OAuth callback:', errorParam);
+            console.log('[login] OAuth error from callback:', errorParam);
             const errorMessages: Record<string, string> = {
-                'no_code': 'No se recibió código de autenticación',
-                'exchange_failed': 'Error al intercambiar código',
-                'no_session': 'No se pudo crear la sesión',
-                'callback_error': 'Error en el callback',
-                'access_denied': 'Acceso denegado por Google',
+                'no_code': '❌ No se recibió código de autenticación',
+                'exchange_failed': '❌ Error al intercambiar código de autenticación',
+                'no_session': '❌ No se pudo crear la sesión',
+                'callback_error': '❌ Error en el callback de autenticación',
+                'access_denied': '❌ Acceso denegado por Google',
             };
-            const baseMessage = errorMessages[errorParam] || `Error: ${errorParam}`;
-            const fullMessage = detailsParam ? `${baseMessage}` : baseMessage;
-            setError(fullMessage);
+            const message = errorMessages[errorParam] || `❌ Error: ${errorParam}`;
+            setError(message);
         }
     }, [searchParams]);
 
-    const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSignIn = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError(null);
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+        setIsLoading(true);
+        
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
 
-        if (error) {
-            setError(error.message);
-        } else {
+            if (error) {
+                console.error('[login] ❌ Sign in error:', error.message);
+                setError(`❌ ${error.message}`);
+                setIsLoading(false);
+                return;
+            }
+            
+            console.log('[login] ✅ Sign in successful, redirecting...');
             router.push('/dashboard');
-            router.refresh(); // Asegura que el estado del servidor se actualice
+        } catch (err) {
+            console.error('[login] ❌ Unexpected error:', err);
+            setError('❌ Error inesperado al iniciar sesión');
+            setIsLoading(false);
         }
     };
     
-    const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSignUp = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError(null);
+        setIsLoading(true);
+        
         if (password !== confirmPassword) {
-            setError("Las contraseñas no coinciden.");
+            setError("❌ Las contraseñas no coinciden.");
+            setIsLoading(false);
             return;
         }
 
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                emailRedirectTo: `${location.origin}/auth/callback`,
-            },
-        });
+        if (password.length < 6) {
+            setError("❌ La contraseña debe tener al menos 6 caracteres.");
+            setIsLoading(false);
+            return;
+        }
 
-        if (error) {
-            setError(error.message);
-        } else {
+        try {
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    emailRedirectTo: `${location.origin}/auth/callback`,
+                },
+            });
+
+            if (error) {
+                console.error('[login] ❌ Sign up error:', error.message);
+                setError(`❌ ${error.message}`);
+                setIsLoading(false);
+                return;
+            }
+            
+            console.log('[login] ✅ Sign up successful');
             setRegisterSuccess(true);
+            setEmail('');
+            setPassword('');
+            setConfirmPassword('');
+        } catch (err) {
+            console.error('[login] ❌ Unexpected error during signup:', err);
+            setError('❌ Error inesperado al crear la cuenta');
+            setIsLoading(false);
         }
     };
 
@@ -109,31 +140,27 @@ export default function LoginContent() {
         setError(null);
         setIsLoading(true);
         try {
-            console.log('[login] 🔵 Starting Google OAuth flow...');
+            console.log('[login] 🔵 Starting Google OAuth...');
             console.log('[login] Redirect URL:', `${location.origin}/auth/callback`);
             
-            const { data, error } = await supabase.auth.signInWithOAuth({
+            const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: `${location.origin}/auth/callback`,
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent'
-                    }
                 }
             });
             
             if (error) {
-                console.error('❌ [login] Error al iniciar sesión con Google:', error);
-                setError(`Error: ${error.message}`);
+                console.error('[login] ❌ Google OAuth error:', error.message);
+                setError(`❌ ${error.message}`);
                 setIsLoading(false);
                 return;
             }
 
-            console.log('✅ [login] OAuth iniciado, esperando redirección...');
+            console.log('[login] ✅ Google OAuth initiated, waiting for redirect...');
         } catch (err) {
-            console.error('❌ [login] Error inesperado:', err);
-            setError('Ocurrió un error al intentar iniciar sesión con Google');
+            console.error('[login] ❌ Unexpected error:', err);
+            setError('❌ Error inesperado al iniciar sesión con Google');
             setIsLoading(false);
         }
     };
@@ -145,10 +172,15 @@ export default function LoginContent() {
                 <p className="mt-2 text-muted-foreground">Inicia sesión o crea una cuenta para continuar.</p>
             </div>
             
-            {error && <p className="mb-4 text-destructive text-sm text-center">{error}</p>}
+            {error && (
+                <div className="mb-4 p-3 rounded-md bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700 text-sm">
+                    {error}
+                </div>
+            )}
+            
             {registerSuccess && (
-                <div className="mb-4 p-3 rounded-md bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-800">
-                    ¡Revisa tu correo para confirmar el registro!
+                <div className="mb-4 p-3 rounded-md bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">
+                    ✅ ¡Revisa tu correo para confirmar el registro!
                 </div>
             )}
 
@@ -184,30 +216,79 @@ export default function LoginContent() {
                             <form onSubmit={handleSignIn} className="grid gap-4 pt-4">
                                 <div className="grid gap-2">
                                     <Label htmlFor="login-email">Email</Label>
-                                    <Input id="login-email" type="email" placeholder="tu@email.com" value={email} onChange={(e: any) => setEmail(e.target.value)} required />
+                                    <input 
+                                        id="login-email" 
+                                        type="email" 
+                                        placeholder="tu@email.com" 
+                                        value={email} 
+                                        onChange={(e) => setEmail((e.target as any).value)}
+                                        disabled={isLoading}
+                                        required 
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                                    />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="login-password">Contraseña</Label>
-                                    <Input id="login-password" type="password" placeholder="Tu contraseña" value={password} onChange={(e: any) => setPassword(e.target.value)} required />
+                                    <input 
+                                        id="login-password" 
+                                        type="password" 
+                                        placeholder="Tu contraseña" 
+                                        value={password} 
+                                        onChange={(e) => setPassword((e.target as any).value)}
+                                        disabled={isLoading}
+                                        required 
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                                    />
                                 </div>
-                                <Button type="submit" className="w-full mt-2">Iniciar Sesión</Button>
+                                <Button type="submit" className="w-full mt-2" disabled={isLoading}>
+                                    {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+                                </Button>
                             </form>
                         </TabsContent>
                         <TabsContent value="register">
                             <form onSubmit={handleSignUp} className="grid gap-4 pt-4">
                                 <div className="grid gap-2">
                                     <Label htmlFor="register-email">Email</Label>
-                                    <Input id="register-email" type="email" placeholder="tu@email.com" value={email} onChange={(e: any) => setEmail(e.target.value)} required />
+                                    <input 
+                                        id="register-email" 
+                                        type="email" 
+                                        placeholder="tu@email.com" 
+                                        value={email} 
+                                        onChange={(e) => setEmail((e.target as any).value)}
+                                        disabled={isLoading}
+                                        required 
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                                    />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="register-password">Contraseña</Label>
-                                    <Input id="register-password" type="password" placeholder="Crea una contraseña segura" value={password} onChange={(e: any) => setPassword(e.target.value)} required />
+                                    <input 
+                                        id="register-password" 
+                                        type="password" 
+                                        placeholder="Crea una contraseña segura" 
+                                        value={password} 
+                                        onChange={(e) => setPassword((e.target as any).value)}
+                                        disabled={isLoading}
+                                        required 
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                                    />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
-                                    <Input id="confirm-password" type="password" placeholder="Repite la contraseña" value={confirmPassword} onChange={(e: any) => setConfirmPassword(e.target.value)} required />
+                                    <input 
+                                        id="confirm-password" 
+                                        type="password" 
+                                        placeholder="Repite la contraseña" 
+                                        value={confirmPassword} 
+                                        onChange={(e) => setConfirmPassword((e.target as any).value)}
+                                        disabled={isLoading}
+                                        required 
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                                    />
                                 </div>
-                                <Button type="submit" className="w-full mt-2">Crear Cuenta</Button>
+                                <Button type="submit" className="w-full mt-2" disabled={isLoading}>
+                                    {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
+                                </Button>
                             </form>
                         </TabsContent>
                     </Tabs>
