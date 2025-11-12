@@ -31,11 +31,15 @@ export async function GET(request: Request) {
     })
     
     console.log('[auth/callback] 🔄 Exchanging code for session...')
+    console.log('[auth/callback] Code value:', code)
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (exchangeError) {
-      console.error('❌ [auth/callback] Error al intercambiar código por sesión:', exchangeError.message)
-      return NextResponse.redirect(new URL('/login?error=exchange_failed', requestUrl.origin))
+      console.error('❌ [auth/callback] Error al intercambiar código por sesión:')
+      console.error('  Message:', exchangeError.message)
+      console.error('  Status:', (exchangeError as any).status)
+      console.error('  Full error:', JSON.stringify(exchangeError, null, 2))
+      return NextResponse.redirect(new URL('/login?error=exchange_failed&details=' + encodeURIComponent(exchangeError.message), requestUrl.origin))
     }
 
     if (!data?.session) {

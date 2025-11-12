@@ -49,13 +49,17 @@ export default function LoginContent() {
     // Check for error in URL params
     useEffect(() => {
         const errorParam = searchParams.get('error');
+        const detailsParam = searchParams.get('details');
         if (errorParam) {
             const errorMessages: Record<string, string> = {
                 'no_code': 'No se recibió código de autenticación',
                 'exchange_failed': 'Error al intercambiar código',
                 'no_session': 'No se pudo crear la sesión',
             };
-            setError(errorMessages[errorParam] || `Error: ${errorParam}`);
+            const baseMessage = errorMessages[errorParam] || `Error: ${errorParam}`;
+            const fullMessage = detailsParam ? `${baseMessage} (${detailsParam})` : baseMessage;
+            setError(fullMessage);
+            console.error('[login] Error from callback:', { error: errorParam, details: detailsParam });
         }
     }, [searchParams]);
 
