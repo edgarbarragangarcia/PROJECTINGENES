@@ -43,7 +43,7 @@ export function createClient() {
         flowType: 'pkce',
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        detectSessionInUrl: false, // Disabled - server handles OAuth callback
         storageKey: 'sb-auth-token',
         debug: true, // Enable debug logging
       },
