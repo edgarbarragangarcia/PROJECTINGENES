@@ -185,46 +185,23 @@ export default function LoginContent() {
     const handleGoogleSignIn = async () => {
         setError(null);
         setIsLoading(true);
-        try {
-            console.log('[login] 🔵 Starting Google OAuth...');
-            const redirectTo = (typeof globalThis !== 'undefined' && (globalThis as any).location)
-                ? (globalThis as any).location.origin + '/auth/callback'
-                : 'http://localhost:9003/auth/callback';
-            console.log('[login] Redirect URL:', redirectTo);
+        const supabase = createClient();
 
-            // Call signInWithOAuth but do not await it synchronously so the
-            // browser treats the resulting navigation as user-initiated. Some
-            // browsers (Safari) block navigations that happen after an awaited
-            // async boundary.
-            const promise = supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: { redirectTo },
-            });
+        // Ensure the redirect URL is absolute
+        const redirectTo = `${location.origin}/auth/callback`;
+        console.log('[login] Starting Google OAuth with redirect to:', redirectTo);
 
-            promise.then((res: any) => {
-                const data = res?.data;
-                const error = res?.error;
-                if (error) {
-                    console.error('[login] ❌ Google OAuth error (async):', error.message || error);
-                    setError(`❌ ${error.message || JSON.stringify(error)}`);
-                    setIsLoading(false);
-                    return;
-                }
-                const redirectUrl = data?.url;
-                if (redirectUrl) {
-                    console.log('[login] ▶️ Async redirect to OAuth URL', redirectUrl);
-                    try { (globalThis as any).location.assign(redirectUrl); } catch (e) { console.error(e); }
-                } else {
-                    console.log('[login] ✅ Google OAuth initiated (async, no redirect URL)');
-                }
-            }).catch((err: any) => {
-                console.error('[login] ❌ signInWithOAuth promise rejected:', err);
-                setError('❌ Error iniciando OAuth');
-                setIsLoading(false);
-            });
-        } catch (err) {
-            console.error('[login] ❌ Unexpected error:', err);
-            setError('❌ Error inesperado al iniciar sesión con Google');
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo,
+                // The code_verifier is now handled by the ssr library automatically
+            },
+        });
+
+        if (error) {
+            console.error('[login] ❌ Google OAuth error:', error.message);
+            setError(`Error en OAuth: ${error.message}`);
             setIsLoading(false);
         }
     };
