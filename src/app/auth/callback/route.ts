@@ -47,28 +47,44 @@ export async function GET(request: Request) {
         console.error('Error getting session after exchange:', getSessionError)
       }
       
-      if (session) {
-        console.log('✅ OAuth session received, access_token present')
-        
-        // Manually set the auth token cookie so middleware can read it
-        const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('.')[0].split('//')[1] || 'sb'
-        const cookieName = `sb-${projectRef}-auth-token`
-        
-        try {
-          cookieStore.set(cookieName, session.access_token, {
-            maxAge: session.expires_in || 3600,
-            path: '/',
-            httpOnly: true,
-            sameSite: 'lax',
-            secure: process.env.NODE_ENV === 'production',
-          })
-          console.log('✅ OAuth session token set in httpOnly cookie')
-        } catch (cookieError) {
-          console.error('Error setting auth token cookie:', cookieError)
+        if (session) {
+          console.log('✅ OAuth session received, access_token present')
+
+          // Use the same projectRef extraction as the set-session endpoint to
+          // ensure cookie name consistency.
+          function getProjectRefFromUrl(url?: string) {
+            if (!url) return 'sb'
+            try {
+              const u = new URL(url)
+              const host = u.host // e.g. ytljrvcjstbuhrdothhf.supabase.co
+              const parts = host.split('.')
+              return parts[0] || 'sb'
+            } catch (e) {
+              return 'sb'
+            }
+          }
+
+          const projectRef = getProjectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)
+          const cookieName = `sb-${projectRef}-auth-token`
+
+          try {
+            // Use the object signature for cookieStore.set so options are applied
+            cookieStore.set({
+              name: cookieName,
+              value: session.access_token || '',
+              maxAge: session.expires_in || 3600,
+              path: '/',
+              httpOnly: true,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+            })
+            console.log('✅ OAuth session token set in httpOnly cookie')
+          } catch (cookieError) {
+            console.error('Error setting auth token cookie:', cookieError)
+          }
+        } else {
+          console.warn('⚠️ No session returned after code exchange')
         }
-      } else {
-        console.warn('⚠️ No session returned after code exchange')
-      }
     } catch (error) {
       console.error('Error exchanging code:', error)
     }
