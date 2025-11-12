@@ -192,31 +192,36 @@ export default function LoginContent() {
                 : 'http://localhost:9003/auth/callback';
             console.log('[login] Redirect URL:', redirectTo);
 
-            // Use skipBrowserRedirect to get the URL and perform a manual redirect.
-            const { data, error } = await supabase.auth.signInWithOAuth({
+            // Call signInWithOAuth but do not await it synchronously so the
+            // browser treats the resulting navigation as user-initiated. Some
+            // browsers (Safari) block navigations that happen after an awaited
+            // async boundary.
+            const promise = supabase.auth.signInWithOAuth({
                 provider: 'google',
-                options: {
-                    redirectTo,
-                    skipBrowserRedirect: true,
-                }
+                options: { redirectTo },
             });
 
-            if (error) {
-                console.error('[login] ❌ Google OAuth error:', error.message);
-                setError(`❌ ${error.message}`);
+            promise.then((res: any) => {
+                const data = res?.data;
+                const error = res?.error;
+                if (error) {
+                    console.error('[login] ❌ Google OAuth error (async):', error.message || error);
+                    setError(`❌ ${error.message || JSON.stringify(error)}`);
+                    setIsLoading(false);
+                    return;
+                }
+                const redirectUrl = data?.url;
+                if (redirectUrl) {
+                    console.log('[login] ▶️ Async redirect to OAuth URL', redirectUrl);
+                    try { (globalThis as any).location.assign(redirectUrl); } catch (e) { console.error(e); }
+                } else {
+                    console.log('[login] ✅ Google OAuth initiated (async, no redirect URL)');
+                }
+            }).catch((err: any) => {
+                console.error('[login] ❌ signInWithOAuth promise rejected:', err);
+                setError('❌ Error iniciando OAuth');
                 setIsLoading(false);
-                return;
-            }
-
-            // Some Supabase versions return a redirect URL in data.url
-            const redirectUrl = (data as any)?.url;
-            if (redirectUrl) {
-                console.log('[login] ▶️ Redirecting browser to OAuth URL', redirectUrl);
-                // Use location.assign so Safari treats it as a user-initiated navigation
-                (globalThis as any).location.assign(redirectUrl);
-            } else {
-                console.log('[login] ✅ Google OAuth initiated (no redirect URL returned)');
-            }
+            });
         } catch (err) {
             console.error('[login] ❌ Unexpected error:', err);
             setError('❌ Error inesperado al iniciar sesión con Google');
