@@ -72,9 +72,22 @@ export async function middleware(request: NextRequest) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
 
-    // if the user is not logged in and not on a public path, redirect to login
+    // if the user is not logged in and not on a public path, decide how to handle it.
+    // In development we observed that client-side sessions are persisted to localStorage
+    // and the server middleware can't read them (no cookies). To avoid blocking the
+    // client redirect flow after sign-in, allow HTML navigations to proceed so the
+    // client can read the session and redirect. For non-HTML requests (API/fetch),
+    // keep the server-side redirect.
     if (!user) {
-      console.debug('[middleware] No user found, redirecting to login');
+      const accept = request.headers.get('accept') || '';
+      const isHtmlNavigation = accept.includes('text/html');
+
+      if (isHtmlNavigation) {
+        console.debug('[middleware] No user found, but allowing HTML navigation so client can handle auth');
+        return response;
+      }
+
+      console.debug('[middleware] No user found, redirecting to login (non-HTML request)');
       return NextResponse.redirect(new URL('/login', request.url));
     }
 

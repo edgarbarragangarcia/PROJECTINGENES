@@ -11,9 +11,25 @@ import { createBrowserClient } from '@supabase/ssr';
 let _cachedClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function createClient() {
+  // If we are running on the server (SSR), return a lightweight stub
+  // client with the minimal `auth` methods used by server code. This
+  // prevents server-side imports from crashing while keeping behavior
+  // predictable. Client-side calls will use the real browser client.
   if (typeof globalThis === 'undefined' || typeof (globalThis as any).window === 'undefined') {
-    // Defensive: this file is intended for client usage only.
-    throw new Error('createClient() must be called from the browser.');
+    // Return a minimal stub that matches the calls used in SSR contexts.
+    const stub: any = {
+      auth: {
+        getSession: async () => ({ data: { session: null } }),
+        getUser: async () => ({ data: { user: null } }),
+        onAuthStateChange: (_: any) => ({ data: { subscription: null } }),
+        signInWithPassword: async (_: any) => ({ data: null, error: { message: 'SSR stub: cannot sign in on server' } }),
+        signUp: async (_: any) => ({ data: null, error: { message: 'SSR stub: cannot sign up on server' } }),
+        signInWithOAuth: async (_: any) => ({ data: null, error: { message: 'SSR stub: cannot sign in with OAuth on server' } }),
+        signOut: async () => ({ error: null }),
+      },
+    };
+
+    return stub;
   }
 
   if (_cachedClient) return _cachedClient;

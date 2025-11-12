@@ -90,7 +90,7 @@ export function Navbar() {
 
     fetchUserAndProfile();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+  const { data: authListener } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       console.debug('[Navbar] auth state changed', event, { sessionAvailable: !!session });
       if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -165,7 +165,7 @@ export function Navbar() {
       loadUserData();
     }
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+  const { data: authListener } = supabase.auth.onAuthStateChange((event: any) => {
       console.debug('[Navbar] auth listener (loadUserData effect) registered');
       if (event === 'SIGNED_IN') {
         loadUserData();

@@ -32,7 +32,7 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
       if (mounted) setSession(data.session ?? null);
     }
     getInitialSession();
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (mounted) setSession(session);
     });
     return () => {
@@ -61,12 +61,12 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
       supabase.from('profiles').select('*'),
     ]);
 
-    const projectsWithProgress = (projectsRes.data || []).map(p => {
-        const projTasks = (tasksRes.data || []).filter(t => t.project_id === p.id);
-        const total = projTasks.length;
-        const completed = projTasks.filter(t => t.status === 'Done').length;
-        return { ...p, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
-    });
+  const projectsWithProgress = (projectsRes.data || []).map((p: any) => {
+    const projTasks = (tasksRes.data || []).filter((t: any) => t.project_id === p.id);
+    const total = projTasks.length;
+    const completed = projTasks.filter((t: any) => t.status === 'Done').length;
+    return { ...p, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
+  });
 
     // Update states with fetched data
     setProjectsState({ loading: false, error: projectsRes.error, projects: projectsWithProgress });

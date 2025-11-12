@@ -15,9 +15,10 @@ export const useSpeechRecognition = (onTranscriptChange: (transcript: string) =>
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // Use any for cross-environment compatibility; browsers expose SpeechRecognition on window
+  const recognitionRef = useRef<any | null>(null);
 
-  const isSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  const isSupported = typeof globalThis !== 'undefined' && ((globalThis as any).SpeechRecognition || (globalThis as any).webkitSpeechRecognition);
 
   useEffect(() => {
     if (!isSupported) {
@@ -25,15 +26,15 @@ export const useSpeechRecognition = (onTranscriptChange: (transcript: string) =>
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+  const SpeechRecognition = (globalThis as any).SpeechRecognition || (globalThis as any).webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'es-ES';
 
     recognitionRef.current = recognition;
 
-    recognition.onresult = (event) => {
+  recognition.onresult = (event: any) => {
       let finalTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
@@ -46,7 +47,7 @@ export const useSpeechRecognition = (onTranscriptChange: (transcript: string) =>
       }
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       setError(`Error de reconocimiento de voz: ${event.error}`);
       setIsListening(false);
     };

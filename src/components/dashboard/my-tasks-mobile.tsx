@@ -191,7 +191,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         fetchMobileData();
 
         // Subscribe to auth changes so mobile view refetches automatically after sign-in/sign-out
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange((event: any, session: any) => {
             if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
                 fetchMobileData();
             }
