@@ -58,7 +58,8 @@ export function AuthSyncProvider() {
     // Listen to auth state changes and sync whenever they occur
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event: any, session: any) => {
       if (mounted) {
-        console.log('[AuthSync] Auth state changed:', _event);
+        console.log('[AuthSync] 🔄 Auth event:', _event);
+        console.log('[AuthSync] Session present:', !!session);
         await syncSessionToServer(session);
       }
     });
