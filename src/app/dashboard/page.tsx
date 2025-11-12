@@ -17,6 +17,7 @@ import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { PriorityIcon } from '@/components/task/priority-icon';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -59,6 +60,7 @@ const getPriorityBadgeVariant = (priority: Task['priority']) => {
 };
 
 export default function DashboardPage() {
+    const router = useRouter();
     const { tasks, allUsers } = useTasks();
     const { projects } = useProjects();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -73,7 +75,14 @@ export default function DashboardPage() {
     useEffect(() => {
         const checkUser = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data: { user }, error } = await supabase.auth.getUser();
+                
+                if (error || !user) {
+                    console.warn('No hay sesión activa, redirigiendo a login');
+                    router.replace('/login');
+                    return;
+                }
+                
                 setCurrentUser(user);
 
                 if (user && allUsers.length > 0) {

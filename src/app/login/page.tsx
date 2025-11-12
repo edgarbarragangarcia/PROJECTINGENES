@@ -41,20 +41,34 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('🔐 Iniciando login con:', email);
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('❌ Login error:', error);
         setError(error.message);
         setIsLoading(false);
         return;
       }
 
       console.log('✅ Sign in successful');
+      console.log('Session:', data.session?.user.email);
+      
+      // Agregar pequeño delay para asegurar que la sesión se persista
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('Redirecting to dashboard...');
       router.push('/dashboard');
+      
+      // Extra safety: if push doesn't work, try replace
+      setTimeout(() => {
+        router.replace('/dashboard');
+      }, 1000);
     } catch (err) {
+      console.error('Exception:', err);
       setError('Error al iniciar sesión');
       setIsLoading(false);
     }
