@@ -31,7 +31,9 @@ export async function POST(req: Request) {
     const projectRef = getProjectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
     const cookieName = `sb-${projectRef}-auth-token`;
 
-    const cookieValue = JSON.stringify(session);
+    // Store ONLY the access_token in the cookie (not the full JSON)
+    // This way createServerClient can read it as a standard auth cookie
+    const cookieValue = session.access_token;
 
     const res = NextResponse.json({ ok: true });
 
@@ -46,19 +48,6 @@ export async function POST(req: Request) {
       sameSite: 'lax',
       expires,
     });
-
-    // Also set a short non-httpOnly mirror for debugging in dev (only if not prod)
-    if (process.env.NODE_ENV !== 'production') {
-      res.cookies.set({
-        name: 'sb-auth-token-debug',
-        value: cookieValue,
-        httpOnly: false,
-        secure: false,
-        path: '/',
-        sameSite: 'lax',
-        expires,
-      });
-    }
 
     return res;
   } catch (err: any) {
