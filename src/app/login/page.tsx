@@ -3,8 +3,8 @@
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import { Zap, DownloadCloud, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePWAInstall } from "@/hooks/use-pwa-install";
+import LoginContent from "./login-content";
 
 const GoogleIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="size-5 mr-2" viewBox="0 0 24 24">
@@ -58,202 +59,16 @@ function PWAInstallSection() {
 }
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const [registerSuccess, setRegisterSuccess] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const supabase = createClient();
-    
-    // Redirige al dashboard si ya hay una sesión activa.
-    useEffect(() => {
-        const checkSession = async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                    console.log('[login] Session found, redirecting to dashboard');
-                    router.replace('/dashboard');
-                }
-            } catch (err) {
-                console.error('[login] Error checking session:', err);
-            }
-        };
-        checkSession();
-    }, [router, supabase]);
-
-    // Check for error in URL params
-    useEffect(() => {
-        const errorParam = searchParams.get('error');
-        if (errorParam) {
-            const errorMessages: Record<string, string> = {
-                'no_code': 'No se recibió código de autenticación',
-                'exchange_failed': 'Error al intercambiar código',
-                'no_session': 'No se pudo crear la sesión',
-            };
-            setError(errorMessages[errorParam] || `Error: ${errorParam}`);
-        }
-    }, [searchParams]);
-
-
-    const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setError(null);
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) {
-            setError(error.message);
-        } else {
-            router.push('/dashboard');
-            router.refresh(); // Asegura que el estado del servidor se actualice
-        }
-    };
-    
-    const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setError(null);
-        if (password !== confirmPassword) {
-            setError("Las contraseñas no coinciden.");
-            return;
-        }
-
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                emailRedirectTo: `${location.origin}/auth/callback`,
-            },
-        });
-
-        if (error) {
-            setError(error.message);
-        } else {
-            setRegisterSuccess(true);
-        }
-    };
-
-    const handleGoogleSignIn = async () => {
-        setError(null);
-        setIsLoading(true);
-        try {
-            console.log('[login] 🔵 Starting Google OAuth flow...');
-            console.log('[login] Redirect URL:', `${location.origin}/auth/callback`);
-            
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: `${location.origin}/auth/callback`,
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent'
-                    }
-                }
-            });
-            
-            if (error) {
-                console.error('❌ [login] Error al iniciar sesión con Google:', error);
-                setError(`Error: ${error.message}`);
-                setIsLoading(false);
-                return;
-            }
-
-            console.log('✅ [login] OAuth iniciado, esperando redirección...');
-        } catch (err) {
-            console.error('❌ [login] Error inesperado:', err);
-            setError('Ocurrió un error al intentar iniciar sesión con Google');
-            setIsLoading(false);
-        }
-    };
-
     return (
         <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
             <div className="hidden lg:flex flex-col items-center justify-center p-12 bg-gradient-to-br from-violet-100 via-pink-100 to-blue-100 dark:from-violet-950/50 dark:via-pink-950/50 dark:to-blue-950/50 border-r">
                 <PWAInstallSection />
             </div>
             <div className="flex items-center justify-center p-6 min-h-screen">
-                <div className="w-full max-w-sm">
-                    <div className="text-center mb-6">
-                        <h1 className="font-headline text-3xl font-bold">Bienvenido a PROJECTIA</h1>
-                        <p className="mt-2 text-muted-foreground">Inicia sesión o crea una cuenta para continuar.</p>
-                    </div>
-                    
-                    {error && <p className="mb-4 text-destructive text-sm text-center">{error}</p>}
-                    {registerSuccess && (
-                        <div className="mb-4 p-3 rounded-md bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-800">
-                            ¡Revisa tu correo para confirmar el registro!
-                        </div>
-                    )}
-
-                    <Button 
-                        variant="outline" 
-                        className="w-full" 
-                        onClick={handleGoogleSignIn}
-                        disabled={isLoading}
-                    >
-                        <GoogleIcon />
-                        {isLoading ? 'Redirigiendo a Google...' : 'Continuar con Google'}
-                    </Button>
-
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-2 text-muted-foreground">
-                            O continuar con email
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <Card>
-                        <CardHeader>
-                            <Tabs defaultValue="login" className="w-full">
-                                <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
-                                    <TabsTrigger value="register">Registrarse</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="login">
-                                    <form onSubmit={handleSignIn} className="grid gap-4 pt-4">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="login-email">Email</Label>
-                                            <Input id="login-email" type="email" placeholder="tu@email.com" value={email} onChange={(e: any) => setEmail(e.target.value)} required />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="login-password">Contraseña</Label>
-                                            <Input id="login-password" type="password" placeholder="Tu contraseña" value={password} onChange={(e: any) => setPassword(e.target.value)} required />
-                                        </div>
-                                        <Button type="submit" className="w-full mt-2">Iniciar Sesión</Button>
-                                    </form>
-                                </TabsContent>
-                                <TabsContent value="register">
-                                    <form onSubmit={handleSignUp} className="grid gap-4 pt-4">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="register-email">Email</Label>
-                                            <Input id="register-email" type="email" placeholder="tu@email.com" value={email} onChange={(e: any) => setEmail(e.target.value)} required />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="register-password">Contraseña</Label>
-                                            <Input id="register-password" type="password" placeholder="Crea una contraseña segura" value={password} onChange={(e: any) => setPassword(e.target.value)} required />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
-                                            <Input id="confirm-password" type="password" placeholder="Repite la contraseña" value={confirmPassword} onChange={(e: any) => setConfirmPassword(e.target.value)} required />
-                                        </div>
-                                        <Button type="submit" className="w-full mt-2">Crear Cuenta</Button>
-                                    </form>
-                                </TabsContent>
-                            </Tabs>
-                        </CardHeader>
-                    </Card>
-                </div>
+                <Suspense fallback={<div>Cargando...</div>}>
+                    <LoginContent />
+                </Suspense>
             </div>
         </div>
     );
-}
-
-    
+}    
