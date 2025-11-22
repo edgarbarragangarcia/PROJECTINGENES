@@ -212,7 +212,7 @@ export default function DashboardPage() {
                         tasks={mobileTasks}
                         projects={mobileProjects}
                         allUsers={allUsers}
-                        currentUserProfile={profile}
+                        currentUserProfile={profile || undefined}
                     />
                 </div>
             </AppLayout>

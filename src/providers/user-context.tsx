@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/types/domain';
@@ -19,9 +19,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const { data: session, status } = useSession();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
-    const refreshProfile = async () => {
+    const refreshProfile = useCallback(async () => {
         if (!session?.user?.email) {
             setProfile(null);
             return;
@@ -37,7 +37,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
             if (error) {
                 console.warn('Error fetching profile:', error);
-                // If profile doesn't exist, we might want to create it or just wait for the auth callback to handle it
             }
 
             if (data) {
@@ -48,7 +47,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsLoadingProfile(false);
         }
-    };
+    }, [session?.user?.email, supabase]);
 
     useEffect(() => {
         if (status === 'authenticated' && session?.user?.email) {
@@ -56,15 +55,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
         } else if (status === 'unauthenticated') {
             setProfile(null);
         }
-    }, [session, status]);
+    }, [session, status, refreshProfile]);
 
-    const value = {
+    const value = useMemo(() => ({
         user: session?.user || null,
         profile,
         isAdmin: profile?.role === 'admin',
         isLoading: status === 'loading' || isLoadingProfile,
         refreshProfile
-    };
+    }), [session?.user, profile, status, isLoadingProfile, refreshProfile]);
 
     return (
         <UserContext.Provider value={value}>

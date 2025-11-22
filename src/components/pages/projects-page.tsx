@@ -75,6 +75,24 @@ export default function ProjectsPage() {
     return userProjects;
   }, [projects, tasks, selectedCreator, isAdmin, currentUserEmail]);
 
+  // Proyectos para mostrar en la UI (basado en selección)
+  const projectsToShow = useMemo(() => {
+    if (selectedProjects.length === 0) {
+      return filteredProjects;
+    }
+    return (filteredProjects || []).filter(p => p && selectedProjects.includes(p.id));
+  }, [filteredProjects, selectedProjects]);
+
+  // Proyectos disponibles para exportar (todos los filtrados)
+  const projectsToExport = useMemo(() => {
+    if (selectedProjects.length === 0) {
+      // Si no hay proyectos seleccionados, exportar todos los filtrados
+      return filteredProjects;
+    }
+    // Si hay proyectos seleccionados, exportar solo esos
+    return filteredProjects.filter(p => p && selectedProjects.includes(p.id));
+  }, [filteredProjects, selectedProjects]);
+
   const handleEdit = (project: ProjectWithProgress) => {
     setProjectToEdit(project);
     setIsFormOpen(true);

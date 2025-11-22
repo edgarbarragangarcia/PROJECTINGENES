@@ -25,7 +25,7 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
 }
 
 function CombinedProviderContent({ children }: { children: ReactNode }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { user, profile, isAdmin, isLoading: isUserLoading } = useUser();
   const session = user ? { user } as any : null; // Mock session for compatibility
 

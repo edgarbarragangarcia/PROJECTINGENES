@@ -27,21 +27,21 @@ interface MyTasksMobileProps {
 
 const getStatusBadgeClass = (status: Task['status']) => {
     switch (status) {
-      case 'Backlog': return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-800';
-      case 'In Progress': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-800';
-      case 'Done': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-800';
-      case 'Stopper': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-800';
-      case 'Todo': return 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900/50 dark:text-sky-300 dark:border-sky-800';
-      default: return 'bg-secondary text-secondary-foreground';
+        case 'Backlog': return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-800';
+        case 'In Progress': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-800';
+        case 'Done': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-800';
+        case 'Stopper': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-800';
+        case 'Todo': return 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900/50 dark:text-sky-300 dark:border-sky-800';
+        default: return 'bg-secondary text-secondary-foreground';
     }
 };
 
 const getPriorityBadgeVariant = (priority: Task['priority']) => {
     switch (priority) {
-      case 'High': return 'destructive';
-      case 'Medium': return 'secondary';
-      case 'Low': return 'outline';
-      default: return 'outline';
+        case 'High': return 'destructive';
+        case 'Medium': return 'secondary';
+        case 'Low': return 'outline';
+        default: return 'outline';
     }
 };
 
@@ -49,7 +49,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const { updateTask } = useTasks();
     const { toast } = useToast();
-    
+
     const isAdmin = currentUserProfile?.role === 'admin';
     // debug logs removed
 
@@ -70,31 +70,13 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         return [];
     };
 
-    const [mobileTasks, setMobileTasks] = useState<Task[]>([]);
-    const [mobileProjects, setMobileProjects] = useState<ProjectWithProgress[]>([]);
-    const [loadingMobileData, setLoadingMobileData] = useState(true);
-    const [fetchedMobileData, setFetchedMobileData] = useState(false);
-    const [mobileFetchError, setMobileFetchError] = useState<string | null>(null);
-
-    const displayTasks = fetchedMobileData ? mobileTasks : tasks.map(t => ({ ...t })).map(t => ({
+    const displayTasks = tasks.map(t => ({
         ...t,
         assignees: safeParseAssignees(t.assignees),
         project_id: t.project_id || (t as any).projectId,
     } as Task));
-    const displayProjects = fetchedMobileData ? mobileProjects : projects;
 
-    const normalizeTask = (t: any): Task => {
-        return {
-            ...t,
-            // ensure assignees is an array
-            assignees: safeParseAssignees(t.assignees),
-            // prefer project_id; if absent, try projectId
-            project_id: t.project_id || (t as any).projectId,
-            // parse dates if strings
-            startDate: t.start_date ? parseISO(t.start_date) : (t.startDate || undefined),
-            dueDate: t.due_date ? parseISO(t.due_date) : (t.dueDate || undefined),
-        } as Task;
-    };
+    const displayProjects = projects;
 
     // Format assignees safely for display. Always returns a string.
     const formatAssignees = (value: any): string => {
@@ -109,127 +91,41 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         }
     };
 
-    useEffect(() => {
-        let mounted = true;
-        const supabase = createClient();
-
-        const fetchMobileData = async () => {
-            setLoadingMobileData(true);
-            setMobileFetchError(null);
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
-                    if (mounted) {
-                        setMobileTasks([]);
-                        setMobileProjects([]);
-                        setFetchedMobileData(true);
-                    }
-                    return;
-                }
-
-                // Admin: fetch everything
-                if (currentUserProfile?.role === 'admin') {
-                    const { data: allTasks } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
-                    const { data: allProjects } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
-                    if (!mounted) return;
-                    setMobileTasks((allTasks || []).map(normalizeTask));
-                    setMobileProjects((allProjects || []) as ProjectWithProgress[]);
-                    setFetchedMobileData(true);
-                    return;
-                }
-
-                // Regular user: tasks created by user OR assigned to user's email
-                const userEmail = user.email || '';
-                const { data: tasksData, error: tasksError } = await supabase
-                    .from('tasks')
-                    .select('*') // Simplified select to avoid relationship ambiguity
-                    .or(`user_id.eq.${user.id},assignees.cs.["${userEmail}"]`)
-                    .order('created_at', { ascending: false });
-
-                if (tasksError) {
-                    console.error('Error fetching mobile tasks:', tasksError);
-                    setMobileFetchError(tasksError.message || JSON.stringify(tasksError));
-                }
-
-                const tasksList = (tasksData || []) as Task[];
-
-                // Get project IDs from tasks
-                const projectIds = Array.from(new Set(tasksList.map(t => t.project_id).filter(Boolean)));
-
-                // Fetch projects owned by user
-                const { data: ownedProjects } = await supabase.from('projects').select('*').eq('user_id', user.id);
-
-                // Temporarily disable failing RPC call
-                const rpcProjects: any[] = [];
-
-                // Fetch projects related to tasks (by projectIds)
-                let relatedProjects: any[] = [];
-                if (projectIds.length > 0) {
-                    const { data: projData } = await supabase.from('projects').select('*').in('id', projectIds);
-                    relatedProjects = projData || [];
-                }
-
-                const combinedProjects = [...(ownedProjects || []), ...rpcProjects, ...relatedProjects];
-                // unique by id
-                const uniqueProjectsMap: Record<string, any> = {};
-                combinedProjects.forEach(p => { if (p && p.id) uniqueProjectsMap[p.id] = p; });
-                const uniqueProjects = Object.values(uniqueProjectsMap) as ProjectWithProgress[];
-
-                if (!mounted) return;
-                setMobileTasks(tasksList.map(normalizeTask));
-                setMobileProjects(uniqueProjects);
-                setFetchedMobileData(true);
-            } catch (e: any) {
-                console.error('Error fetching mobile data:', e);
-                if (mounted) setMobileFetchError(e?.message || String(e));
-                if (mounted) setFetchedMobileData(true);
-            } finally {
-                if (mounted) setLoadingMobileData(false);
-            }
-        };
-
-        fetchMobileData();
-
-        // Subscribe to auth changes so mobile view refetches automatically after sign-in/sign-out
-        const { data: authListener } = supabase.auth.onAuthStateChange((event: any, session: any) => {
-            if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-                fetchMobileData();
-            }
-        });
-
-        return () => {
-            mounted = false;
-            authListener?.subscription?.unsubscribe();
-        };
-    }, [currentUserProfile]);
-
-    const [selectedUserId, setSelectedUserId] = useState<string>('all');
+    const [selectedUserEmail, setSelectedUserEmail] = useState('all');
+    const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
     const [filterType, setFilterType] = useState<'assignee' | 'creator'>('assignee');
     const [groupBy, setGroupBy] = useState<'project' | 'status'>('project');
 
     useEffect(() => {
-        if (!isAdmin && currentUserProfile?.id) {
-            setSelectedUserId(currentUserProfile.id);
+        if (currentUserProfile) {
+            setCurrentUserEmail(currentUserProfile.email || null);
         }
-    }, [isAdmin, currentUserProfile]);
+    }, [currentUserProfile]);
+
+    // If not admin, default to current user
+    useEffect(() => {
+        if (currentUserProfile && !isAdmin) {
+            setSelectedUserEmail(currentUserProfile.email || 'all');
+        }
+    }, [currentUserProfile, isAdmin]);
 
     const filteredTasks = useMemo(() => {
-        if (selectedUserId === 'all' && isAdmin) {
+        if (selectedUserEmail === 'all' && isAdmin) {
             return displayTasks;
         }
 
-        const selectedUser = allUsers.find(u => u.id === selectedUserId);
+        const selectedProfile = allUsers.find(u => u.email === selectedUserEmail);
 
         // If we're filtering by creator explicitly
         if (filterType === 'creator') {
-            return displayTasks.filter(task => task.user_id === selectedUserId);
+            return displayTasks.filter(task => task.user_id === selectedProfile?.id);
         }
 
         // If we have the selected user profile, include tasks created by them OR assigned to their email
-        if (selectedUser) {
+        if (selectedProfile) {
             return displayTasks.filter(task => {
-                const assigned = Array.isArray(task.assignees) && task.assignees.includes(selectedUser.email!);
-                const createdBy = task.user_id === selectedUserId;
+                const assigned = Array.isArray(task.assignees) && task.assignees.includes(selectedProfile.email!);
+                const createdBy = task.user_id === selectedProfile.id;
                 return assigned || createdBy;
             });
         }
@@ -237,7 +133,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
         // No selected user -> no tasks
         return [];
 
-    }, [displayTasks, selectedUserId, isAdmin, filterType, allUsers]);
+    }, [displayTasks, selectedUserEmail, isAdmin, filterType, allUsers]);
 
     const tasksByProject = useMemo(() => {
         const grouped: { [key: string]: Task[] } = {};
@@ -275,28 +171,14 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
     const handleStatusChange = async (task: Task, newStatus: Status) => {
         try {
             await updateTask(task.id, { status: newStatus });
-            setMobileTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+            // setMobileTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
             toast({ title: 'Estado actualizado', description: `La tarea "${task.title}" ahora está ${newStatus}.` });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar la tarea.' });
         }
     };
 
-    if (loadingMobileData) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-        );
-    }
 
-    if (mobileFetchError) {
-        return (
-            <div className="text-center py-10 px-4">
-                <p className="text-red-500">Error al cargar los datos: {mobileFetchError}</p>
-            </div>
-        );
-    }
 
     const hasTasks = filteredTasks.length > 0;
 
@@ -320,14 +202,14 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="user-select">Usuario</Label>
-                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                        <Select value={selectedUserEmail} onValueChange={setSelectedUserEmail}>
                             <SelectTrigger id="user-select">
                                 <SelectValue placeholder="Seleccionar usuario" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos los usuarios</SelectItem>
                                 {allUsers.map(user => (
-                                    <SelectItem key={user.id} value={user.id}>{user.full_name || user.email}</SelectItem>
+                                    <SelectItem key={user.id} value={user.email || ''}>{user.full_name || user.email}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -413,7 +295,7 @@ export function MyTasksMobile({ tasks, projects, allUsers, currentUserProfile }:
             </Accordion>
 
             {!hasTasks && (
-                 <div className="text-center py-10">
+                <div className="text-center py-10">
                     <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
                     <h3 className="mt-2 text-lg font-medium">¡Todo en orden!</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
