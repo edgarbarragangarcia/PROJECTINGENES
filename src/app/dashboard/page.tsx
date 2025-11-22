@@ -23,39 +23,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MyTasksMobile } from '@/components/dashboard/my-tasks-mobile';
+import { useUser } from '@/providers/user-context';
 
 const chartConfig = {
-  tasks: {
-    label: "Tareas",
-  },
-  Todo: {
-    label: "Por Hacer",
-    color: "hsl(var(--chart-1))",
-  },
-  "In Progress": {
-    label: "En Progreso",
-    color: "hsl(var(--chart-2))",
-  },
-  Done: {
-    label: "Hecho",
-    color: "hsl(var(--chart-3))",
-  },
-  Backlog: {
-    label: "Backlog",
-    color: "hsl(var(--chart-4))",
-  },
-  Stopper: {
-    label: "Stopper",
-    color: "hsl(var(--chart-5))",
-  },
+    tasks: {
+        label: "Tareas",
+    },
+    Todo: {
+        label: "Por Hacer",
+        color: "hsl(var(--chart-1))",
+    },
+    "In Progress": {
+        label: "En Progreso",
+        color: "hsl(var(--chart-2))",
+    },
+    Done: {
+        label: "Hecho",
+        color: "hsl(var(--chart-3))",
+    },
+    Backlog: {
+        label: "Backlog",
+        color: "hsl(var(--chart-4))",
+    },
+    Stopper: {
+        label: "Stopper",
+        color: "hsl(var(--chart-5))",
+    },
 } satisfies ChartConfig;
 
 const getPriorityBadgeVariant = (priority: Task['priority']) => {
     switch (priority) {
-      case 'High': return 'destructive';
-      case 'Medium': return 'secondary';
-      case 'Low': return 'outline';
-      default: return 'outline';
+        case 'High': return 'destructive';
+        case 'Medium': return 'secondary';
+        case 'Low': return 'outline';
+        default: return 'outline';
     }
 };
 
@@ -63,45 +64,17 @@ export default function DashboardPage() {
     const router = useRouter();
     const { tasks, allUsers } = useTasks();
     const { projects } = useProjects();
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [loadingUser, setLoadingUser] = useState(true);
+    const { user, profile, isAdmin, isLoading: isUserLoading } = useUser();
     const [selectedUserEmail, setSelectedUserEmail] = useState('all');
     const supabase = createClient();
     const isMobile = useIsMobile();
 
-    const currentUserProfile = useMemo(() => allUsers.find(u => u.id === currentUser?.id), [allUsers, currentUser]);
-    const isAdmin = currentUserProfile?.role === 'admin';
-
+    // If not admin, default to current user
     useEffect(() => {
-        const checkUser = async () => {
-            try {
-                const { data: { user }, error } = await supabase.auth.getUser();
-                
-                if (error || !user) {
-                    console.warn('No hay sesión activa, redirigiendo a login');
-                    router.replace('/login');
-                    return;
-                }
-                
-                setCurrentUser(user);
-
-                if (user && allUsers.length > 0) {
-                    const profile = allUsers.find(u => u.id === user.id);
-                    const userIsAdmin = profile?.role === 'admin';
-                    if (!userIsAdmin) {
-                        setSelectedUserEmail(user.email || 'all');
-                    }
-                }
-            } catch (e) {
-                console.error('Error checking user in Dashboard:', e);
-            } finally {
-                setLoadingUser(false);
-            }
-        };
-
-        checkUser();
-       
-    }, [supabase.auth, allUsers]);
+        if (!isUserLoading && user && !isAdmin) {
+            setSelectedUserEmail(user.email || 'all');
+        }
+    }, [user, isAdmin, isUserLoading]);
 
     const assignedTasks = useMemo(() => {
         // Admin sees everything
@@ -121,23 +94,23 @@ export default function DashboardPage() {
         }
 
         // For non-admins, include tasks that were created by the current user or assigned to them
-        if (!isAdmin && currentUser) {
+        if (!isAdmin && user) {
             return tasks.filter(task => {
-                const assigned = Array.isArray(task.assignees) && task.assignees.includes(currentUser.email || '');
-                const createdBy = task.user_id === currentUser.id;
+                const assigned = Array.isArray(task.assignees) && task.assignees.includes(user.email || '');
+                const createdBy = task.user_id === user.id;
                 return assigned || createdBy;
             });
         }
 
         return [];
-    }, [tasks, selectedUserEmail, isAdmin, currentUser, allUsers]);
-    
+    }, [tasks, selectedUserEmail, isAdmin, user, allUsers]);
+
     const createdProjectsByUser = useMemo(() => {
         if (isAdmin && selectedUserEmail === 'all') {
             return projects;
         }
 
-        const userEmailToFilter = isAdmin ? selectedUserEmail : currentUser?.email;
+        const userEmailToFilter = isAdmin ? selectedUserEmail : user?.email;
         if (!userEmailToFilter) return [];
 
         const selectedUser = allUsers.find(u => u.email === userEmailToFilter);
@@ -148,10 +121,10 @@ export default function DashboardPage() {
         }
 
         // If we don't have the user in allUsers, fall back to matching by creator_email and user_id
-        return projects.filter(p => p.creator_email === userEmailToFilter || p.user_id === currentUser?.id);
+        return projects.filter(p => p.creator_email === userEmailToFilter || p.user_id === user?.id);
 
-    }, [projects, selectedUserEmail, isAdmin, currentUser, allUsers]);
-    
+    }, [projects, selectedUserEmail, isAdmin, user, allUsers]);
+
     const selectedUserName = useMemo(() => {
         if (selectedUserEmail === 'all') return 'General';
         const user = allUsers.find(u => u.email === selectedUserEmail);
@@ -174,17 +147,17 @@ export default function DashboardPage() {
         if (task.status === 'Done') return acc + 1;
         return acc;
     }, 0), [assignedTasks]);
-    
+
     const overallProgress = totalAssignedTasks > 0 ? Math.round((completedAssignedTasks / totalAssignedTasks) * 100) : 0;
 
     const participatingProjectsCount = useMemo(() => {
-      if (selectedUserEmail === 'all' && isAdmin) {
-        return projects.length;
-      }
-      const projectsWithUserTasks = new Set(assignedTasks.map(task => task.projectId));
-      return projectsWithUserTasks.size;
+        if (selectedUserEmail === 'all' && isAdmin) {
+            return projects.length;
+        }
+        const projectsWithUserTasks = new Set(assignedTasks.map(task => task.projectId));
+        return projectsWithUserTasks.size;
     }, [projects.length, assignedTasks, selectedUserEmail, isAdmin]);
-    
+
     const createdProjectsCount = createdProjectsByUser.length;
 
     const closedProjectsCount = useMemo(() => {
@@ -202,9 +175,9 @@ export default function DashboardPage() {
 
             if (aIsPast && !bIsPast) return -1;
             if (!aIsPast && bIsPast) return 1;
-            
+
             if (aIsPast && bIsPast) return aDueDate - bDueDate;
-            
+
             return aDueDate - bDueDate;
         })
         .slice(0, 5), [assignedTasks]);
@@ -218,7 +191,7 @@ export default function DashboardPage() {
     }, [isAdmin, selectedUserName, isMobile]);
 
     if (isMobile) {
-        if (loadingUser) {
+        if (isUserLoading) {
             return (
                 <AppLayout>
                     <div className="flex-1 p-6 flex items-center justify-center">Cargando usuario...</div>
@@ -229,226 +202,226 @@ export default function DashboardPage() {
         const mobileTasks = isAdmin && selectedUserEmail === 'all' ? tasks : assignedTasks;
         const mobileProjects = isAdmin && selectedUserEmail === 'all' ? projects : createdProjectsByUser;
 
-    // debug removed
+        // debug removed
 
         return (
             <AppLayout>
                 <div className="flex flex-col h-full">
                     <PageHeader title={headerTitle} isAdmin={isAdmin} />
-                    <MyTasksMobile 
-                        tasks={mobileTasks} 
-                        projects={mobileProjects} 
+                    <MyTasksMobile
+                        tasks={mobileTasks}
+                        projects={mobileProjects}
                         allUsers={allUsers}
-                        currentUserProfile={currentUserProfile}
+                        currentUserProfile={profile}
                     />
                 </div>
             </AppLayout>
         )
     }
 
-  return (
-    <AppLayout>
-        <div className="flex flex-col h-full">
-        <PageHeader title={headerTitle} isAdmin={isAdmin}>
-            {isAdmin && (
-                <div className="flex items-center gap-2">
-                    <Users className="size-5 text-muted-foreground" />
-                    <Select value={selectedUserEmail} onValueChange={setSelectedUserEmail}>
-                        <SelectTrigger className="w-[250px]">
-                            <SelectValue placeholder="Filtrar por usuario..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los usuarios</SelectItem>
-                            {allUsers.map(user => (
-                                <SelectItem key={user.id} value={user.email || ''}>{user.full_name || user.email}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-        </PageHeader>
-        <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
-            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6 mb-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Proyectos en los que participo</CardTitle>
-                        <FolderKanban className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{participatingProjectsCount}</div>
-                        <p className="text-xs text-muted-foreground">
-                            {selectedUserEmail === 'all' && isAdmin ? 'Total de proyectos' : 'Proyectos con tareas asignadas'}
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Proyectos Creados</CardTitle>
-                        <FolderPlus className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{createdProjectsCount}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Proyectos creados por {isAdmin && selectedUserEmail !== 'all' ? selectedUserName : 'mí'}
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Proyectos Cerrados</CardTitle>
-                        <FolderCheck className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{closedProjectsCount}</div>
-                        <p className="text-xs text-muted-foreground">
-                           De los proyectos creados
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total de Tareas Asignadas</CardTitle>
-                        <ListChecks className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{totalAssignedTasks}</div>
-                        <p className="text-xs text-muted-foreground">
-                            {selectedUserEmail === 'all' && isAdmin ? 'En todos los proyectos' : 'Asignadas directamente'}
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Tareas Completadas</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{completedAssignedTasks}</div>
-                        <p className="text-xs text-muted-foreground">De mis tareas asignadas</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Progreso Personal</CardTitle>
-                        <Percent className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{overallProgress}%</div>
-                        <p className="text-xs text-muted-foreground">De mis tareas asignadas</p>
-                    </CardContent>
-                </Card>
-            </div>
-            
-            <div className="grid gap-6 md:grid-cols-5">
-                <Card className="md:col-span-3">
-                    <CardHeader>
-                        <CardTitle className='flex items-center gap-2'><BarChart className='size-5'/> Resumen de Tareas Asignadas</CardTitle>
-                        <CardDescription>
-                        {isAdmin && selectedUserEmail === 'all'
-                            ? 'Distribución de todas las tareas en el sistema.'
-                            : `Distribución de las tareas asignadas a ${isAdmin ? selectedUserName : 'mí'}.`
-                        }
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                    {chartData.length > 0 ? (
-                            <ChartContainer config={chartConfig} className="w-full h-[250px]">
-                                <RechartsBarChart 
-                                    data={chartData} 
-                                    layout="vertical" 
-                                    margin={{ left: 10, right: 40 }}
-                                >
-                                    <CartesianGrid horizontal={false} />
-                                    <XAxis type="number" hide />
-                                    <YAxis 
-                                        dataKey="status" 
-                                        type="category" 
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                                        width={80}
-                                    />
-                                    <ChartTooltip
-                                        cursor={{fill: 'hsl(var(--accent))'}}
-                                        content={<ChartTooltipContent />}
-                                    />
-                                    <Bar dataKey="tasks" layout="vertical" radius={[0, 4, 4, 0]}>
-                                        <LabelList 
-                                            dataKey="tasks" 
-                                            position="right" 
-                                            offset={10}
-                                            className="fill-foreground font-semibold"
-                                            fontSize={12}
-                                        />
-                                        {chartData.map((entry) => (
-                                            <Cell key={`cell-${entry.status}`} fill={entry.fill} />
-                                        ))}
-                                    </Bar>
-                                </RechartsBarChart>
-                            </ChartContainer>
-                    ) : (
-                            <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-[250px]">
-                                <ListChecks className="size-8 text-muted-foreground mb-2"/>
-                                <p className="font-semibold">Sin Tareas Asignadas</p>
-                                <p className="text-sm text-muted-foreground">No se encontraron tareas para mostrar en el gráfico.</p>
-                            </div>
-                    )}
-                    </CardContent>
-                </Card>
-                
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle className='flex items-center gap-2'><Clock className='size-5'/> Próximas Tareas Asignadas</CardTitle>
-                        <CardDescription>
-                        {isAdmin && selectedUserEmail === 'all'
-                            ? 'Las próximas 5 tareas más urgentes asignadas a cualquier usuario.'
-                            : `Las próximas 5 tareas más urgentes asignadas a ${isAdmin ? selectedUserName : 'mí'}.`
-                        }
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {upcomingTasks.length > 0 ? (
-                                upcomingTasks.map(task => {
-                                    const project = projects.find(p => p.id === task.projectId);
-                                    const isOverdue = task.dueDate && isPast(startOfDay(new Date(task.dueDate)));
-                                    return (
-                                        <div key={task.id} className={cn("flex items-center justify-between gap-2 p-2 rounded-lg", isOverdue && 'bg-red-50 dark:bg-red-950/30 shadow-inner shadow-red-500/10')}>
-                                            <div className='flex-1 truncate'>
-                                                <p className="font-medium text-sm truncate" title={task.title}>
-                                                    <Link href={`/projects/${task.projectId}`} className="hover:underline">
-                                                        {task.title}
-                                                    </Link>
-                                                </p>
-                                                <p className="text-xs text-muted-foreground truncate" title={project?.name}>{project?.name || 'Proyecto no encontrado'}</p>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-1">
-                                                <Badge variant={getPriorityBadgeVariant(task.priority)} className="w-fit">
-                                                    <PriorityIcon priority={task.priority} className='size-3 mr-1' />
-                                                    {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
-                                                </Badge>
-                                                {task.dueDate && (
-                                                    <span className={cn("text-xs", isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground')}>
-                                                        {format(new Date(task.dueDate), "d 'de' MMM", { locale: es })}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )
-                                })
-                            ) : (
-                                <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-full">
-                                    <CheckCircle className="size-8 text-green-500 mb-2"/>
-                                    <p className="font-semibold">¡Todo en orden!</p>
-                                    <p className="text-sm text-muted-foreground">No tienes tareas próximas asignadas.</p>
-                                </div>
-                            )}
+    return (
+        <AppLayout>
+            <div className="flex flex-col h-full">
+                <PageHeader title={headerTitle} isAdmin={isAdmin}>
+                    {isAdmin && (
+                        <div className="flex items-center gap-2">
+                            <Users className="size-5 text-muted-foreground" />
+                            <Select value={selectedUserEmail} onValueChange={setSelectedUserEmail}>
+                                <SelectTrigger className="w-[250px]">
+                                    <SelectValue placeholder="Filtrar por usuario..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los usuarios</SelectItem>
+                                    {allUsers.map(user => (
+                                        <SelectItem key={user.id} value={user.email || ''}>{user.full_name || user.email}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
-                    </CardContent>
-                </Card>
+                    )}
+                </PageHeader>
+                <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+                    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6 mb-6">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Proyectos en los que participo</CardTitle>
+                                <FolderKanban className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{participatingProjectsCount}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    {selectedUserEmail === 'all' && isAdmin ? 'Total de proyectos' : 'Proyectos con tareas asignadas'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Proyectos Creados</CardTitle>
+                                <FolderPlus className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{createdProjectsCount}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    Proyectos creados por {isAdmin && selectedUserEmail !== 'all' ? selectedUserName : 'mí'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Proyectos Cerrados</CardTitle>
+                                <FolderCheck className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{closedProjectsCount}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    De los proyectos creados
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total de Tareas Asignadas</CardTitle>
+                                <ListChecks className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{totalAssignedTasks}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    {selectedUserEmail === 'all' && isAdmin ? 'En todos los proyectos' : 'Asignadas directamente'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Tareas Completadas</CardTitle>
+                                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{completedAssignedTasks}</div>
+                                <p className="text-xs text-muted-foreground">De mis tareas asignadas</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Progreso Personal</CardTitle>
+                                <Percent className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{overallProgress}%</div>
+                                <p className="text-xs text-muted-foreground">De mis tareas asignadas</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-5">
+                        <Card className="md:col-span-3">
+                            <CardHeader>
+                                <CardTitle className='flex items-center gap-2'><BarChart className='size-5' /> Resumen de Tareas Asignadas</CardTitle>
+                                <CardDescription>
+                                    {isAdmin && selectedUserEmail === 'all'
+                                        ? 'Distribución de todas las tareas en el sistema.'
+                                        : `Distribución de las tareas asignadas a ${isAdmin ? selectedUserName : 'mí'}.`
+                                    }
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {chartData.length > 0 ? (
+                                    <ChartContainer config={chartConfig} className="w-full h-[250px]">
+                                        <RechartsBarChart
+                                            data={chartData}
+                                            layout="vertical"
+                                            margin={{ left: 10, right: 40 }}
+                                        >
+                                            <CartesianGrid horizontal={false} />
+                                            <XAxis type="number" hide />
+                                            <YAxis
+                                                dataKey="status"
+                                                type="category"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                                                width={80}
+                                            />
+                                            <ChartTooltip
+                                                cursor={{ fill: 'hsl(var(--accent))' }}
+                                                content={<ChartTooltipContent />}
+                                            />
+                                            <Bar dataKey="tasks" layout="vertical" radius={[0, 4, 4, 0]}>
+                                                <LabelList
+                                                    dataKey="tasks"
+                                                    position="right"
+                                                    offset={10}
+                                                    className="fill-foreground font-semibold"
+                                                    fontSize={12}
+                                                />
+                                                {chartData.map((entry) => (
+                                                    <Cell key={`cell-${entry.status}`} fill={entry.fill} />
+                                                ))}
+                                            </Bar>
+                                        </RechartsBarChart>
+                                    </ChartContainer>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-[250px]">
+                                        <ListChecks className="size-8 text-muted-foreground mb-2" />
+                                        <p className="font-semibold">Sin Tareas Asignadas</p>
+                                        <p className="text-sm text-muted-foreground">No se encontraron tareas para mostrar en el gráfico.</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="md:col-span-2">
+                            <CardHeader>
+                                <CardTitle className='flex items-center gap-2'><Clock className='size-5' /> Próximas Tareas Asignadas</CardTitle>
+                                <CardDescription>
+                                    {isAdmin && selectedUserEmail === 'all'
+                                        ? 'Las próximas 5 tareas más urgentes asignadas a cualquier usuario.'
+                                        : `Las próximas 5 tareas más urgentes asignadas a ${isAdmin ? selectedUserName : 'mí'}.`
+                                    }
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {upcomingTasks.length > 0 ? (
+                                        upcomingTasks.map(task => {
+                                            const project = projects.find(p => p.id === task.projectId);
+                                            const isOverdue = task.dueDate && isPast(startOfDay(new Date(task.dueDate)));
+                                            return (
+                                                <div key={task.id} className={cn("flex items-center justify-between gap-2 p-2 rounded-lg", isOverdue && 'bg-red-50 dark:bg-red-950/30 shadow-inner shadow-red-500/10')}>
+                                                    <div className='flex-1 truncate'>
+                                                        <p className="font-medium text-sm truncate" title={task.title}>
+                                                            <Link href={`/projects/${task.projectId}`} className="hover:underline">
+                                                                {task.title}
+                                                            </Link>
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground truncate" title={project?.name}>{project?.name || 'Proyecto no encontrado'}</p>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <Badge variant={getPriorityBadgeVariant(task.priority)} className="w-fit">
+                                                            <PriorityIcon priority={task.priority} className='size-3 mr-1' />
+                                                            {task.priority === 'High' ? 'Alta' : task.priority === 'Medium' ? 'Media' : 'Baja'}
+                                                        </Badge>
+                                                        {task.dueDate && (
+                                                            <span className={cn("text-xs", isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground')}>
+                                                                {format(new Date(task.dueDate), "d 'de' MMM", { locale: es })}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-full">
+                                            <CheckCircle className="size-8 text-green-500 mb-2" />
+                                            <p className="font-semibold">¡Todo en orden!</p>
+                                            <p className="text-sm text-muted-foreground">No tienes tareas próximas asignadas.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
             </div>
-        </div>
-        </div>
-    </AppLayout>
-  );
+        </AppLayout>
+    );
 }
