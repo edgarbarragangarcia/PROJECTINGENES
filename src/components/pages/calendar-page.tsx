@@ -16,7 +16,7 @@ import { useDailyNotes } from '@/hooks/use-daily-notes';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { DailySummaryDialog } from '../note/daily-summary-dialog';
-import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/providers/user-context';
 const GoogleCalendarIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="size-4 mr-2" viewBox="0 0 24 24">
     <path fill="#4285F4" d="M21 12.2c0-.67-.06-1.31-.17-1.94H12.2v3.67h5.02a4.34 4.34 0 0 1-1.88 2.86v2.39h3.07c1.79-1.65 2.82-4.08 2.82-6.98z" />
