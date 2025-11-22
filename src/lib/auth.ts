@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthConfig } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 
-import { createClient } from '@/lib/supabase/client';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -23,36 +23,44 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === 'google' && user.email) {
-        // try {
-        //   const supabase = createClient();
-        //   
-        //   // Check if profile exists
-        //   const { data: existingProfile, error: fetchError } = await supabase
-        //     .from('profiles')
-        //     .select('*')
-        //     .eq('email', user.email)
-        //     .single();
+        try {
+          const supabase = createAdminClient();
+          
+          if (!supabase) {
+             console.warn('Supabase admin client could not be created. Skipping profile sync.');
+             return true;
+          }
+          
+          // Check if profile exists
+          const { data: existingProfile, error: fetchError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', user.email)
+            .single();
 
-        //   if (fetchError && fetchError.code !== 'PGRST116') {
-        //     console.error('Error checking profile:', fetchError);
-        //     return true; // Allow sign in even if profile check fails
-        //   }
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error('Error checking profile:', fetchError);
+            // Don't block sign in, but log error
+            return true; 
+          }
 
-        //   if (!existingProfile) {
-        //     console.log('User profile not found for', user.email);
-        //     // Logic to create profile would go here
-        //   } else {
-        //     // Update existing profile
-        //     await supabase
-        //       .from('profiles')
-        //       .update({
-        //         full_name: user.name,
-        //       })
-        //       .eq('email', user.email);
-        //   }
-        // } catch (error) {
-        //   console.error('Error syncing profile:', error);
-        // }
+          if (!existingProfile) {
+            console.log('User profile not found for', user.email);
+            // Ideally we create it here, but we need to be careful with ID.
+            // If we can't create, we just log.
+          } else {
+            // Update existing profile
+            await supabase
+              .from('profiles')
+              .update({
+                full_name: user.name,
+                // avatar_url: user.image, 
+              })
+              .eq('email', user.email);
+          }
+        } catch (error) {
+          console.error('Error syncing profile:', error);
+        }
         console.log('User signed in:', user.email);
       }
       return true;
