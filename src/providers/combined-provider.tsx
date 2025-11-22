@@ -8,14 +8,23 @@ import { TasksContext, initialTasksState } from '@/hooks/use-tasks';
 import { DailyNotesContext, initialDailyNotesState } from '@/hooks/use-daily-notes';
 import { UserStoriesContext, initialUserStoriesState } from '@/hooks/use-user-stories';
 import { GoogleCalendarProvider } from './google-calendar-provider';
-import { AuthSyncProvider } from './auth-sync-provider';
 
 import { createClient } from '@/lib/supabase/client';
 import type { Project, Task, DailyNote, UserStory, Profile, ProjectWithProgress, Status, User } from '@/types';
 
+import { UserProvider } from '@/providers/user-context';
+
 // This provider combines all the data contexts into one to avoid nested providers
 // and centralize data fetching logic.
 export function CombinedProvider({ children }: { children: ReactNode }) {
+  return (
+    <UserProvider>
+      <CombinedProviderContent>{children}</CombinedProviderContent>
+    </UserProvider>
+  );
+}
+
+function CombinedProviderContent({ children }: { children: ReactNode }) {
   const supabase = createClient();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
@@ -62,12 +71,12 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
       supabase.from('profiles').select('*'),
     ]);
 
-  const projectsWithProgress = (projectsRes.data || []).map((p: any) => {
-    const projTasks = (tasksRes.data || []).filter((t: any) => t.project_id === p.id);
-    const total = projTasks.length;
-    const completed = projTasks.filter((t: any) => t.status === 'Done').length;
-    return { ...p, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
-  });
+    const projectsWithProgress = (projectsRes.data || []).map((p: any) => {
+      const projTasks = (tasksRes.data || []).filter((t: any) => t.project_id === p.id);
+      const total = projTasks.length;
+      const completed = projTasks.filter((t: any) => t.status === 'Done').length;
+      return { ...p, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
+    });
 
     // Update states with fetched data
     setProjectsState({ loading: false, error: projectsRes.error, projects: projectsWithProgress });
@@ -135,7 +144,7 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
     await refreshAllData();
   }, [supabase, refreshAllData]);
-  
+
   const updateUserRole = useCallback(async (userId: string, role: 'admin' | 'user') => {
     const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
     if (error) throw error;
@@ -241,7 +250,6 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
       <TasksContext.Provider value={tasksContextValue}>
         <DailyNotesContext.Provider value={dailyNotesContextValue as any}>
           <UserStoriesContext.Provider value={userStoriesContextValue as any}>
-            <AuthSyncProvider />
             <GoogleCalendarProvider session={session ?? null}>{children}</GoogleCalendarProvider>
           </UserStoriesContext.Provider>
         </DailyNotesContext.Provider>

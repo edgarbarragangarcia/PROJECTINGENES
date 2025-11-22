@@ -6,7 +6,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { createClient } from '@/lib/supabase/server';
+// import { createClient } from '@/lib/supabase/server';
 import { z } from 'genkit';
 
 const UserSchema = z.object({
@@ -30,23 +30,11 @@ const getUsersFlow = ai.defineFlow(
     outputSchema: GetUsersOutputSchema,
   },
   async () => {
-    // Note: It's important that the 'profiles' table exists for this to work.
-    // If you see a "table not found" error, it means the SQL script to create
-    // the 'profiles' table and its associated trigger was not run in the Supabase SQL Editor.
-    const supabase = createClient();
+    // TODO: Replace with proper user fetching from new auth system
+    // const supabase = createClient();
+    // const { data, error } = await supabase.from('profiles').select('id, email');
     
-    const { data, error } = await supabase.from('profiles').select('id, email');
-    
-    if (error) {
-      console.error('Error fetching users from profiles table:', error);
-      throw new Error(`Failed to fetch users: ${error.message}`);
-    }
-
-    const filteredUsers = (data || []).map(u => ({
-        id: u.id,
-        email: u.email || '',
-    }));
-
-    return { users: filteredUsers };
+    // Temporarily return empty array until new user system is in place
+    return { users: [] };
   }
 );

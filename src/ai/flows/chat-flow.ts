@@ -6,7 +6,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import { createClient } from '@/lib/supabase/server';
+// import { createClient } from '@/lib/supabase/server';
 import {z} from 'genkit';
 
 const ChatInputSchema = z.object({
@@ -43,9 +43,9 @@ const chatFlow = ai.defineFlow(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos de timeout
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const userEmail = user?.email || 'unknown';
+    // const supabase = createClient();
+    // const { data: { user } } = await supabase.auth.getUser();
+    const userEmail = 'system'; // user?.email || 'unknown';
 
     try {
       console.log(`Enviando al webhook desde ${userEmail}:`, input.message);

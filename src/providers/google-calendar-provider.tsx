@@ -1,20 +1,19 @@
 'use client';
 
-import { 
+import {
   GoogleCalendarContext,
 } from '@/hooks/use-google-calendar';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useState, useEffect } from 'react';
+import { signOut } from 'next-auth/react';
 
 interface GoogleCalendarProviderProps {
-    children: ReactNode;
-    session: Session | null;
+  children: ReactNode;
+  session: Session | null;
 }
 
 export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProviderProps) => {
-  const supabase = createClientComponentClient();
   const router = useRouter();
   const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
   const isLoading = session === null;
@@ -35,7 +34,7 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
     if (response.status === 401) {
       // sign out and redirect so the UX flows to login/reauth
       try {
-        await supabase.auth.signOut();
+        await signOut({ redirect: false });
       } catch (e) {
         console.debug('signOut failed', e);
       }
@@ -62,13 +61,13 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
     if (!response.ok) {
       return handleGoogleApiError(response);
     }
-    
+
     return response.json();
   };
 
   const getCalendarEvents = async (calendarId: string, timeMin: string, timeMax: string) => {
     const cacheKey = `google-calendar-events-${calendarId}-${timeMin}-${timeMax}`;
-  const cachedEvents = (globalThis as any).localStorage?.getItem(cacheKey);
+    const cachedEvents = (globalThis as any).localStorage?.getItem(cacheKey);
 
     if (cachedEvents) {
       return JSON.parse(cachedEvents);
@@ -85,10 +84,10 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
       }
     });
 
-     if (!response.ok) {
+    if (!response.ok) {
       return handleGoogleApiError(response);
     }
-    
+
     const events = await response.json();
     (globalThis as any).localStorage?.setItem(cacheKey, JSON.stringify(events));
     return events;
@@ -120,8 +119,8 @@ export const GoogleCalendarProvider = ({ children, session }: GoogleCalendarProv
     session,
     providerToken: session?.provider_token || null,
     isLoading,
-    setProviderToken: () => {}, 
-    setSession: () => {},
+    setProviderToken: () => { },
+    setSession: () => { },
     getCalendarList,
     getCalendarEvents,
     selectedCalendarId,
