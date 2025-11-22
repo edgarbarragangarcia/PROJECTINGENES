@@ -53,21 +53,21 @@ function CombinedProviderContent({ children }: { children: ReactNode }) {
 
       // If NOT admin, filter data
       if (!isAdmin) {
-        // Projects: created by user OR user is assigned to a task in the project
-        // For now, let's simplify: show projects created by user
-        // TODO: Add logic to show projects where user has tasks
+        // Projects: created by user (using creator_email since user_id references auth.users)
         projectsQuery = projectsQuery.eq('creator_email', user.email);
 
-        // Tasks: assigned to user OR created by user
-        // Note: assignees is a jsonb array or string, so we need to check containment
-        // This is complex in Supabase without a join table or specific structure
-        // For now, we'll fetch all and filter in memory for complex logic, or use simple filters
-        // tasksQuery = tasksQuery.or(`user_id.eq.${user.id},assignees.cs.["${user.email}"]`);
-        // Simplified for now:
+        // Tasks: assigned to user OR created by user (using creator_email and assignees)
         tasksQuery = tasksQuery.or(`creator_email.eq.${user.email},assignees.cs.["${user.email}"]`);
 
-        dailyNotesQuery = dailyNotesQuery.eq('user_id', user.id); // Note: daily_notes uses user_id (uuid)
-        userStoriesQuery = userStoriesQuery.eq('user_id', user.id);
+        // For daily_notes and user_stories, we need the profile.id (Supabase UUID)
+        // because these tables have user_id foreign keys to auth.users(id)
+        if (profile?.id) {
+          dailyNotesQuery = dailyNotesQuery.eq('user_id', profile.id);
+          userStoriesQuery = userStoriesQuery.eq('user_id', profile.id);
+        } else {
+          // If no profile exists yet, return empty results for these
+          console.warn('No profile found for user, skipping daily_notes and user_stories');
+        }
       }
 
       // Fetch all data in parallel
@@ -102,7 +102,7 @@ function CombinedProviderContent({ children }: { children: ReactNode }) {
       setUserStoriesState(s => ({ ...s, loading: false, error: err }));
     }
 
-  }, [user, isAdmin, isUserLoading, supabase]);
+  }, [user, isAdmin, isUserLoading, profile, supabase]);
 
   useEffect(() => {
     if (user && !isUserLoading) {

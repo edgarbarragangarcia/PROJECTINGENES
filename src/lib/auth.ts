@@ -36,32 +36,47 @@ export const authConfig: NextAuthConfig = {
             .from('profiles')
             .select('*')
             .eq('email', user.email)
-            .single();
+            .maybeSingle(); // Use maybeSingle instead of single to avoid error when not found
 
-          if (fetchError && fetchError.code !== 'PGRST116') {
+          if (fetchError) {
             console.error('Error checking profile:', fetchError);
-            // Don't block sign in, but log error
-            return true; 
+            return true; // Don't block sign in
           }
 
           if (!existingProfile) {
-            console.log('User profile not found for', user.email);
-            // Ideally we create it here, but we need to be careful with ID.
-            // If we can't create, we just log.
+            // Create new profile with a generated UUID
+            console.log('Creating new profile for', user.email);
+            
+            const { data: newProfile, error: insertError } = await supabase
+              .from('profiles')
+              .insert([{
+                email: user.email,
+                full_name: user.name || user.email,
+                role: 'user', // Default role
+              }])
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error('Error creating profile:', insertError);
+              // Don't block sign in even if profile creation fails
+            } else {
+              console.log('Profile created successfully:', newProfile);
+            }
           } else {
-            // Update existing profile
+            // Update existing profile with latest info from Google
             await supabase
               .from('profiles')
               .update({
-                full_name: user.name,
-                // avatar_url: user.image, 
+                full_name: user.name || existingProfile.full_name,
               })
               .eq('email', user.email);
+            
+            console.log('Profile updated for', user.email);
           }
         } catch (error) {
           console.error('Error syncing profile:', error);
         }
-        console.log('User signed in:', user.email);
       }
       return true;
     },
