@@ -12,7 +12,7 @@ import { GoogleCalendarProvider } from './google-calendar-provider';
 import { createClient } from '@/lib/supabase/client';
 import type { Project, Task, DailyNote, UserStory, Profile, ProjectWithProgress, Status, User } from '@/types';
 
-import { UserProvider } from '@/providers/user-context';
+import { UserProvider, useUser } from '@/providers/user-context';
 
 // This provider combines all the data contexts into one to avoid nested providers
 // and centralize data fetching logic.
@@ -26,7 +26,8 @@ export function CombinedProvider({ children }: { children: ReactNode }) {
 
 function CombinedProviderContent({ children }: { children: ReactNode }) {
   const supabase = createClient();
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const { user, profile, isAdmin, isLoading: isUserLoading } = useUser();
+  const session = user ? { user } as any : null; // Mock session for compatibility
 
   // States for each data type
   const [projectsState, setProjectsState] = useState(initialProjectsState);
@@ -34,61 +35,80 @@ function CombinedProviderContent({ children }: { children: ReactNode }) {
   const [dailyNotesState, setDailyNotesState] = useState(initialDailyNotesState);
   const [userStoriesState, setUserStoriesState] = useState(initialUserStoriesState);
 
-  // --- AUTHENTICATION ---
-  useEffect(() => {
-    let mounted = true;
-    async function getInitialSession() {
-      const { data } = await supabase.auth.getSession();
-      if (mounted) setSession(data.session ?? null);
-    }
-    getInitialSession();
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      if (mounted) setSession(session);
-    });
-    return () => {
-      mounted = false;
-      authListener?.subscription.unsubscribe();
-    };
-  }, [supabase]);
-
-  const user = session?.user ?? null;
-
   // --- DATA FETCHING ---
   const refreshAllData = useCallback(async () => {
-    if (!user) return;
+    if (!user || isUserLoading) return;
 
     setProjectsState(s => ({ ...s, loading: true }));
     setTasksState(s => ({ ...s, loading: true }));
     setDailyNotesState(s => ({ ...s, loading: true }));
     setUserStoriesState(s => ({ ...s, loading: true }));
 
-    // Fetch all data in parallel
-    const [projectsRes, tasksRes, dailyNotesRes, userStoriesRes, allUsersRes] = await Promise.all([
-      supabase.from('projects').select('*'),
-      supabase.from('tasks').select('*'),
-      supabase.from('daily_notes').select('*').eq('user_id', user.id),
-      supabase.from('user_stories').select('*').eq('user_id', user.id),
-      supabase.from('profiles').select('*'),
-    ]);
+    try {
+      // Prepare queries based on role
+      let projectsQuery = supabase.from('projects').select('*');
+      let tasksQuery = supabase.from('tasks').select('*');
+      let dailyNotesQuery = supabase.from('daily_notes').select('*');
+      let userStoriesQuery = supabase.from('user_stories').select('*');
 
-    const projectsWithProgress = (projectsRes.data || []).map((p: any) => {
-      const projTasks = (tasksRes.data || []).filter((t: any) => t.project_id === p.id);
-      const total = projTasks.length;
-      const completed = projTasks.filter((t: any) => t.status === 'Done').length;
-      return { ...p, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
-    });
+      // If NOT admin, filter data
+      if (!isAdmin) {
+        // Projects: created by user OR user is assigned to a task in the project
+        // For now, let's simplify: show projects created by user
+        // TODO: Add logic to show projects where user has tasks
+        projectsQuery = projectsQuery.eq('creator_email', user.email);
 
-    // Update states with fetched data
-    setProjectsState({ loading: false, error: projectsRes.error, projects: projectsWithProgress });
-    setTasksState({ loading: false, error: tasksRes.error, tasks: tasksRes.data || [], allUsers: allUsersRes.data || [], draggedTask: null });
-    setDailyNotesState({ loading: false, error: dailyNotesRes.error, notes: dailyNotesRes.data || [] });
-    setUserStoriesState({ loading: false, error: userStoriesRes.error, userStories: userStoriesRes.data || [] });
+        // Tasks: assigned to user OR created by user
+        // Note: assignees is a jsonb array or string, so we need to check containment
+        // This is complex in Supabase without a join table or specific structure
+        // For now, we'll fetch all and filter in memory for complex logic, or use simple filters
+        // tasksQuery = tasksQuery.or(`user_id.eq.${user.id},assignees.cs.["${user.email}"]`);
+        // Simplified for now:
+        tasksQuery = tasksQuery.or(`creator_email.eq.${user.email},assignees.cs.["${user.email}"]`);
 
-  }, [user, supabase]);
+        dailyNotesQuery = dailyNotesQuery.eq('user_id', user.id); // Note: daily_notes uses user_id (uuid)
+        userStoriesQuery = userStoriesQuery.eq('user_id', user.id);
+      }
+
+      // Fetch all data in parallel
+      const [projectsRes, tasksRes, dailyNotesRes, userStoriesRes, allUsersRes] = await Promise.all([
+        projectsQuery.order('created_at', { ascending: false }),
+        tasksQuery.order('created_at', { ascending: false }),
+        dailyNotesQuery.order('created_at', { ascending: false }),
+        userStoriesQuery.order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*'),
+      ]);
+
+      const projectsWithProgress = (projectsRes.data || []).map((p: any) => {
+        const projTasks = (tasksRes.data || []).filter((t: any) => t.project_id === p.id);
+        const total = projTasks.length;
+        const completed = projTasks.filter((t: any) => t.status === 'Done').length;
+        return { ...p, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
+      });
+
+      // Update states with fetched data
+      setProjectsState({ loading: false, error: projectsRes.error, projects: projectsWithProgress });
+      setTasksState({ loading: false, error: tasksRes.error, tasks: tasksRes.data || [], allUsers: allUsersRes.data || [], draggedTask: null });
+      setDailyNotesState({ loading: false, error: dailyNotesRes.error, notes: dailyNotesRes.data || [] });
+      setUserStoriesState({ loading: false, error: userStoriesRes.error, userStories: userStoriesRes.data || [] });
+
+    } catch (error: any) {
+      console.error("Error refreshing data:", error);
+      // Set error states
+      const err = error as Error;
+      setProjectsState(s => ({ ...s, loading: false, error: err }));
+      setTasksState(s => ({ ...s, loading: false, error: err }));
+      setDailyNotesState(s => ({ ...s, loading: false, error: err }));
+      setUserStoriesState(s => ({ ...s, loading: false, error: err }));
+    }
+
+  }, [user, isAdmin, isUserLoading, supabase]);
 
   useEffect(() => {
-    refreshAllData();
-  }, [user, refreshAllData]);
+    if (user && !isUserLoading) {
+      refreshAllData();
+    }
+  }, [user, isUserLoading, refreshAllData]);
 
 
   // --- PROJECTS CONTEXT ---
