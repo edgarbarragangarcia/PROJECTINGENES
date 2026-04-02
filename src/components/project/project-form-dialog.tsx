@@ -38,12 +38,21 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
+import { useUser } from '@/providers/user-context';
+
 export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDialogProps) {
     const { addProject, updateProject } = useProjects();
     const { allUsers } = useTasks();
     const { toast } = useToast();
     const supabase = createClient();
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const { user, profile, isAdmin } = useUser();
+
+    // We can use the user from context directly
+    const currentUser = user ? {
+        ...user,
+        role: profile?.role,
+        full_name: profile?.full_name || user.name
+    } : null;
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -56,56 +65,25 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         },
     });
 
-    // Reset form when project changes
     useEffect(() => {
         if (project) {
             form.reset({
                 name: project.name,
                 description: project.description || '',
-                status: project.status,
+                status: project.status || 'En Progreso',
                 user_id: project.user_id,
-                progress: project.progress,
+                progress: project.progress || 0,
+            });
+        } else {
+            form.reset({
+                name: '',
+                description: '',
+                status: 'En Progreso',
+                user_id: undefined, // Will be set to current user on submit if empty
+                progress: 0,
             });
         }
     }, [project, form]);
-
-    useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const { data: { user }, error: authError } = await supabase.auth.getUser();
-                if (authError) throw authError;
-                
-                if (!user) {
-                    throw new Error('Usuario no autenticado');
-                }
-
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('role, email, full_name')
-                    .eq('id', user.id)
-                    .single();
-                
-                if (profileError) throw profileError;
-
-                setCurrentUser({
-                    ...user,
-                    role: profile?.role,
-                    email: profile?.email || user.email,
-                    full_name: profile?.full_name || user.user_metadata?.full_name
-                });
-            } catch (error) {
-                console.error('Error fetching user:', error);
-                toast({
-                    variant: 'destructive',
-                    title: 'Error de autenticación',
-                    description: 'Por favor, inicia sesión nuevamente.'
-                });
-            }
-        };
-        fetchUser();
-    }, [supabase, toast]);
-
-    const isAdmin = useMemo(() => currentUser?.role === 'admin', [currentUser]);
 
     useEffect(() => {
         if (!isAdmin && currentUser) {
@@ -117,28 +95,19 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         try {
             // Verificar si tenemos un usuario actual
             if (!currentUser || !currentUser.id) {
-                // Intentar obtener el usuario actual nuevamente
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
-                    throw new Error('Por favor, inicia sesión para crear un proyecto.');
-                }
-                // Actualizar el usuario actual si lo encontramos
-                setCurrentUser(user);
+                throw new Error('Por favor, inicia sesión para crear un proyecto.');
             }
 
             const userIdToAssign = values.user_id || currentUser?.id;
             if (!userIdToAssign) {
-                throw new Error('No se pudo determinar el responsable del proyecto. Por favor, inicia sesión nuevamente.');
+                throw new Error('No se pudo determinar el usuario propietario del proyecto.');
             }
 
             const submissionData = {
-                name: values.name,
-                description: values.description || '',
-                status: values.status,
-                progress: values.progress || 0,
+                ...values,
                 user_id: userIdToAssign,
-                creator_email: currentUser?.email || '',
-                creator_name: currentUser?.full_name || currentUser?.email || '',
+                creator_email: currentUser.email,
+                creator_name: currentUser.full_name || currentUser.email,
                 image_url: '' // Campo requerido por la interfaz Project
             };
 
@@ -149,7 +118,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
                 await addProject(submissionData);
                 toast({ title: 'Proyecto creado', description: `El proyecto "${values.name}" ha sido creado.` });
             }
-            
+
             form.reset();
             onOpenChange(false);
         } catch (error: any) {
@@ -163,7 +132,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
                 <DialogHeader>
                     <DialogTitle>{project ? 'Editar Proyecto' : 'Nuevo Proyecto'}</DialogTitle>
                     <DialogDescription>
-                        {project 
+                        {project
                             ? 'Modifica los detalles del proyecto.'
                             : 'Completa los detalles para crear un nuevo proyecto.'
                         }
@@ -184,7 +153,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
                                 </FormItem>
                             )}
                         />
-                         <FormField
+                        <FormField
                             control={form.control}
                             name="description"
                             render={({ field }) => (

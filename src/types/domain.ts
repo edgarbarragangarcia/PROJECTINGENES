@@ -82,6 +82,3 @@ export interface Profile {
 }
 
 export type User = SupabaseUser;
-
-// Re-export database types for convenience
-export * from '../lib/supabase/database.types';

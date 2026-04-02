@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AppProvider } from '@/providers/app-provider';
 import { DataProvider } from '@/lib/data-config';
+import { AuthProvider } from '@/providers/auth-provider';
 
 export const metadata: Metadata = {
   title: 'PROJECTIA',
@@ -30,11 +31,13 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <DataProvider>
-          <AppProvider>
-            {children}
-          </AppProvider>
-        </DataProvider>
+        <AuthProvider>
+          <DataProvider>
+            <AppProvider>
+              {children}
+            </AppProvider>
+          </DataProvider>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>
