@@ -67,7 +67,7 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "lucide-react": "^0.544.0",
-    "next": "15.3.3",
+    "next": "15.3.8",
     "next-auth": "^5.0.0-beta.30",
     "patch-package": "^8.0.0",
     "react": "^18.3.1",
